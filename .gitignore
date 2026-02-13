@@ -1,0 +1,20 @@
+# Dependências
+node_modules/
+package-lock.json   # Opcional: alguns preferem versionar, outros não. Geralmente versiona-se.
+
+# Build do Angular
+frontend/dist/
+frontend/.angular/
+frontend/.vscode/
+
+# Logs e Dados Temporários
+*.log
+npm-debug.log*
+
+# Variáveis de Ambiente e Segredos (SEGURANÇA!)
+.env
+backend/.env
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db

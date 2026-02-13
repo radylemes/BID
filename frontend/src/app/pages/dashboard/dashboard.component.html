@@ -1,0 +1,244 @@
+<div class="min-h-screen bg-gray-50 p-4 md:p-8">
+  <div class="mb-8 flex justify-between items-end">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-black text-gray-800 tracking-tight">Painel de BIDs</h1>
+      <p class="text-gray-500 font-medium text-sm mt-1">Visão geral dos eventos ativos.</p>
+    </div>
+    <a
+      routerLink="/minhas-apostas"
+      class="hidden md:inline-flex items-center gap-2 text-indigo-600 font-bold text-sm hover:underline"
+    >
+      Ver histórico detalhado <span>→</span>
+    </a>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <div
+      class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden"
+    >
+      <div class="absolute left-0 top-0 h-full w-1.5 bg-emerald-500"></div>
+      <div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+          Saldo Disponível
+        </p>
+        <h2 class="text-3xl font-black text-gray-800">
+          {{ currentUser.pontos || 0 | number }}
+          <span class="text-sm text-gray-400 font-normal">pts</span>
+        </h2>
+      </div>
+      <div
+        class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl"
+      >
+        💰
+      </div>
+    </div>
+    <div
+      class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden"
+    >
+      <div class="absolute left-0 top-0 h-full w-1.5 bg-amber-500"></div>
+      <div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+          Em Jogo (Bloqueado)
+        </p>
+        <h2 class="text-3xl font-black text-amber-600">
+          {{ pontosEmJogo || 0 | number }}
+          <span class="text-sm text-amber-400 font-normal">pts</span>
+        </h2>
+      </div>
+      <div
+        class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl"
+      >
+        🔒
+      </div>
+    </div>
+    <div
+      class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden"
+    >
+      <div class="absolute left-0 top-0 h-full w-1.5 bg-indigo-500"></div>
+      <div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+          Participações Ativas
+        </p>
+        <h2 class="text-3xl font-black text-indigo-600">{{ meusLancesCount || 0 }}</h2>
+      </div>
+      <div
+        class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl"
+      >
+        🎫
+      </div>
+    </div>
+  </div>
+
+  <div
+    *ngIf="loading && matches.length === 0"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+  >
+    <div
+      *ngFor="let i of [1, 2, 3]"
+      class="bg-white rounded-2xl h-96 animate-pulse shadow-sm border border-gray-100"
+    ></div>
+  </div>
+
+  <div
+    *ngIf="!loading && matches.length === 0"
+    class="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm mx-auto max-w-2xl"
+  >
+    <div class="text-6xl mb-4 grayscale opacity-50">😴</div>
+    <h3 class="text-xl font-bold text-gray-700">Nenhum BID ativo</h3>
+  </div>
+
+  <div
+    *ngIf="matches.length > 0"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10"
+  >
+    <div
+      *ngFor="let match of matches; trackBy: trackByFn"
+      class="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 border border-gray-100 overflow-hidden transition-all duration-300 flex flex-col group relative h-full"
+    >
+      <div class="absolute top-3 right-3 z-10">
+        <span
+          *ngIf="match.status === 'ABERTA'"
+          class="bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 border border-white/20"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> Aberto
+        </span>
+        <span
+          *ngIf="match.status !== 'ABERTA'"
+          class="bg-gray-800/90 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg border border-white/20"
+        >
+          Encerrado
+        </span>
+      </div>
+
+      <div class="h-48 w-full bg-gray-200 relative overflow-hidden">
+        <img
+          [src]="match.banner || 'assets/placeholder.jpg'"
+          (error)="match.banner = 'https://placehold.co/600x400?text=BID+Evento'"
+          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+        />
+        <div
+          class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"
+        ></div>
+        <div class="absolute bottom-3 left-3 text-white">
+          <p class="text-xs font-medium opacity-90 flex items-center gap-1.5 drop-shadow-md">
+            📍 {{ match.local || 'Local a definir' }}
+          </p>
+        </div>
+      </div>
+
+      <div class="p-5 flex-1 flex flex-col">
+        <h3
+          class="text-lg font-black text-gray-800 leading-tight mb-3 group-hover:text-indigo-600 transition-colors line-clamp-2"
+        >
+          {{ match.titulo }}
+        </h3>
+
+        <div
+          class="space-y-2 text-sm text-gray-500 mb-6 bg-gray-50 p-3 rounded-xl border border-gray-100"
+        >
+          <div class="flex justify-between items-center border-b border-gray-200 pb-2 mb-2">
+            <span class="text-xs text-gray-400 font-medium">📅 Evento</span>
+            <span class="font-bold text-gray-700 text-xs">{{
+              match.data_evento | date: 'dd/MM/yyyy'
+            }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-rose-400 font-medium">⏳ Fim</span>
+            <span class="font-bold text-rose-600 text-xs">{{
+              match.data_limite_aposta | date: 'dd/MM • HH:mm'
+            }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="match.status === 'ABERTA' && match.tickets_comprados * 1 > 0" class="mb-4">
+          <div
+            [ngClass]="{
+              'bg-emerald-50 text-emerald-700 border-emerald-100': match.tickets_comprados * 1 < 4,
+              'bg-indigo-50 text-indigo-700 border-indigo-100': match.tickets_comprados * 1 >= 4,
+            }"
+            class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold w-full"
+          >
+            <span *ngIf="match.tickets_comprados * 1 < 4"
+              >🎫 {{ match.tickets_comprados }} de 4 lances ativos</span
+            >
+            <span *ngIf="match.tickets_comprados * 1 >= 4">✅ Limite de lances atingido</span>
+          </div>
+        </div>
+
+        <div *ngIf="match.status !== 'ABERTA' && match.tickets_comprados * 1 > 0" class="mb-4">
+          <div
+            *ngIf="match.tickets_ganhos > 0"
+            class="bg-emerald-100 border border-emerald-200 p-3 rounded-xl flex items-center justify-center gap-3"
+          >
+            <span class="text-xl">🏆</span>
+            <div class="leading-tight">
+              <span class="block text-[10px] font-black text-emerald-800 uppercase">Parabéns!</span>
+              <span class="text-xs font-bold text-emerald-600">Você ganhou!</span>
+            </div>
+          </div>
+
+          <div
+            *ngIf="match.tickets_ganhos === 0"
+            class="bg-gray-100 border border-gray-200 p-3 rounded-xl flex items-center justify-center gap-3"
+          >
+            <span class="text-xl">💸</span>
+            <div class="leading-tight">
+              <span class="block text-[10px] font-black text-gray-500 uppercase">Reembolsado</span>
+              <span class="text-xs font-medium text-gray-400">Tente novamente</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-auto"></div>
+
+        <button
+          *ngIf="match.status === 'ABERTA'"
+          (click)="apostar(match)"
+          [disabled]="match.tickets_comprados * 1 > 0"
+          [ngClass]="{
+            'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg':
+              match.tickets_comprados * 1 === 0,
+            'bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-not-allowed shadow-none':
+              match.tickets_comprados * 1 > 0,
+          }"
+          class="w-full font-bold py-3.5 rounded-xl transition-all duration-200 active:scale-95 flex flex-col items-center justify-center relative overflow-hidden mt-2"
+        >
+          <div *ngIf="match.tickets_comprados * 1 === 0" class="flex items-center gap-2 z-10">
+            <span>🤞</span> Dar Lance
+          </div>
+          <div *ngIf="match.tickets_comprados * 1 > 0" class="flex items-center gap-2 z-10">
+            <span>✅</span> Participação Confirmada
+          </div>
+
+          <span
+            *ngIf="match.tickets_comprados * 1 === 0"
+            class="text-[9px] uppercase tracking-widest opacity-80 mt-0.5 font-medium z-10"
+            >Oportunidade Única</span
+          >
+          <span
+            *ngIf="match.tickets_comprados * 1 > 0"
+            class="text-[9px] uppercase tracking-widest opacity-100 font-bold mt-0.5 z-10"
+            >Ver em "Minhas Apostas"</span
+          >
+        </button>
+
+        <button
+          *ngIf="match.status !== 'ABERTA'"
+          disabled
+          class="w-full bg-gray-50 text-gray-400 font-bold py-3.5 rounded-xl cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2 mt-2"
+        >
+          <span>🏁</span> Leilão Encerrado
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="md:hidden fixed bottom-6 right-6 z-50">
+    <a
+      routerLink="/minhas-apostas"
+      class="bg-indigo-600 text-white p-4 rounded-full shadow-xl flex items-center justify-center"
+    >
+      📜
+    </a>
+  </div>
+</div>

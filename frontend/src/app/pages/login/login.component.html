@@ -1,0 +1,78 @@
+<div class="min-h-screen bg-gray-100 flex flex-col">
+  <div class="w-full bg-[#1a1f2c] py-6 shadow-md flex justify-center">
+    <img class="h-10 w-auto" src="assets/wtorre.png" alt="WTorre" />
+  </div>
+
+  <div class="flex-1 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="bg-white py-8 px-4 shadow-lg rounded-lg sm:px-10 border-t-4 border-indigo-600">
+        <div class="text-center mb-8">
+          <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">BID</h1>
+          <!-- <p class="mt-2 text-sm text-gray-500">Acesse sua conta corporativa</p> -->
+        </div>
+
+        <form class="space-y-6" (ngSubmit)="loginManual()">
+          <div>
+            <label for="username" class="sr-only">Usuário</label>
+            <input
+              type="text"
+              name="username"
+              id="username"
+              [(ngModel)]="username"
+              required
+              class="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="Usuário (ex: admin)"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="sr-only">Senha</label>
+            <input
+              type="password"
+              name="password"
+              id="password"
+              [(ngModel)]="password"
+              required
+              class="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="Senha"
+            />
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              [disabled]="isLoading"
+              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-[1.02]"
+            >
+              <span *ngIf="!isLoading">Entrar</span>
+              <span *ngIf="isLoading">Carregando...</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-8 mb-6 relative">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-200"></div>
+          </div>
+        </div>
+
+        <div class="flex justify-center">
+          <button
+            type="button"
+            (click)="loginMicrosoft()"
+            class="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 rounded-md transition-colors border border-transparent hover:border-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 21 21">
+              <path fill="#f25022" d="M1 1h9v9H1z" />
+              <path fill="#00a4ef" d="M1 11h9v9H1z" />
+              <path fill="#7fba00" d="M11 1h9v9H11z" />
+              <path fill="#ffb900" d="M11 11h9v9H11z" />
+            </svg>
+
+            <span class="font-medium text-sm">Entrar com Microsoft</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
