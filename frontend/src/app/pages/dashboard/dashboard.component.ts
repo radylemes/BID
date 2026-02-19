@@ -1,18 +1,21 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { MatchService } from '../../services/match.service';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './dashboard.component.html',
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   matches: any[] = [];
   currentUser: any = {};
   loading = false;
+  timerInterval: any;
+
   pontosEmJogo: number = 0;
   meusLancesCount: number = 0;
 
@@ -24,44 +27,37 @@ export class DashboardComponent implements OnInit {
   ngOnInit() {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     this.carregarDados();
+
+    this.timerInterval = setInterval(() => {
+      this.atualizarTimers();
+      this.cd.detectChanges();
+    }, 1000);
+  }
+
+  ngOnDestroy() {
+    if (this.timerInterval) clearInterval(this.timerInterval);
   }
 
   carregarDados() {
     this.loading = true;
-
     this.matchService.getMatches(this.currentUser.id).subscribe({
       next: (data) => {
-        // PROCESSAMENTO AVANÇADO DOS LANCES
-        this.matches = data.map((match) => {
-          let lancesProcessados: any[] = [];
-          let totalGasto = 0;
-          let totalReembolsado = 0;
+        this.matches = [...data];
 
-          if (match.raw_lances) {
-            // raw_lances vem como "50:GANHOU,20:PERDEU,10:PENDENTE"
-            const lancesArray = match.raw_lances.toString().split(',');
+        // Atualiza os timers primeiro para definir o estado (ABERTO, EM_BREVE, ENCERRADO)
+        this.atualizarTimers();
 
-            lancesProcessados = lancesArray.map((item: string) => {
-              const [valorStr, status] = item.split(':');
-              const valor = Number(valorStr);
+        // ORDENAÇÃO: Eventos ativos/próximos primeiro, depois pela data mais próxima. Encerrados no final.
+        this.matches.sort((a, b) => {
+          const pesoA = a.estado_tempo === 'ENCERRADO' ? 1 : 0;
+          const pesoB = b.estado_tempo === 'ENCERRADO' ? 1 : 0;
 
-              // Calcula totais baseados no status
-              if (status === 'GANHOU') {
-                totalGasto += valor;
-              } else if (status === 'PERDEU') {
-                totalReembolsado += valor;
-              }
+          if (pesoA !== pesoB) return pesoA - pesoB; // Separa Ativos de Encerrados
 
-              return { valor, status };
-            });
-          }
-
-          return {
-            ...match,
-            lances_detalhados: lancesProcessados,
-            total_gasto: totalGasto,
-            total_reembolsado: totalReembolsado,
-          };
+          // Se tiverem o mesmo peso, ordena pela data limite mais próxima
+          return (
+            new Date(a.data_limite_aposta).getTime() - new Date(b.data_limite_aposta).getTime()
+          );
         });
 
         this.calcularTotais();
@@ -79,9 +75,54 @@ export class DashboardComponent implements OnInit {
       next: (res: any) => {
         this.currentUser.pontos = res.pontos;
         localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-        this.cd.detectChanges();
       },
     });
+  }
+
+  atualizarTimers() {
+    const agora = new Date().getTime();
+
+    this.matches.forEach((match) => {
+      // CORREÇÃO: Se não for 'ABERTA' no banco, força encerrado ignorando o relógio.
+      if (match.status !== 'ABERTA') {
+        match.estado_tempo = 'ENCERRADO';
+        match.timer_texto = 'Tempo Esgotado';
+        return;
+      }
+
+      if (!match.data_inicio_apostas || !match.data_limite_aposta) return;
+
+      const inicio = new Date(match.data_inicio_apostas).getTime();
+      const fim = new Date(match.data_limite_aposta).getTime();
+
+      if (agora < inicio) {
+        match.estado_tempo = 'EM_BREVE';
+        match.timer_texto = this.formatarTempo(inicio - agora);
+      } else if (agora >= inicio && agora < fim) {
+        match.estado_tempo = 'ABERTO';
+        match.timer_texto = this.formatarTempo(fim - agora);
+      } else {
+        match.estado_tempo = 'ENCERRADO';
+        match.timer_texto = 'Tempo Esgotado';
+      }
+    });
+  }
+
+  formatarTempo(ms: number): string {
+    if (ms < 0) ms = 0;
+
+    const dias = Math.floor(ms / (1000 * 60 * 60 * 24));
+    const horas = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutos = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    const segundos = Math.floor((ms % (1000 * 60)) / 1000);
+
+    let texto = '';
+    if (dias > 0) texto += `${dias}d `;
+    texto += `${horas.toString().padStart(2, '0')}h `;
+    texto += `${minutos.toString().padStart(2, '0')}m `;
+    texto += `${segundos.toString().padStart(2, '0')}s`;
+
+    return texto;
   }
 
   calcularTotais() {
@@ -89,25 +130,30 @@ export class DashboardComponent implements OnInit {
     this.meusLancesCount = 0;
 
     this.matches.forEach((match) => {
-      // Usa o array processado
-      if (match.lances_detalhados && match.lances_detalhados.length > 0) {
-        match.tickets_comprados = match.lances_detalhados.length;
-
+      if (match.meus_lances && match.meus_lances.length > 0) {
+        match.tickets_comprados = match.meus_lances.length;
         if (match.status === 'ABERTA') {
-          this.meusLancesCount += match.lances_detalhados.length;
-          const totalNoEvento = match.lances_detalhados.reduce(
-            (acc: number, lance: any) => acc + lance.valor,
+          this.meusLancesCount += match.meus_lances.length;
+          const totalNoEvento = match.meus_lances.reduce(
+            (acc: number, val: any) => acc + Number(val),
             0,
           );
           this.pontosEmJogo += totalNoEvento;
         }
       }
     });
-    this.cd.detectChanges();
   }
 
-  // ... (Mantenha a função apostar e trackByFn idênticas à versão anterior correta) ...
   async apostar(match: any) {
+    if (match.estado_tempo === 'EM_BREVE') {
+      Swal.fire('Aguarde', 'O período de lances ainda não iniciou.', 'warning');
+      return;
+    }
+    if (match.estado_tempo === 'ENCERRADO') {
+      Swal.fire('Fechado', 'O tempo para lances acabou.', 'error');
+      return;
+    }
+
     const lancesJaRealizados = match.tickets_comprados || 0;
     const limiteMaximo = 4;
     const lancesQuePodeDar = limiteMaximo - lancesJaRealizados;
@@ -136,7 +182,6 @@ export class DashboardComponent implements OnInit {
             <span>Status: ${lancesJaRealizados}/4 Lances</span>
             <span class="text-emerald-600">Disponível: ${saldoInicial}</span>
           </div>
-          
           <div class="space-y-2">
             <div class="flex justify-between items-center text-sm">
               <span class="text-gray-500 font-medium">Soma dos Novos Lances:</span>
@@ -148,7 +193,6 @@ export class DashboardComponent implements OnInit {
             </div>
           </div>
         </div>
-
         <div id="lances-wrapper">
           ${Array.from({ length: lancesQuePodeDar })
             .map(
@@ -156,9 +200,7 @@ export class DashboardComponent implements OnInit {
             <div id="container-lance-${i + 1}" class="flex items-center gap-3 mb-3 ${i > 0 ? 'hidden' : ''}">
               <div class="w-24 text-[11px] font-black text-gray-400 uppercase tracking-tighter">Lance ${lancesJaRealizados + i + 1}</div>
               <div class="relative flex-1">
-                <input id="lance-${i + 1}" type="number" 
-                       class="swal2-input m-0 px-4 py-2 text-sm font-bold border-gray-200 focus:border-indigo-500 rounded-lg shadow-sm" 
-                       placeholder="Valor do lance">
+                <input id="lance-${i + 1}" type="number" class="swal2-input m-0 px-4 py-2 text-sm font-bold border-gray-200 focus:border-indigo-500 rounded-lg shadow-sm" placeholder="Valor do lance">
               </div>
             </div>`,
             )
@@ -180,12 +222,13 @@ export class DashboardComponent implements OnInit {
           if (totalLancesEl) totalLancesEl.innerText = `${total} pts`;
           if (saldoRestanteEl) {
             saldoRestanteEl.innerText = `${restante} pts`;
-            saldoRestanteEl.className =
-              restante < 0
-                ? 'font-black text-xl text-red-600'
-                : 'font-black text-xl text-emerald-700';
-            if (restante < 0) Swal.getConfirmButton()?.setAttribute('disabled', 'true');
-            else Swal.getConfirmButton()?.removeAttribute('disabled');
+            if (restante < 0) {
+              saldoRestanteEl.className = 'font-black text-xl text-red-600';
+              Swal.getConfirmButton()?.setAttribute('disabled', 'true');
+            } else {
+              saldoRestanteEl.className = 'font-black text-xl text-emerald-700';
+              Swal.getConfirmButton()?.removeAttribute('disabled');
+            }
           }
         };
         inputs.forEach((input) => {

@@ -184,6 +184,23 @@ exports.placeBet = async (req, res) => {
     if (Number(rows[0].total) > 0)
       throw new Error("Participação Única: Você já registrou seus lances.");
 
+    const [matchData] = await connection.execute(
+      "SELECT data_inicio_apostas, data_limite_aposta, status FROM partidas WHERE id = ?",
+      [pId],
+    );
+
+    if (matchData.length === 0) throw new Error("Evento não encontrado.");
+    const match = matchData[0];
+    const agora = new Date();
+    const inicio = new Date(match.data_inicio_apostas);
+    const fim = new Date(match.data_limite_aposta);
+
+    if (match.status !== "ABERTA")
+      throw new Error("Este evento não está aberto para lances.");
+    if (agora < inicio)
+      throw new Error("O período de lances ainda não iniciou.");
+    if (agora > fim) throw new Error("O período de lances já encerrou.");
+
     const totalValor = lancesParaProcessar.reduce((acc, v) => acc + v, 0);
     const [userRows] = await connection.execute(
       "SELECT pontos FROM usuarios WHERE id = ?",
