@@ -804,52 +804,54 @@ exports.updateUserManual = async (req, res) => {
   }
 };
 
-// Adicione no final do seu userController.js
-
 exports.getUserStats = async (req, res) => {
   const { userId } = req.params;
-  const db = require("../config/db"); // Garanta que o db está importado no topo do arquivo
+  const db = require("../config/db");
 
   try {
     const connection = await db.getConnection();
 
     try {
-      // 1. Calcular Bids Vencidos
       const [winRows] = await connection.execute(
         "SELECT COUNT(*) as total FROM apostas WHERE usuario_id = ? AND status = 'GANHOU'",
         [userId],
       );
       const bidsVencidos = winRows[0].total || 0;
 
-      // 2. Calcular Média de Pontos Gastos por Lance
       const [avgRows] = await connection.execute(
         "SELECT AVG(valor_pago) as media FROM apostas WHERE usuario_id = ?",
         [userId],
       );
       const mediaPontos = avgRows[0].media ? Math.round(avgRows[0].media) : 0;
 
-      // 3. Puxar as últimas 8 movimentações do Histórico para o Gráfico
+      // 1. Trazemos a coluna 'motivo' da tabela
       const [histRows] = await connection.execute(
-        "SELECT pontos_antes, pontos_depois, data_alteracao FROM historico_pontos WHERE usuario_id = ? ORDER BY data_alteracao DESC LIMIT 8",
+        "SELECT pontos_antes, pontos_depois, data_alteracao, motivo FROM historico_pontos WHERE usuario_id = ? ORDER BY data_alteracao DESC LIMIT 8",
         [userId],
       );
 
-      // Transforma os dados do banco no formato exato que o gráfico do Angular precisa
       const historico = histRows
         .map((row) => {
           const valor = Math.abs(row.pontos_depois - row.pontos_antes);
-          // Se ficou com mais pontos do que tinha, é crédito. Senão, é gasto.
           const tipo =
             row.pontos_depois >= row.pontos_antes ? "credito" : "gasto";
 
-          // Formatar data para "DD/MM"
           const dataObj = new Date(row.data_alteracao);
           const dia = String(dataObj.getDate()).padStart(2, "0");
           const mes = String(dataObj.getMonth() + 1).padStart(2, "0");
 
-          return { valor, tipo, data: `${dia}/${mes}` };
+          // 2. Limpamos os prefixos técnicos para mostrar apenas o nome do evento no gráfico
+          let evento = row.motivo || "Movimentação";
+          if (evento.includes("BID Único:"))
+            evento = evento.replace("BID Único:", "").trim();
+          if (evento.includes("VITORIA BID:"))
+            evento = evento.split("(")[0].replace("VITORIA BID:", "").trim();
+          if (evento.includes("REEMBOLSO:"))
+            evento = evento.replace("REEMBOLSO:", "").trim();
+
+          return { valor, tipo, data: `${dia}/${mes}`, evento }; // Retornamos o evento
         })
-        .reverse(); // Inverte para o gráfico ler da esquerda (antigo) para direita (novo)
+        .reverse();
 
       res.json({
         stats: { bidsVencidos, mediaPontos },

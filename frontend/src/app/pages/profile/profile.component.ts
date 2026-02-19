@@ -228,14 +228,21 @@ import Swal from 'sweetalert2';
                   </div>
 
                   <div
-                    class="opacity-0 group-hover:opacity-100 absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1.5 px-3 rounded-lg font-bold pointer-events-none transition-opacity whitespace-nowrap shadow-xl flex flex-col items-center z-50"
+                    class="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-2 px-3 rounded-lg font-bold pointer-events-none transition-opacity whitespace-nowrap shadow-xl flex flex-col items-center z-50"
                   >
                     <span
+                      class="text-[9px] text-gray-300 font-medium mb-1 truncate max-w-[120px]"
+                      title="{{ item.evento || 'Movimentação' }}"
+                    >
+                      {{ item.evento || 'Movimentação' }}
+                    </span>
+                    <span
                       [ngClass]="item.tipo === 'credito' ? 'text-emerald-400' : 'text-rose-400'"
+                      class="text-xs"
                     >
                       {{ item.tipo === 'credito' ? '+' : '-' }}{{ item.valor }} pts
                     </span>
-                    <span class="text-[8px] text-gray-300 font-normal">{{ item.data }}</span>
+                    <span class="text-[8px] text-gray-400 font-normal mt-0.5">{{ item.data }}</span>
                   </div>
 
                   <div
@@ -338,10 +345,26 @@ export class ProfileComponent implements OnInit {
   apiUrl = 'http://localhost:3005';
   convidados: any[] = [];
 
-  // Variáveis vazias aguardando os dados do banco
   stats = { bidsVencidos: 0, mediaPontos: 0 };
-  historicoPontos: Array<{ valor: number; tipo: 'credito' | 'gasto'; data: string }> = [];
-  maxPonto: number = 100; // Será calculado automaticamente
+
+  // Interface atualizada com o campo opcional 'evento'
+  historicoPontos: Array<{
+    valor: number;
+    tipo: 'credito' | 'gasto';
+    data: string;
+    evento?: string;
+  }> = [
+    // Dados temporários (Mocks) já atualizados com nomes de eventos para testar enquanto o backend não volta dados reais
+    { valor: 100, tipo: 'credito', data: '01/10', evento: 'Bônus de Indicação' },
+    { valor: 50, tipo: 'gasto', data: '05/10', evento: 'Show do Bruno Mars' },
+    { valor: 150, tipo: 'credito', data: '12/10', evento: 'Reembolso: Jogo cancelado' },
+    { valor: 80, tipo: 'gasto', data: '15/10', evento: 'Fórmula 1 SP' },
+    { valor: 40, tipo: 'gasto', data: '18/10', evento: 'Teatro Municipal' },
+    { valor: 200, tipo: 'credito', data: '22/10', evento: 'Prêmio Mensal' },
+    { valor: 120, tipo: 'gasto', data: '25/10', evento: 'Ingresso VIP Allianz' },
+    { valor: 260, tipo: 'credito', data: '28/10', evento: 'Reembolso: Show Rock' },
+  ];
+  maxPonto: number = 300;
 
   constructor(
     private userService: UserService,
@@ -362,9 +385,10 @@ export class ProfileComponent implements OnInit {
       this.user.username = this.user.username || this.user.login;
       this.user.role = this.user.role || this.user.perfil || 'user';
 
-      // Carrega os módulos paralelos
       this.carregarConvidados();
-      this.carregarEstatisticas(); // <--- CHAMADA DA NOVA FUNÇÃO
+
+      // Quando a rota do backend estiver pronta, descomente a linha abaixo para usar os dados reais:
+      this.carregarEstatisticas();
 
       if (this.user.id) {
         this.userService.getById(this.user.id).subscribe({
@@ -387,31 +411,37 @@ export class ProfileComponent implements OnInit {
   }
 
   // ==========================================
-  // FUNÇÃO DE ESTATÍSTICAS (NOVO)
+  // FUNÇÃO DE ESTATÍSTICAS
   // ==========================================
   carregarEstatisticas() {
     if (!this.user || !this.user.id) return;
 
-    this.userService.getUserStats(this.user.id).subscribe({
-      next: (data) => {
-        this.stats = data.stats;
-        this.historicoPontos = data.historico;
+    // Verifica se a função existe no service antes de chamar
+    if (typeof this.userService.getUserStats === 'function') {
+      this.userService.getUserStats(this.user.id).subscribe({
+        next: (data) => {
+          this.stats = data.stats;
 
-        // Calcula a barra mais alta do gráfico para escalar perfeitamente (com 20% de margem no topo)
-        if (this.historicoPontos && this.historicoPontos.length > 0) {
-          const valores = this.historicoPontos.map((h) => h.valor);
-          const maiorValor = Math.max(...valores, 50); // Mínimo de 50 para o gráfico não ficar achatado
-          this.maxPonto = Math.ceil(maiorValor * 1.2);
-        }
+          // Só substitui se o backend retornar um array válido (impede a tela de quebrar se não tiver dados)
+          if (data.historico && Array.isArray(data.historico)) {
+            this.historicoPontos = data.historico;
+          }
 
-        this.cd.detectChanges(); // Atualiza a tela
-      },
-      error: (err) => console.error('Erro ao carregar estatísticas do usuário', err),
-    });
+          if (this.historicoPontos && this.historicoPontos.length > 0) {
+            const valores = this.historicoPontos.map((h) => h.valor);
+            const maiorValor = Math.max(...valores, 50);
+            this.maxPonto = Math.ceil(maiorValor * 1.2);
+          }
+
+          this.cd.detectChanges();
+        },
+        error: (err) => console.error('Erro ao carregar estatísticas do usuário', err),
+      });
+    }
   }
 
   // ==========================================
-  // FUNÇÕES DE CONVIDADOS (MANTIDAS)
+  // FUNÇÕES DE CONVIDADOS
   // ==========================================
 
   carregarConvidados() {
@@ -541,7 +571,7 @@ export class ProfileComponent implements OnInit {
   }
 
   // ==========================================
-  // FUNÇÕES DE USUÁRIO (MANTIDAS)
+  // FUNÇÕES DE USUÁRIO
   // ==========================================
 
   getFotoUrl(path: string) {
