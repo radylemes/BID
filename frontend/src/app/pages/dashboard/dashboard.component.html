@@ -194,12 +194,20 @@
             <div
               *ngIf="match.estado_tempo === 'ABERTO'"
               class="rounded-xl p-3 flex flex-col items-center justify-center h-full"
-              [ngClass]="match.timer_cor"
             >
-              <span class="text-[10px] font-bold uppercase mb-1 tracking-wider opacity-70"
+              <span class="text-[10px] font-bold uppercase mb-1 tracking-wider text-gray-500"
                 >O leilão encerra em</span
               >
-              <span class="font-mono font-black text-xl">{{ match.timer_texto }}</span>
+              <span
+                class="font-mono font-black text-2xl tracking-tight transition-colors"
+                [ngClass]="
+                  match.timer_cor && match.timer_cor.includes('rose')
+                    ? 'text-rose-600 animate-pulse'
+                    : 'text-gray-900'
+                "
+              >
+                {{ match.timer_texto }}
+              </span>
             </div>
 
             <div
@@ -253,20 +261,28 @@
               (click)="apostar(match)"
               [disabled]="match.tickets_comprados * 1 > 0"
               [ngClass]="{
-                'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200':
+                'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 border-transparent':
                   match.tickets_comprados * 1 === 0,
-                'bg-white border-2 border-emerald-400 text-emerald-600 cursor-not-allowed':
+                'bg-white border-2 border-emerald-500 text-emerald-600 cursor-not-allowed':
                   match.tickets_comprados * 1 > 0,
               }"
-              class="w-full rounded-xl py-3 border transition-all active:scale-95 flex items-center justify-center gap-2 font-bold h-[50px]"
+              class="w-full rounded-xl py-2 border transition-all active:scale-95 flex flex-col items-center justify-center font-bold min-h-[50px]"
             >
               <ng-container *ngIf="match.tickets_comprados * 1 === 0">
-                <span class="text-lg leading-none">🤞</span> <span class="text-sm">Dar Lance</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg leading-none">🤞</span>
+                  <span class="text-sm">Dar Lance</span>
+                </div>
               </ng-container>
 
               <ng-container *ngIf="match.tickets_comprados * 1 > 0">
-                <span class="text-lg leading-none">✅</span>
-                <span class="text-sm">Participação Confirmada</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg leading-none">☑️</span>
+                  <span class="text-sm">Participação Confirmada</span>
+                </div>
+                <span class="text-[9px] font-black uppercase tracking-wider opacity-70 mt-0.5">
+                  {{ match.tickets_comprados }} lance(s) realizado(s)
+                </span>
               </ng-container>
             </button>
 

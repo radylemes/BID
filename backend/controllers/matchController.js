@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-// ... (Mantenha imports e função formatarDataLocal) ...
+// Função auxiliar para formatar data (mantém horário local)
 const formatarDataLocal = (dataString) => {
   if (!dataString) return null;
   if (dataString instanceof Date) {
@@ -11,7 +11,7 @@ const formatarDataLocal = (dataString) => {
   return dataString.slice(0, 19).replace("T", " ");
 };
 
-// ... (Mantenha getGroups) ...
+// 0. LISTAR GRUPOS
 exports.getGroups = async (req, res) => {
   try {
     const [rows] = await db.execute("SELECT * FROM grupos ORDER BY nome ASC");
@@ -22,7 +22,7 @@ exports.getGroups = async (req, res) => {
   }
 };
 
-// 1. LISTAR EVENTOS (ATUALIZADO PARA TRAZER STATUS DO LANCE)
+// 1. LISTAR EVENTOS
 exports.getMatches = async (req, res) => {
   const { userId } = req.query;
 
@@ -34,7 +34,6 @@ exports.getMatches = async (req, res) => {
     if (users.length === 0) return res.json([]);
     const user = users[0];
 
-    // Alteração na Query: GROUP_CONCAT agora traz "VALOR:STATUS" (Ex: 50:GANHOU,20:PERDEU)
     let sql = `
       SELECT 
         p.*,
@@ -42,7 +41,6 @@ exports.getMatches = async (req, res) => {
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as tickets_comprados,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ? AND a.status = 'GANHOU') as tickets_ganhos,
         
-        -- MUDANÇA AQUI: Traz Valor E Status juntos separados por ':'
         (SELECT GROUP_CONCAT(CONCAT(valor_pago, ':', status) ORDER BY valor_pago DESC) 
          FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as meus_lances_detalhados
 
@@ -67,7 +65,6 @@ exports.getMatches = async (req, res) => {
       data_evento: row.data_jogo,
       titulo: row.titulo || `${row.time_casa} x ${row.time_fora}`,
       quantidade_premios: row.quantidade_premios || 1,
-      // O frontend vai processar 'meus_lances_detalhados' agora
       raw_lances: row.meus_lances_detalhados,
       status: row.status || "ABERTA",
     }));
@@ -79,10 +76,7 @@ exports.getMatches = async (req, res) => {
   }
 };
 
-// ... (Mantenha createMatch, placeBet, finishMatch, deleteMatch, getBalance IGUAIS) ...
-// Apenas garanta que o restante do arquivo continue lá.
-// Vou repetir createMatch, placeBet, finishMatch, deleteMatch, getBalance para garantir integridade.
-
+// 2. CRIAR EVENTO
 exports.createMatch = async (req, res) => {
   try {
     const {
@@ -161,6 +155,7 @@ exports.createMatch = async (req, res) => {
   }
 };
 
+// 3. APOSTAR
 exports.placeBet = async (req, res) => {
   const { partidaId, usuarioId, valores, valorApostado } = req.body;
   const connection = await db.getConnection();
@@ -248,6 +243,7 @@ exports.placeBet = async (req, res) => {
   }
 };
 
+// 4. FINALIZAR EVENTO
 exports.finishMatch = async (req, res) => {
   const { partidaId, adminId } = req.body;
   const connection = await db.getConnection();
@@ -348,46 +344,168 @@ exports.finishMatch = async (req, res) => {
   }
 };
 
+// 5. EXCLUIR EVENTO (Corrigido para devolver pontos)
 exports.deleteMatch = async (req, res) => {
   const { id } = req.params;
   const { adminId } = req.query;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    // 1. Verifica se o evento existe
     const [matches] = await connection.execute(
       "SELECT titulo FROM partidas WHERE id = ?",
       [id],
     );
     if (matches.length === 0) throw new Error("Evento não encontrado.");
+    const match = matches[0];
 
+    // 2. Busca todos os lances para reembolso
     const [apostas] = await connection.execute(
-      "SELECT COUNT(*) as total FROM apostas WHERE partida_id = ?",
+      "SELECT usuario_id, valor_pago FROM apostas WHERE partida_id = ?",
       [id],
     );
-    if (apostas[0].total > 0) {
-      // Opção segura: deletar apostas e reembolsar seria ideal, mas aqui apenas bloqueia
-      // Para forçar exclusão, mude para DELETE FROM apostas WHERE partida_id = ?
+
+    // 3. Processa os reembolsos
+    if (apostas.length > 0) {
+      const reembolsos = {};
+
+      // Agrupa os valores por usuário
+      for (const aposta of apostas) {
+        if (!reembolsos[aposta.usuario_id]) reembolsos[aposta.usuario_id] = 0;
+        reembolsos[aposta.usuario_id] += Number(aposta.valor_pago);
+      }
+
+      // Devolve para cada usuário
+      for (const [userId, valorTotal] of Object.entries(reembolsos)) {
+        const [uRows] = await connection.execute(
+          "SELECT pontos FROM usuarios WHERE id = ?",
+          [userId],
+        );
+        const saldoAtual = Number(uRows[0]?.pontos || 0);
+        const novoSaldo = saldoAtual + valorTotal;
+
+        await connection.execute(
+          "UPDATE usuarios SET pontos = ? WHERE id = ?",
+          [novoSaldo, userId],
+        );
+
+        await connection.execute(
+          "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, ?, ?, ?)",
+          [
+            userId,
+            adminId || 1,
+            saldoAtual,
+            novoSaldo,
+            `REEMBOLSO: Cancelamento BID (${match.titulo})`,
+          ],
+        );
+      }
+
+      // Exclui as apostas agora que o dinheiro foi devolvido
       await connection.execute("DELETE FROM apostas WHERE partida_id = ?", [
         id,
       ]);
     }
+
+    // 4. Exclui a Partida
     await connection.execute("DELETE FROM partidas WHERE id = ?", [id]);
+
+    // 5. Log do Admin
     if (adminId) {
       await connection.execute(
         "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)",
         [adminId, adminId, `Admin: Excluiu BID #${id}`],
       );
     }
+
     await connection.commit();
-    res.json({ message: "Excluído com sucesso." });
+    res.json({ message: "Evento excluído e pontos reembolsados com sucesso." });
   } catch (error) {
     await connection.rollback();
+    console.error("Erro DELETE:", error);
     res.status(500).json({ error: error.message });
   } finally {
     connection.release();
   }
 };
 
+// 6. EDITAR EVENTO (Restaurado)
+exports.updateMatch = async (req, res) => {
+  const { id } = req.params;
+  const {
+    titulo,
+    banner,
+    local,
+    data_evento,
+    data_jogo,
+    data_inicio,
+    data_inicio_apostas,
+    data_limite,
+    data_limite_aposta,
+    qtd_premios,
+    quantidade_premios,
+    grupo_id,
+    adminId,
+  } = req.body;
+
+  const dataReal = data_jogo || data_evento;
+  const inicioReal = data_inicio_apostas || data_inicio;
+  const fimReal = data_limite_aposta || data_limite;
+  const qtdReal = quantidade_premios || qtd_premios;
+
+  if (!dataReal)
+    return res.status(400).json({ error: "Data do evento obrigatória." });
+
+  const inicioFormatado = inicioReal
+    ? formatarDataLocal(inicioReal)
+    : formatarDataLocal(new Date().toISOString());
+
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [result] = await connection.execute(
+      `UPDATE partidas 
+       SET titulo = ?, banner = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, quantidade_premios = ?, grupo_id = ?
+       WHERE id = ?`,
+      [
+        titulo,
+        banner || "",
+        local || "Local a definir",
+        formatarDataLocal(dataReal),
+        inicioFormatado,
+        formatarDataLocal(fimReal),
+        qtdReal || 1,
+        grupo_id || null,
+        id,
+      ],
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error("Evento não encontrado.");
+    }
+
+    if (adminId) {
+      await connection.execute(
+        `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
+        [adminId, adminId, `Admin: Editou BID #${id} (${titulo})`],
+      );
+    }
+
+    await connection.commit();
+    res.json({ message: "Evento atualizado com sucesso!" });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Erro UPDATE:", error);
+    res.status(500).json({ error: "Erro ao atualizar evento." });
+  } finally {
+    connection.release();
+  }
+};
+
+// 7. BUSCAR SALDO
 exports.getBalance = async (req, res) => {
   const { userId } = req.params;
   try {

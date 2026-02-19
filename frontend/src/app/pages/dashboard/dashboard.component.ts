@@ -83,7 +83,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const agora = new Date().getTime();
 
     this.matches.forEach((match) => {
-      // CORREÇÃO: Se não for 'ABERTA' no banco, força encerrado ignorando o relógio.
       if (match.status !== 'ABERTA') {
         match.estado_tempo = 'ENCERRADO';
         match.timer_texto = 'Tempo Esgotado';
@@ -130,18 +129,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.meusLancesCount = 0;
 
     this.matches.forEach((match) => {
-      if (match.meus_lances && match.meus_lances.length > 0) {
-        match.tickets_comprados = match.meus_lances.length;
-        if (match.status === 'ABERTA') {
-          this.meusLancesCount += match.meus_lances.length;
-          const totalNoEvento = match.meus_lances.reduce(
-            (acc: number, val: any) => acc + Number(val),
-            0,
-          );
+      const comprados = Number(match.tickets_comprados) || 0;
+      if (match.status === 'ABERTA' && comprados > 0) {
+        this.meusLancesCount += comprados;
+        if (match.raw_lances) {
+          const lancesArray = match.raw_lances.split(',');
+          const totalNoEvento = lancesArray.reduce((acc: number, lanceStr: string) => {
+            const valor = Number(lanceStr.split(':')[0]) || 0;
+            return acc + valor;
+          }, 0);
+
           this.pontosEmJogo += totalNoEvento;
         }
       }
     });
+    this.cd.detectChanges();
   }
 
   async apostar(match: any) {
