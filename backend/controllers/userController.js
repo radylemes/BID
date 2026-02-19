@@ -803,3 +803,63 @@ exports.updateUserManual = async (req, res) => {
     connection.release();
   }
 };
+
+// Adicione no final do seu userController.js
+
+exports.getUserStats = async (req, res) => {
+  const { userId } = req.params;
+  const db = require("../config/db"); // Garanta que o db está importado no topo do arquivo
+
+  try {
+    const connection = await db.getConnection();
+
+    try {
+      // 1. Calcular Bids Vencidos
+      const [winRows] = await connection.execute(
+        "SELECT COUNT(*) as total FROM apostas WHERE usuario_id = ? AND status = 'GANHOU'",
+        [userId],
+      );
+      const bidsVencidos = winRows[0].total || 0;
+
+      // 2. Calcular Média de Pontos Gastos por Lance
+      const [avgRows] = await connection.execute(
+        "SELECT AVG(valor_pago) as media FROM apostas WHERE usuario_id = ?",
+        [userId],
+      );
+      const mediaPontos = avgRows[0].media ? Math.round(avgRows[0].media) : 0;
+
+      // 3. Puxar as últimas 8 movimentações do Histórico para o Gráfico
+      const [histRows] = await connection.execute(
+        "SELECT pontos_antes, pontos_depois, data_alteracao FROM historico_pontos WHERE usuario_id = ? ORDER BY data_alteracao DESC LIMIT 8",
+        [userId],
+      );
+
+      // Transforma os dados do banco no formato exato que o gráfico do Angular precisa
+      const historico = histRows
+        .map((row) => {
+          const valor = Math.abs(row.pontos_depois - row.pontos_antes);
+          // Se ficou com mais pontos do que tinha, é crédito. Senão, é gasto.
+          const tipo =
+            row.pontos_depois >= row.pontos_antes ? "credito" : "gasto";
+
+          // Formatar data para "DD/MM"
+          const dataObj = new Date(row.data_alteracao);
+          const dia = String(dataObj.getDate()).padStart(2, "0");
+          const mes = String(dataObj.getMonth() + 1).padStart(2, "0");
+
+          return { valor, tipo, data: `${dia}/${mes}` };
+        })
+        .reverse(); // Inverte para o gráfico ler da esquerda (antigo) para direita (novo)
+
+      res.json({
+        stats: { bidsVencidos, mediaPontos },
+        historico: historico,
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Erro getUserStats:", error);
+    res.status(500).json({ error: "Erro ao carregar estatísticas." });
+  }
+};

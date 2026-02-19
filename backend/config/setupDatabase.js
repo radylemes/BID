@@ -50,7 +50,21 @@ async function initializeDatabase() {
       );
     `);
 
-    // 3. Histórico
+    // 3. Convidados (NOVO MÓDULO)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS convidados (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        nome_completo VARCHAR(255) NOT NULL,
+        cpf VARCHAR(20) NOT NULL,
+        email VARCHAR(255),
+        telefone VARCHAR(20),
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+      );
+    `);
+
+    // 4. Histórico
     await connection.query(`
       CREATE TABLE IF NOT EXISTS historico_pontos (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -64,7 +78,7 @@ async function initializeDatabase() {
       );
     `);
 
-    // 4. Partidas
+    // 5. Partidas
     await connection.query(`
       CREATE TABLE IF NOT EXISTS partidas (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -81,19 +95,21 @@ async function initializeDatabase() {
       );
     `);
 
-    // 5. Apostas
+    // 6. Apostas (Adicionado convidado_id para novas instalações)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS apostas (
         id INT AUTO_INCREMENT PRIMARY KEY,
         partida_id INT NOT NULL,
         usuario_id INT NOT NULL,
+        convidado_id INT NULL,
         valor_pago INT NOT NULL DEFAULT 0,
         data_aposta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         status ENUM('PENDENTE', 'GANHOU', 'PERDEU') DEFAULT 'PENDENTE',
         palpite_casa INT NULL,
         palpite_fora INT NULL,
         FOREIGN KEY (partida_id) REFERENCES partidas(id) ON DELETE CASCADE,
-        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (convidado_id) REFERENCES convidados(id) ON DELETE SET NULL
       );
     `);
 
@@ -101,23 +117,19 @@ async function initializeDatabase() {
     // CORREÇÃO CRÍTICA: REMOVER UNIQUE KEY (Para permitir multi-lances)
     // ============================================================
     try {
-      // Tenta remover o índice 'unique_aposta' que está bloqueando os lances extras
       await connection.query("ALTER TABLE apostas DROP INDEX unique_aposta");
       console.log(
         "🔓 Restrição 'unique_aposta' removida com sucesso! (Multi-lances liberado)",
       );
     } catch (e) {
-      // Se der erro, tenta remover com o nome 'unique_ticket' (outro nome comum)
       try {
         await connection.query("ALTER TABLE apostas DROP INDEX unique_ticket");
         console.log("🔓 Restrição 'unique_ticket' removida com sucesso!");
-      } catch (e2) {
-        // Se cair aqui, é porque a trava já não existe mais, então tudo certo.
-      }
+      } catch (e2) {}
     }
 
     // ============================================================
-    // MIGRATIONS DE COLUNAS (Garante que colunas novas existam)
+    // MIGRATIONS DE COLUNAS (Garante que colunas novas existam em BDs antigos)
     // ============================================================
     const ensureColumns = async (tableName, columns) => {
       for (const col of columns) {
@@ -139,6 +151,7 @@ async function initializeDatabase() {
       }
     };
 
+    // Garante as colunas novas em partidas
     await ensureColumns("partidas", [
       { nome: "titulo", tipo: "VARCHAR(255) NULL" },
       { nome: "banner", tipo: "VARCHAR(500) NULL" },
@@ -147,6 +160,25 @@ async function initializeDatabase() {
       { nome: "data_inicio_apostas", tipo: "DATETIME NULL" },
       { nome: "grupo_id", tipo: "INT DEFAULT 1" },
     ]);
+
+    // Garante a coluna convidado_id na tabela de apostas (caso a tabela já existisse)
+    await ensureColumns("apostas", [
+      { nome: "convidado_id", tipo: "INT NULL" },
+    ]);
+
+    // Garante a Foreign Key do convidado na tabela de apostas (se ainda não existir)
+    try {
+      await connection.query(`
+        ALTER TABLE apostas 
+        ADD CONSTRAINT fk_apostas_convidado 
+        FOREIGN KEY (convidado_id) REFERENCES convidados(id) ON DELETE SET NULL;
+      `);
+      console.log(
+        "✨ Vínculo (Foreign Key) de convidados adicionado às apostas.",
+      );
+    } catch (e) {
+      // Ignora erro silenciosamente se a chave estrangeira já existir no banco
+    }
 
     // ============================================================
     // FINALIZAÇÃO

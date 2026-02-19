@@ -8,6 +8,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const groupRoutes = require("./routes/groupRoutes");
 const matchRoutes = require("./routes/matchRoutes");
+const guestRoutes = require("./routes/guestRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -22,6 +23,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/matches", matchRoutes);
+app.use("/api/guests", guestRoutes);
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => {

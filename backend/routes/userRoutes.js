@@ -15,5 +15,6 @@ router.put("/:id/pontos", userController.updatePontos);
 router.post("/create", userController.createUser);
 router.delete("/:id", userController.deleteUser);
 router.put("/:id", userController.updateUserManual);
+router.get("/:userId/stats", userController.getUserStats);
 
 module.exports = router;

@@ -74,4 +74,8 @@ export class UserService {
     // dados deve conter: { nome_completo, email, username, senha (opcional), adminId }
     return this.http.put(`${this.apiUrl}/${id}`, dados);
   }
+
+  getUserStats(userId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${userId}/stats`);
+  }
 }
