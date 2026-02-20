@@ -41,8 +41,10 @@ exports.getMatches = async (req, res) => {
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as tickets_comprados,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ? AND a.status = 'GANHOU') as tickets_ganhos,
         
-        (SELECT GROUP_CONCAT(CONCAT(valor_pago, ':', status) ORDER BY valor_pago DESC) 
-         FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as meus_lances_detalhados
+        (SELECT GROUP_CONCAT(CONCAT(a.id, ':', a.valor_pago, ':', a.status, ':', COALESCE(c.nome_completo, '')) ORDER BY a.valor_pago DESC) 
+        FROM apostas a 
+        LEFT JOIN convidados c ON a.convidado_id = c.id 
+        WHERE a.partida_id = p.id AND a.usuario_id = ?) as meus_lances_detalhados
 
       FROM partidas p
       LEFT JOIN grupos g ON p.grupo_id = g.id

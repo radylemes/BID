@@ -65,28 +65,22 @@ exports.deleteGuest = async (req, res) => {
   }
 };
 
-// 5. Vincular Convidado ao Ingresso Ganho (Aposta)
 exports.assignGuestToTicket = async (req, res) => {
-  const { apostaId } = req.params;
+  const { apostaId } = req.params; // Agora recebe o ID EXATO do lance/ingresso
   const { convidado_id, usuario_id } = req.body;
+  const db = require("../config/db");
 
   try {
-    // Verifica se a aposta realmente pertence ao usuário e se ele GANHOU
-    const [apostas] = await db.execute(
-      "SELECT id FROM apostas WHERE id = ? AND usuario_id = ? AND status = 'GANHOU'",
-      [apostaId, usuario_id],
+    const [result] = await db.execute(
+      "UPDATE apostas SET convidado_id = ? WHERE id = ? AND usuario_id = ? AND status = 'GANHOU'",
+      [convidado_id, apostaId, usuario_id],
     );
 
-    if (apostas.length === 0) {
+    if (result.affectedRows === 0) {
       return res
         .status(403)
         .json({ error: "Ingresso inválido ou não pertence a você." });
     }
-
-    await db.execute("UPDATE apostas SET convidado_id = ? WHERE id = ?", [
-      convidado_id,
-      apostaId,
-    ]);
 
     res.json({ message: "Retirante vinculado com sucesso!" });
   } catch (error) {

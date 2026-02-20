@@ -1,72 +1,71 @@
 <div class="min-h-screen bg-gray-50 p-4 md:p-6">
   <div
-    class="bg-white rounded-2xl shadow-sm border border-gray-200 p-2 md:p-3 mb-8 flex flex-col md:flex-row items-center justify-between gap-4"
+    class="bg-white rounded-2xl shadow-sm border border-gray-200 p-2 md:p-3 mb-8 flex flex-col lg:flex-row items-center justify-between gap-4"
   >
     <div
-      class="flex-1 flex items-center justify-center md:justify-start gap-3 w-full md:w-auto px-4 py-2"
+      class="flex flex-col md:flex-row w-full lg:w-auto gap-4 md:gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-100"
     >
-      <div
-        class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl"
-      >
-        💰
-      </div>
-      <div class="flex flex-col">
-        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
-          >Saldo Disponível</span
+      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+        <div
+          class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl"
         >
-        <span class="text-xl font-black text-gray-800 leading-none">
-          {{ currentUser.pontos || 0 | number }}
-          <small class="text-xs font-bold text-gray-400">pts</small>
-        </span>
+          💰
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+            >Saldo Disponível</span
+          >
+          <span class="text-xl font-black text-gray-800 leading-none">
+            {{ currentUser.pontos || 0 | number }}
+            <small class="text-xs font-bold text-gray-400">pts</small>
+          </span>
+        </div>
       </div>
-    </div>
 
-    <div class="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
-
-    <div
-      class="flex-1 flex items-center justify-center md:justify-start gap-3 w-full md:w-auto px-4 py-2"
-    >
-      <div
-        class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl"
-      >
-        🔒
-      </div>
-      <div class="flex flex-col">
-        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Em Jogo</span>
-        <span class="text-xl font-black text-gray-800 leading-none">
-          {{ pontosEmJogo || 0 | number }}
-          <small class="text-xs font-bold text-gray-400">pts</small>
-        </span>
-      </div>
-    </div>
-
-    <div class="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
-
-    <div
-      class="flex-1 flex items-center justify-center md:justify-start gap-3 w-full md:w-auto px-4 py-2"
-    >
-      <div
-        class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl"
-      >
-        🎫
-      </div>
-      <div class="flex flex-col">
-        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
-          >Lances Ativos</span
+      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+        <div
+          class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl"
         >
-        <span class="text-xl font-black text-indigo-600 leading-none">{{
-          meusLancesCount || 0
-        }}</span>
+          🔒
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Em Jogo</span>
+          <span class="text-xl font-black text-gray-800 leading-none">
+            {{ pontosEmJogo || 0 | number }}
+            <small class="text-xs font-bold text-gray-400">pts</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+        <div
+          class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl"
+        >
+          🎫
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+            >Lances Ativos</span
+          >
+          <span class="text-xl font-black text-indigo-600 leading-none">{{
+            meusLancesCount || 0
+          }}</span>
+        </div>
       </div>
     </div>
 
-    <div class="w-full md:w-auto p-1">
+    <div class="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1">
+      <a
+        routerLink="/profile"
+        class="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group shadow-sm"
+      >
+        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">👤</span> Meu Perfil
+      </a>
       <a
         routerLink="/minhas-apostas"
-        class="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 px-6 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
+        class="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
       >
-        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">📜</span>
-        Ver Histórico Detalhado
+        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">📜</span> Histórico
       </a>
     </div>
   </div>
@@ -106,21 +105,18 @@
           <span
             *ngIf="match.estado_tempo === 'EM_BREVE'"
             class="bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >⏳ Em Breve</span
           >
-            ⏳ Em Breve
-          </span>
           <span
             *ngIf="match.estado_tempo === 'ABERTO'"
             class="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm animate-pulse"
+            >● Aberto</span
           >
-            ● Aberto
-          </span>
           <span
             *ngIf="match.estado_tempo === 'ENCERRADO'"
             class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >Encerrado</span
           >
-            Encerrado
-          </span>
         </div>
       </div>
 
@@ -131,9 +127,8 @@
           </h3>
           <span
             class="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap shrink-0 border border-gray-200"
+            >🎫 {{ match.quantidade_premios }} Ingresso(s)</span
           >
-            🎫 {{ match.quantidade_premios }} Ingresso(s)
-          </span>
         </div>
 
         <div
@@ -142,9 +137,8 @@
           <div class="flex items-center gap-2">
             <span
               class="bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded text-[10px] uppercase"
+              >{{ match.nome_grupo || 'Geral' }}</span
             >
-              {{ match.nome_grupo || 'Geral' }}
-            </span>
             <div class="flex items-center gap-1 text-gray-600">
               <span class="text-rose-500 text-sm">📍</span>
               <span class="font-medium truncate max-w-[100px]">{{ match.local }}</span>
@@ -198,21 +192,14 @@
               <span class="text-[10px] font-bold uppercase mb-1 tracking-wider text-gray-500"
                 >O leilão encerra em</span
               >
-              <span
-                class="font-mono font-black text-2xl tracking-tight transition-colors"
-                [ngClass]="
-                  match.timer_cor && match.timer_cor.includes('rose')
-                    ? 'text-rose-600 animate-pulse'
-                    : 'text-gray-900'
-                "
-              >
-                {{ match.timer_texto }}
-              </span>
+              <span class="font-mono font-black text-2xl tracking-tight text-gray-900">{{
+                match.timer_texto
+              }}</span>
             </div>
 
             <div
               *ngIf="match.estado_tempo === 'ENCERRADO'"
-              class="rounded-xl border p-3 flex flex-col items-center justify-center h-full text-center"
+              class="rounded-xl border p-4 flex flex-col items-center justify-center h-full text-center"
               [ngClass]="{
                 'bg-emerald-50 border-emerald-200 text-emerald-800': match.tickets_ganhos > 0,
                 'bg-gray-50 border-gray-200 text-gray-600':
@@ -222,9 +209,13 @@
               }"
             >
               <ng-container *ngIf="match.tickets_ganhos > 0">
-                <span class="text-2xl mb-1 leading-none">🏆</span>
-                <span class="font-black text-xs uppercase text-emerald-700"
+                <span class="text-4xl mb-2 leading-none drop-shadow-sm">🏆</span>
+                <span class="font-black text-xs uppercase text-emerald-700 mb-1"
                   >Parabéns! Você ganhou.</span
+                >
+                <span
+                  class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-md mt-1"
+                  >{{ match.tickets_ganhos }} Ingresso(s) garantido(s)</span
                 >
               </ng-container>
 
@@ -286,13 +277,23 @@
               </ng-container>
             </button>
 
-            <button
-              *ngIf="match.estado_tempo === 'ENCERRADO'"
-              disabled
-              class="w-full bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
-            >
-              <span>🏁</span> Leilão Encerrado
-            </button>
+            <ng-container *ngIf="match.estado_tempo === 'ENCERRADO'">
+              <button
+                *ngIf="match.tickets_ganhos > 0"
+                (click)="definirRetirantes(match)"
+                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md shadow-emerald-200 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>🎟️</span> Informar Convidados
+              </button>
+
+              <button
+                *ngIf="match.tickets_ganhos === 0"
+                disabled
+                class="w-full bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+              >
+                <span>🏁</span> Leilão Encerrado
+              </button>
+            </ng-container>
           </div>
         </div>
       </div>
