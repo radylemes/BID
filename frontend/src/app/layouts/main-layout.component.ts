@@ -101,6 +101,14 @@ import { Subscription } from 'rxjs';
             >
               <span class="mr-3 text-lg">🎫</span> Gerenciar Bids
             </a>
+            <a
+              *ngIf="isAdmin || userRole === 'PORTARIA'"
+              routerLink="/reception"
+              routerLinkActive="bg-indigo-50 text-indigo-600"
+              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            >
+              <span class="mr-3 text-lg">📱</span> App Portaria
+            </a>
           </div>
         </nav>
 
@@ -166,6 +174,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   userName: string | null = null;
   fotoUrlCompleta: string | null = null;
   isAdmin: boolean = false;
+  userRole: string = '';
   apiUrl = 'http://localhost:3005';
 
   // Variáveis para a Carteira do Menu

@@ -10,8 +10,25 @@ import { UserListComponent } from './pages/users/user-list.component';
 import { GroupManagerComponent } from './pages/groups/group-manager.component';
 import { MatchManagerComponent } from './pages/matches/match-manager.component';
 import { MyBetsComponent } from './pages/my-bets/my-bets.component';
+import { ReceptionComponent } from './pages/reception/reception.component';
+
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+
+  // ==========================================
+  // APP DA PORTARIA (TELA CHEIA)
+  // Colocamos fora do MainLayout para não exibir o menu lateral no tablet
+  // ==========================================
+  {
+    path: 'reception',
+    component: ReceptionComponent,
+    canActivate: [AuthGuard], // Protegido! Só entra se estiver logado
+    data: { roles: ['ADMIN', 'PORTARIA'] }, // (Opcional) Se o seu AuthGuard validar perfis
+  },
+
+  // ==========================================
+  // SISTEMA PRINCIPAL (COM MENU LATERAL)
+  // ==========================================
   {
     path: '',
     component: MainLayoutComponent,
@@ -23,12 +40,14 @@ export const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'minhas-apostas', component: MyBetsComponent },
       { path: 'profile', component: ProfileComponent },
+
+      // Rotas de Administração
       { path: 'users', component: UserListComponent },
       { path: 'groups', component: GroupManagerComponent },
-
-      // Rota Admin para criar jogos
       { path: 'matches/manage', component: MatchManagerComponent },
     ],
   },
+
+  // Qualquer outra rota não encontrada cai aqui (Vai pro login)
   { path: '**', redirectTo: 'login' },
 ];

@@ -43,14 +43,14 @@ async function initializeDatabase() {
         senha_hash VARCHAR(255) NULL,
         is_ad_user TINYINT(1) DEFAULT 1,
         pontos INT DEFAULT 0,
-        perfil ENUM('ADMIN', 'USER') DEFAULT 'USER',
+        perfil ENUM('ADMIN', 'USER', 'PORTARIA') DEFAULT 'USER',
         grupo_id INT NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL
       );
     `);
 
-    // 3. Convidados (NOVO MÓDULO)
+    // 3. Convidados
     await connection.query(`
       CREATE TABLE IF NOT EXISTS convidados (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -95,7 +95,7 @@ async function initializeDatabase() {
       );
     `);
 
-    // 6. Apostas (Adicionado convidado_id para novas instalações)
+    // 6. Apostas (Adicionado checkin e assinatura)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS apostas (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -107,6 +107,8 @@ async function initializeDatabase() {
         status ENUM('PENDENTE', 'GANHOU', 'PERDEU') DEFAULT 'PENDENTE',
         palpite_casa INT NULL,
         palpite_fora INT NULL,
+        checkin BOOLEAN DEFAULT FALSE,
+        assinatura LONGTEXT,
         FOREIGN KEY (partida_id) REFERENCES partidas(id) ON DELETE CASCADE,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
         FOREIGN KEY (convidado_id) REFERENCES convidados(id) ON DELETE SET NULL
@@ -151,7 +153,6 @@ async function initializeDatabase() {
       }
     };
 
-    // Garante as colunas novas em partidas
     await ensureColumns("partidas", [
       { nome: "titulo", tipo: "VARCHAR(255) NULL" },
       { nome: "banner", tipo: "VARCHAR(500) NULL" },
@@ -161,12 +162,13 @@ async function initializeDatabase() {
       { nome: "grupo_id", tipo: "INT DEFAULT 1" },
     ]);
 
-    // Garante a coluna convidado_id na tabela de apostas (caso a tabela já existisse)
+    // Garante as colunas novas da portaria na tabela de apostas
     await ensureColumns("apostas", [
       { nome: "convidado_id", tipo: "INT NULL" },
+      { nome: "checkin", tipo: "BOOLEAN DEFAULT FALSE" },
+      { nome: "assinatura", tipo: "LONGTEXT" },
     ]);
 
-    // Garante a Foreign Key do convidado na tabela de apostas (se ainda não existir)
     try {
       await connection.query(`
         ALTER TABLE apostas 

@@ -9,6 +9,7 @@ const userRoutes = require("./routes/userRoutes");
 const groupRoutes = require("./routes/groupRoutes");
 const matchRoutes = require("./routes/matchRoutes");
 const guestRoutes = require("./routes/guestRoutes");
+const receptionRoutes = require("./routes/receptionRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -24,6 +25,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/guests", guestRoutes);
+app.use("/api/reception", receptionRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
