@@ -2,6 +2,9 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
 import Swal from 'sweetalert2';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-match-manager',
@@ -46,7 +49,7 @@ import Swal from 'sweetalert2';
               <th class="px-6 py-4 tracking-wider">Ingressos</th>
               <th class="px-6 py-4 tracking-wider">Datas</th>
               <th class="px-6 py-4 tracking-wider">Status</th>
-              <th class="px-6 py-4 text-right tracking-wider">Ações</th>
+              <th class="px-6 py-4 text-right tracking-wider">Ações e Relatórios</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -93,14 +96,14 @@ import Swal from 'sweetalert2';
                     'bg-emerald-100 text-emerald-700 border-emerald-200': m.status === 'ABERTA',
                     'bg-gray-100 text-gray-600 border-gray-200': m.status !== 'ABERTA',
                   }"
-                  class="px-3 py-1 rounded-full text-xs font-bold uppercase border"
+                  class="px-3 py-1 rounded-full text-[10px] font-bold uppercase border"
                 >
                   {{ m.status }}
                 </span>
               </td>
 
               <td class="px-6 py-4 text-right">
-                <div class="flex justify-end gap-2 transition-opacity">
+                <div class="flex justify-end items-center gap-2 transition-opacity">
                   <button
                     (click)="editarJogo(m)"
                     class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition shadow-sm border border-blue-100"
@@ -122,6 +125,26 @@ import Swal from 'sweetalert2';
                     title="Excluir"
                   >
                     🗑️
+                  </button>
+
+                  <div *ngIf="m.status !== 'ABERTA'" class="w-px h-6 bg-gray-200 mx-1"></div>
+
+                  <button
+                    *ngIf="m.status !== 'ABERTA'"
+                    (click)="baixarRelatorio(m, 'pdf')"
+                    class="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-red-100 border border-red-100 transition shadow-sm"
+                    title="Baixar PDF Portaria"
+                  >
+                    <span>📄</span> PDF
+                  </button>
+
+                  <button
+                    *ngIf="m.status !== 'ABERTA'"
+                    (click)="baixarRelatorio(m, 'excel')"
+                    class="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-emerald-100 border border-emerald-200 transition shadow-sm"
+                    title="Baixar Excel"
+                  >
+                    <span>📊</span> Excel
                   </button>
                 </div>
               </td>
@@ -177,7 +200,6 @@ export class MatchManagerComponent implements OnInit {
     await this.abrirFormulario(match);
   }
 
-  // --- CORREÇÃO AQUI ---
   async excluirJogo(match: any) {
     const result = await Swal.fire({
       title: 'Excluir BID?',
@@ -191,14 +213,12 @@ export class MatchManagerComponent implements OnInit {
     });
 
     if (result.isConfirmed) {
-      // Passando o ID do usuário (Admin) como segundo parâmetro
       this.matchService.deleteMatch(match.id, this.currentUser.id).subscribe(() => {
         this.carregar();
         Swal.fire('Excluído!', 'O BID foi removido.', 'success');
       });
     }
   }
-  // ---------------------
 
   async abrirFormulario(match: any = null) {
     const isEdit = !!match;
@@ -290,7 +310,7 @@ export class MatchManagerComponent implements OnInit {
           data_inicio_apostas: getVal('dataInicio'),
           data_limite_aposta: getVal('dataLimite'),
           quantidade_premios: Number(getVal('qtdPremios')) || 1,
-          adminId: this.currentUser.id, // Passando adminId na criação/edição também
+          adminId: this.currentUser.id,
         };
       },
     });
@@ -334,7 +354,7 @@ export class MatchManagerComponent implements OnInit {
             <ul class="list-disc pl-4 text-amber-700 space-y-1">
                 <li>Os <b>Top ${match.quantidade_premios}</b> maiores lances vencerão.</li>
                 <li>Todos os outros participantes serão <b>REEMBOLSADOS</b> integralmente.</li>
-                <li>O status mudará para <span class="font-bold">ENCERRADO</span>.</li>
+                <li>O status mudará para <span class="font-bold">FINALIZADA</span>.</li>
             </ul>
         </div>
       `,
@@ -347,7 +367,6 @@ export class MatchManagerComponent implements OnInit {
 
     if (result.isConfirmed) {
       this.loading = true;
-      // Passando adminId na finalização
       this.matchService
         .finishMatch({ partidaId: match.id, adminId: this.currentUser.id })
         .subscribe({
@@ -361,5 +380,78 @@ export class MatchManagerComponent implements OnInit {
           },
         });
     }
+  }
+
+  baixarRelatorio(match: any, tipo: 'pdf' | 'excel') {
+    // 1. Busca os dados no servidor
+    this.matchService.getWinnersReport(match.id).subscribe({
+      // CORREÇÃO: Alterado de (dados: any[]) para (dados: any)
+      next: (dados: any) => {
+        if (dados.length === 0) {
+          Swal.fire('Vazio', 'Não há ganhadores para este evento.', 'info');
+          return;
+        }
+
+        // Formata os dados para a tabela
+        const formatoTabela = dados.map((item: any) => [
+          item.titular_nome,
+          item.titular_setor || 'N/A',
+          // `${item.lance_pago} pts`,
+          item.retirante_nome || 'Pendente de indicação',
+          item.retirante_cpf || '---',
+        ]);
+
+        const colunas = [
+          'Ganhador (Titular)',
+          'Setor',
+          // 'Lance Vencedor',
+          'Retirante Autorizado',
+          'CPF do Retirante',
+          'Assinatura',
+        ];
+        const nomeArquivo = `Lista_Portaria_${match.titulo.replace(/\s+/g, '_')}`;
+
+        if (tipo === 'pdf') {
+          this.gerarPDF(match.titulo, colunas, formatoTabela, nomeArquivo);
+        } else {
+          this.gerarExcel(colunas, formatoTabela, nomeArquivo);
+        }
+      },
+      error: () =>
+        Swal.fire('Erro', 'A rota de listagem ainda não foi criada no backend.', 'error'),
+    });
+  }
+
+  gerarPDF(tituloEvento: string, colunas: string[], linhas: any[], nomeArquivo: string) {
+    const doc = new jsPDF();
+
+    // Cabeçalho
+    doc.setFontSize(18);
+    doc.text('Lista de Acesso (Concierge)', 14, 22);
+
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Evento: ${tituloEvento}`, 14, 30);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 36);
+
+    // Tabela
+    autoTable(doc, {
+      head: [colunas],
+      body: linhas,
+      startY: 45,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+    });
+
+    doc.save(`${nomeArquivo}.pdf`);
+  }
+
+  gerarExcel(colunas: string[], linhas: any[], nomeArquivo: string) {
+    const dadosExcel = [colunas, ...linhas];
+    const ws: XLSX.WorkSheet = XLSX.utils.aoa_to_sheet(dadosExcel);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Lista Portaria');
+    XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
   }
 }

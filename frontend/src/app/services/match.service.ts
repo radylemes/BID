@@ -50,4 +50,10 @@ export class MatchService {
   deleteMatch(id: number, adminId: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}?adminId=${adminId}`);
   }
+
+  // Adicione junto das outras funções no match.service.ts
+  getWinnersReport(partidaId: number) {
+    // Tenta acessar a rota diretamente após a apiUrl base
+    return this.http.get(`${this.apiUrl}/${partidaId}/winners-report`);
+  }
 }

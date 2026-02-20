@@ -50,4 +50,7 @@ if (matchController.getBalance) {
   router.get("/balance/:userId", matchController.getBalance);
 }
 
+// Rota para o relatório de ganhadores e retirantes da portaria
+router.get("/:id/winners-report", matchController.getMatchWinnersReport);
+
 module.exports = router;

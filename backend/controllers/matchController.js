@@ -522,3 +522,32 @@ exports.getBalance = async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar saldo." });
   }
 };
+
+exports.getMatchWinnersReport = async (req, res) => {
+  const { id } = req.params;
+  const db = require("../config/db");
+
+  try {
+    const [rows] = await db.execute(
+      `
+      SELECT 
+        u.nome_completo AS titular_nome,
+        u.setor AS titular_setor,
+        a.valor_pago AS lance_pago,
+        c.nome_completo AS retirante_nome,
+        c.cpf AS retirante_cpf
+      FROM apostas a
+      JOIN usuarios u ON a.usuario_id = u.id
+      LEFT JOIN convidados c ON a.convidado_id = c.id
+      WHERE a.partida_id = ? AND a.status = 'GANHOU'
+      ORDER BY a.valor_pago DESC
+    `,
+      [id],
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Erro ao gerar relatório:", error);
+    res.status(500).json({ error: "Erro ao buscar lista de ganhadores." });
+  }
+};
