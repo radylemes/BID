@@ -12,6 +12,8 @@ import { MatchManagerComponent } from './pages/matches/match-manager.component';
 import { MyBetsComponent } from './pages/my-bets/my-bets.component';
 import { ReceptionComponent } from './pages/reception/reception.component';
 import { SettingsComponent } from './pages/settings/settings.component';
+import { HistoryComponent } from './pages/history/history.component';
+import { AuditComponent } from './pages/audit/audit.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -46,7 +48,9 @@ export const routes: Routes = [
       { path: 'users', component: UserListComponent },
       { path: 'groups', component: GroupManagerComponent },
       { path: 'matches/manage', component: MatchManagerComponent },
+      { path: 'historico', component: HistoryComponent },
       { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard] },
+      { path: 'auditoria', component: AuditComponent },
     ],
   },
 

@@ -47,6 +47,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (data) => {
         this.matches = data.map((match: any) => {
           let ingressosGanhos: any[] = [];
+
+          // 1. Processa Lances (Financeiro/Compatibilidade)
           if (match.raw_lances) {
             const lancesArray = match.raw_lances.toString().split(',');
             lancesArray.forEach((item: string) => {
@@ -56,11 +58,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
                   id: Number(parts[0]),
                   valor: parts[1],
                   nome: parts[3] && parts[3] !== 'null' && parts[3].trim() !== '' ? parts[3] : null,
+                  checkin: parts[4] === '1' || parts[4] === 'true', // Fallback
                 });
               }
             });
           }
-          return { ...match, ingressos_ganhos_detalhes: ingressosGanhos };
+
+          // 2. Processa Ingressos Físicos (NOVA ARQUITETURA - Se existir)
+          if (match.raw_ingressos) {
+            ingressosGanhos = match.raw_ingressos
+              .toString()
+              .split(',')
+              .map((item: string) => {
+                const p = item.split(':');
+                return {
+                  id: Number(p[0]), // ID Único do Ingresso
+                  nome: p[1] && p[1] !== 'null' && p[1].trim() !== '' ? p[1] : null,
+                  checkin: p[2] === '1' || p[2] === 'true',
+                };
+              });
+          }
+
+          return {
+            ...match,
+            ingressos_ganhos_detalhes: ingressosGanhos,
+            tickets_ganhos: ingressosGanhos.length,
+          };
         });
 
         this.atualizarTimers();
@@ -158,12 +181,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // MODAL EM MASSA OTIMIZADO (IGUAL AO MY-BETS)
+  // MODAL EM MASSA ALINHADO E COM BLOQUEIO DE SEGURANÇA (IGUAL MY-BETS)
   // =========================================================================
   async definirRetirantes(match: any) {
     this.guestService.getGuests(this.currentUser.id).subscribe(async (convidados: any[]) => {
       const htmlSelects = match.ingressos_ganhos_detalhes
         .map((ticket: any, index: number) => {
+          if (ticket.checkin) {
+            return `
+              <div class="mb-2 bg-gray-50 p-2 rounded-xl border border-gray-200 flex items-center opacity-80 cursor-not-allowed">
+                <div class="w-20 shrink-0 text-[10px] font-bold text-gray-500 uppercase tracking-wide m-0">
+                  🎟️ Ingresso ${index + 1}
+                </div>
+                <div class="flex-1 text-xs font-black text-emerald-800 bg-emerald-100/50 px-3 py-1.5 rounded-lg border border-emerald-200 truncate">
+                  ${ticket.nome || 'Desconhecido'}
+                </div>
+                <div class="w-20 shrink-0 text-right">
+                  <span class="text-[9px] uppercase tracking-widest bg-emerald-500 text-white px-2 py-0.5 rounded shadow-sm">Entregue ✓</span>
+                </div>
+              </div>
+            `;
+          }
+
           const optionsHtml = convidados
             .map((c) => {
               const isSelected = ticket.nome === c.nome_completo ? 'selected' : '';
@@ -172,14 +211,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .join('');
 
           return `
-          <div class="mb-2 bg-gray-50 p-2 rounded-xl border border-gray-100 flex items-center justify-between gap-3">
+          <div class="mb-2 bg-gray-50 p-2 rounded-xl border border-gray-100 flex items-center">
             <label class="whitespace-nowrap w-20 shrink-0 text-[10px] font-bold text-gray-500 uppercase tracking-wide m-0">
               🎟️ Ingresso ${index + 1}
             </label>
-            <select id="select-ticket-${ticket.id}" class="flex-1 min-w-0 border border-gray-300 rounded-lg p-1.5 text-xs text-gray-700 bg-white focus:border-indigo-500 outline-none shadow-sm cursor-pointer">
-              <option value="">-- Selecione o retirante --</option>
-              ${optionsHtml}
-            </select>
+            <div class="flex-1 px-1">
+              <select id="select-ticket-${ticket.id}" class="w-full border border-gray-300 rounded-lg p-1.5 text-xs text-gray-700 bg-white focus:border-indigo-500 outline-none shadow-sm cursor-pointer">
+                <option value="">-- Selecione o retirante --</option>
+                ${optionsHtml}
+              </select>
+            </div>
+            <div class="w-20 shrink-0 text-right">
+              <span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider inline-block">Pendente ⏳</span>
+            </div>
           </div>
         `;
         })
@@ -212,11 +256,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         preConfirm: () => {
           const resultados = [];
           for (const ticket of match.ingressos_ganhos_detalhes) {
-            const select = document.getElementById(
-              `select-ticket-${ticket.id}`,
-            ) as HTMLSelectElement;
-            if (select && select.value) {
-              resultados.push({ apostaId: ticket.id, convidadoId: select.value });
+            if (!ticket.checkin) {
+              const select = document.getElementById(
+                `select-ticket-${ticket.id}`,
+              ) as HTMLSelectElement;
+              if (select && select.value) {
+                // Modificado para usar ingressoId!
+                resultados.push({ ingressoId: ticket.id, convidadoId: select.value });
+              }
             }
           }
           return resultados;
@@ -227,7 +274,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const promises = selecoes.map((s: any) => {
           return new Promise<void>((resolve, reject) => {
             this.guestService
-              .assignTicket(s.apostaId, {
+              .assignTicket(s.ingressoId, {
                 convidado_id: s.convidadoId,
                 usuario_id: this.currentUser.id,
               })
@@ -252,14 +299,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
           } catch (e) {
             Swal.fire('Erro', 'Ocorreu um erro ao salvar alguns convidados.', 'error');
           }
-        } else {
-          Swal.fire({
-            icon: 'info',
-            title: 'Nenhum salvo',
-            text: 'Você não selecionou nenhum convidado.',
-            timer: 2000,
-            showConfirmButton: false,
-          });
         }
       }
     });
@@ -336,10 +375,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.definirRetirantes(match);
     }
   }
-
-  // ==========================================
-  // FUNÇÕES DE LANCES
-  // ==========================================
 
   async apostar(match: any) {
     if (match.estado_tempo === 'EM_BREVE') {
@@ -467,8 +502,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     if (valores) {
-      // 🚀 ATUALIZAÇÃO OTIMISTA E BLOQUEIO DE TELA IMEDIATO
-      // Somamos a quantidade antiga de tickets com a nova para travar o botão na hora
       match.tickets_comprados = (match.tickets_comprados || 0) + valores.length;
       this.cd.detectChanges();
 
@@ -484,7 +517,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
               showConfirmButton: false,
             });
 
-            // BUSCA O NOVO SALDO NO SERVIDOR E ATUALIZA A TELA
             this.matchService.getBalance(this.currentUser.id).subscribe((res: any) => {
               this.currentUser.pontos = res.pontos;
               localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
@@ -493,7 +525,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
             });
           },
           error: (err) => {
-            // Em caso de erro, reverte a trava do botão
             match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
             this.cd.detectChanges();
             Swal.fire('Erro', err.error?.error || 'Erro ao processar', 'error');

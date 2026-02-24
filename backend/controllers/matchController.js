@@ -557,3 +557,74 @@ exports.getMatchWinnersReport = async (req, res) => {
     res.status(500).json({ error: "Erro." });
   }
 };
+
+exports.getPublicHistory = async (req, res) => {
+  try {
+    console.log("🔍 [HISTÓRICO] Frontend pediu a lista de BIDs finalizados...");
+
+    // 1. Busca os eventos já finalizados
+    const [matches] = await db.execute(`
+      SELECT id, titulo, banner, data_jogo, quantidade_premios
+      FROM partidas
+      WHERE status = 'FINALIZADA'
+      ORDER BY data_jogo DESC
+      LIMIT 20
+    `);
+
+    console.log(
+      `✅ [HISTÓRICO] Encontrados ${matches.length} eventos finalizados no banco.`,
+    );
+
+    const history = [];
+
+    // 2. Para cada evento, calcula as estatísticas e busca os vencedores
+    for (let match of matches) {
+      const [stats] = await db.execute(
+        `
+        SELECT 
+          COUNT(id) as total_lances,
+          COUNT(DISTINCT usuario_id) as total_participantes,
+          SUM(valor_pago) as total_pontos,
+          AVG(valor_pago) as media_pontos
+        FROM apostas
+        WHERE partida_id = ?
+      `,
+        [match.id],
+      );
+
+      // Removi a coluna 'u.foto' temporariamente caso ela seja o motivo de um possível crash SQL
+      const [winners] = await db.execute(
+        `
+        SELECT u.nome_completo, a.valor_pago
+        FROM apostas a
+        JOIN usuarios u ON a.usuario_id = u.id
+        WHERE a.partida_id = ? AND a.status = 'GANHOU'
+        ORDER BY a.valor_pago DESC
+      `,
+        [match.id],
+      );
+
+      history.push({
+        ...match,
+        stats: {
+          total_lances: stats[0].total_lances || 0,
+          total_participantes: stats[0].total_participantes || 0,
+          total_pontos: stats[0].total_pontos || 0,
+          media_pontos: Math.round(stats[0].media_pontos || 0),
+        },
+        winners: winners.map((w) => ({
+          nome: w.nome_completo,
+          valor: w.valor_pago,
+        })),
+      });
+    }
+
+    console.log(
+      "🚀 [HISTÓRICO] Dados processados com sucesso. Enviando para o Frontend!",
+    );
+    res.json(history);
+  } catch (error) {
+    console.error("❌ [ERRO FATAL NO HISTÓRICO]:", error);
+    res.status(500).json({ error: "Erro ao carregar o mural de histórico." });
+  }
+};

@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.get("/", matchController.getMatches);
-
+router.get("/public/history", matchController.getPublicHistory);
 router.post("/", upload.single("banner_file"), matchController.createMatch);
 router.put("/:id", upload.single("banner_file"), matchController.updateMatch);
 

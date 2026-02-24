@@ -14,6 +14,7 @@ const receptionRoutes = require("./routes/receptionRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 const pointsRuleRoutes = require("./routes/pointsRuleRoutes");
 const sectorRoutes = require("./routes/sectorRoutes");
+const auditRoutes = require("./routes/auditRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -33,6 +34,7 @@ app.use("/api/reception", receptionRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/points-rules", pointsRuleRoutes);
 app.use("/api/sectors", sectorRoutes);
+app.use("/api/audits", auditRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

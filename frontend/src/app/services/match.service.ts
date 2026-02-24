@@ -48,4 +48,8 @@ export class MatchService {
   getWinnersReport(partidaId: number) {
     return this.http.get(`${this.apiUrl}/${partidaId}/winners-report`);
   }
+
+  getPublicHistory() {
+    return this.http.get<any[]>(`${this.apiUrl}/public/history`);
+  }
 }

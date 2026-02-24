@@ -75,6 +75,14 @@ import { Subscription } from 'rxjs';
             <span class="mr-3 text-lg">🎫</span> Meus Bids
           </a>
 
+          <a
+            routerLink="/historico"
+            routerLinkActive="bg-indigo-50 text-indigo-600"
+            class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+          >
+            <span class="mr-3 text-lg">🏛️</span> Histórico
+          </a>
+
           <div *ngIf="isAdmin">
             <div class="my-4 border-t border-gray-100"></div>
             <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
@@ -108,6 +116,14 @@ import { Subscription } from 'rxjs';
               class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
             >
               <span class="mr-3 text-lg">📱</span> App Portaria
+            </a>
+            <a
+              *ngIf="isAdmin"
+              routerLink="/auditoria"
+              routerLinkActive="bg-indigo-50 text-indigo-600"
+              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            >
+              <span class="mr-3 text-lg">🛡️</span> Auditoria
             </a>
             <a
               *ngIf="isAdmin"
@@ -194,20 +210,25 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   private routeSub!: Subscription;
   private intervalId: any;
 
+  // ATUALIZADO COM O TÍTULO DO HISTÓRICO
   private routeTitles: { [key: string]: string } = {
     '/dashboard': ' ',
     '/minhas-apostas': 'Meus BIDs',
     '/profile': 'Meu Perfil',
+    '/historico': 'Hall da Fama',
     '/users': 'Gerenciamento de Usuários',
     '/groups': 'Empresas',
     '/matches/manage': 'Gestão de Bids',
     '/matches': 'Bids',
+    '/auditoria': 'Logs de Auditoria',
+    '/reception': 'App Portaria',
+    '/settings': 'Configurações',
   };
 
   constructor(
     private router: Router,
     private authService: AuthService,
-    private matchService: MatchService, // Adicionado para buscar os dados de pontos
+    private matchService: MatchService,
   ) {}
 
   ngOnInit() {
