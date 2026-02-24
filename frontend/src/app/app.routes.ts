@@ -14,6 +14,7 @@ import { ReceptionComponent } from './pages/reception/reception.component';
 import { SettingsComponent } from './pages/settings/settings.component';
 import { HistoryComponent } from './pages/history/history.component';
 import { AuditComponent } from './pages/audit/audit.component';
+import { SystemMonitorComponent } from './pages/system-monitor/system-monitor.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -51,6 +52,7 @@ export const routes: Routes = [
       { path: 'historico', component: HistoryComponent },
       { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard] },
       { path: 'auditoria', component: AuditComponent },
+      { path: 'monitor', component: SystemMonitorComponent },
     ],
   },
 

@@ -5,6 +5,7 @@ const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const qs = require("qs");
 const fs = require("fs");
+const logErro = require("../utils/errorLogger");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -25,9 +26,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// ============================================================
-// MOTOR DE AUDITORIA GLOBAL
-// ============================================================
 async function gravarAuditoria(
   connection,
   adminId,
@@ -49,11 +47,10 @@ async function gravarAuditoria(
       ],
     );
   } catch (e) {
-    console.error("Falha ao gravar auditoria:", e.message);
+    await logErro("USER_CONTROLLER_GRAVAR_AUDITORIA", e);
   }
 }
 
-// Converte Texto para IDs Relacionais do Organograma
 async function getOrCreateEmpresaSetor(connection, empNome, setNome) {
   const eName =
     empNome && String(empNome).trim() !== "" ? String(empNome).trim() : "Geral";
@@ -111,6 +108,7 @@ exports.getAllUsers = async (req, res) => {
     }));
     res.json(mapped);
   } catch (error) {
+    await logErro("USER_CONTROLLER_GET_ALL", error);
     res.status(500).json({ error: "Erro ao buscar usuários" });
   }
 };
@@ -124,17 +122,13 @@ exports.getUserById = async (req, res) => {
       ? res.json(rows[0])
       : res.status(404).json({ message: "Não encontrado" });
   } catch (error) {
+    await logErro("USER_CONTROLLER_GET_BY_ID", error);
     res.status(500).json({ error: "Erro" });
   }
 };
 
-// ============================================================
-// SINCRONIZAÇÃO DO AD (COM AUDITORIA E FILTRO ESTRITO)
-// ============================================================
 exports.syncUsers = async (req, res) => {
   const adminId = req.body.adminId || 1;
-  console.log("🔄 Iniciando sincronização com Azure AD...");
-
   try {
     const tokenUrl = `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`;
     const tokenData = qs.stringify({
@@ -161,12 +155,10 @@ exports.syncUsers = async (req, res) => {
 
     try {
       await connection.beginTransaction();
-
       for (const adUser of adUsers) {
         const email = adUser.mail || adUser.userPrincipalName;
         const setorTxt = adUser.department || adUser.jobTitle;
 
-        // FILTRO ESTRITO: Ignora quem não tem email ou não tem setor
         if (!email || !setorTxt) {
           ignorados++;
           continue;
@@ -197,8 +189,7 @@ exports.syncUsers = async (req, res) => {
             username = `${username}.${Math.floor(Math.random() * 1000)}`;
 
           await connection.execute(
-            `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, microsoft_id)
-             VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', ?, ?)`,
+            `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, microsoft_id) VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', ?, ?)`,
             [username, nome, email, empId, setId, ativo, oid],
           );
           criados++;
@@ -211,7 +202,6 @@ exports.syncUsers = async (req, res) => {
         }
       }
 
-      // LOG DE AUDITORIA DO SYNC GERAL
       await gravarAuditoria(connection, adminId, "SISTEMA", "SYNC_AD", null, {
         criados,
         atualizados,
@@ -227,16 +217,14 @@ exports.syncUsers = async (req, res) => {
 
     res.json({
       message: "Sincronização concluída com sucesso!",
-      details: `Criados: ${criados}, Atualizados: ${atualizados}, Ignorados (Sem Setor/Email): ${ignorados}.`,
+      details: `Criados: ${criados}, Atualizados: ${atualizados}, Ignorados: ${ignorados}.`,
     });
   } catch (error) {
+    await logErro("USER_CONTROLLER_SYNC_USERS", error);
     res.status(500).json({ error: "Erro interno.", details: error.message });
   }
 };
 
-// ============================================================
-// IMPORTAÇÃO VIA EXCEL (EMPRESA/SETOR + GRUPO DE APOSTA)
-// ============================================================
 exports.bulkUpdate = async (req, res) => {
   const { alteracoes, adminId, motivoGlobal } = req.body;
   if (!alteracoes || alteracoes.length === 0)
@@ -255,7 +243,6 @@ exports.bulkUpdate = async (req, res) => {
 
     for (const item of alteracoes) {
       if (!item.email) continue;
-
       let ativoFinal = 1;
       const vStatus = item.ativo !== undefined ? item.ativo : item.status;
       if (
@@ -277,15 +264,12 @@ exports.bulkUpdate = async (req, res) => {
         item.perfil && String(item.perfil).trim().toUpperCase() === "ADMIN"
           ? "ADMIN"
           : "USER";
-
-      // Organograma
       const { empId, setId } = await getOrCreateEmpresaSetor(
         connection,
         item.empresa,
         item.setor,
       );
 
-      // Lógica de Negócio (Grupo de Aposta)
       let grupoIdFinal = null;
       const nomeGrupoExcel =
         item.grupo || item.Grupo || item.group || item.Group;
@@ -351,15 +335,13 @@ exports.bulkUpdate = async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
+    await logErro("USER_CONTROLLER_BULK_UPDATE", error);
     res.status(500).json({ error: error.message });
   } finally {
     connection.release();
   }
 };
 
-// ============================================================
-// AÇÕES INDIVIDUAIS COM AUDITORIA
-// ============================================================
 exports.toggleStatus = async (req, res) => {
   const { id } = req.params;
   const { ativo, adminId } = req.body;
@@ -387,6 +369,7 @@ exports.toggleStatus = async (req, res) => {
     res.json({ message: `Status atualizado` });
   } catch (error) {
     await connection.rollback();
+    await logErro("USER_CONTROLLER_TOGGLE_STATUS", error);
     res.status(500).json({ error: "Erro" });
   } finally {
     connection.release();
@@ -422,6 +405,7 @@ exports.mudarPerfil = async (req, res) => {
     res.json({ message: "Perfil atualizado!" });
   } catch (error) {
     await connection.rollback();
+    await logErro("USER_CONTROLLER_MUDAR_PERFIL", error);
     res.status(500).json({ error: "Erro" });
   } finally {
     connection.release();
@@ -467,6 +451,7 @@ exports.updatePontos = async (req, res) => {
     res.json({ message: "Pontos atualizados" });
   } catch (error) {
     await connection.rollback();
+    await logErro("USER_CONTROLLER_UPDATE_PONTOS", error);
     res.status(500).json({ error: "Erro" });
   } finally {
     connection.release();
@@ -499,6 +484,7 @@ exports.updateUserGroup = async (req, res) => {
     res.json({ message: "Grupo de apostas atualizado!" });
   } catch (error) {
     await connection.rollback();
+    await logErro("USER_CONTROLLER_UPDATE_USER_GROUP", error);
     res.status(500).json({ error: "Erro interno ao salvar." });
   } finally {
     connection.release();
@@ -516,7 +502,7 @@ exports.createUser = async (req, res) => {
     empresa_id,
     grupo_id,
     pontos,
-    motivo, // <--- Puxando o motivo aqui também
+    motivo,
     adminId,
   } = req.body;
   const connection = await db.getConnection();
@@ -542,10 +528,8 @@ exports.createUser = async (req, res) => {
         pontosIniciais,
       ],
     );
-
     const novoUserId = result.insertId;
 
-    // Grava no Histórico
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, ?, ?)`,
       [
@@ -555,8 +539,6 @@ exports.createUser = async (req, res) => {
         motivo || "Criação de Usuário",
       ],
     );
-
-    // Grava na Auditoria
     await gravarAuditoria(
       connection,
       adminId,
@@ -570,7 +552,7 @@ exports.createUser = async (req, res) => {
     res.status(201).json({ message: "Criado com sucesso!" });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro no createUser:", error);
+    await logErro("USER_CONTROLLER_CREATE_USER", error);
     res.status(500).json({ message: "Erro" });
   } finally {
     connection.release();
@@ -587,14 +569,13 @@ exports.updateUserManual = async (req, res) => {
     setor_id,
     grupo_id,
     pontos,
-    motivo, // <--- Agora estamos puxando o motivo
+    motivo,
     adminId,
   } = req.body;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    // 1. Pega os pontos ANTES da edição para o Histórico
     const [oldUserRows] = await connection.execute(
       "SELECT pontos FROM usuarios WHERE id = ?",
       [req.params.id],
@@ -614,7 +595,6 @@ exports.updateUserManual = async (req, res) => {
     const setId = setor_id && String(setor_id) !== "null" ? setor_id : null;
     const grpId = grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
 
-    // 2. Executa a Edição
     await connection.execute(
       `UPDATE usuarios SET nome_completo = ?, email = ?, username = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ? ${qSenha} WHERE id = ?`,
       [
@@ -629,8 +609,6 @@ exports.updateUserManual = async (req, res) => {
         req.params.id,
       ],
     );
-
-    // 3. Salva no Histórico de Pontos (Garante que apareça no 📜)
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, ?, ?, ?)`,
       [
@@ -641,8 +619,6 @@ exports.updateUserManual = async (req, res) => {
         motivo || "Edição de Cadastro",
       ],
     );
-
-    // 4. Salva na Auditoria Invisível
     await gravarAuditoria(
       connection,
       adminId,
@@ -663,7 +639,7 @@ exports.updateUserManual = async (req, res) => {
     res.json({ message: "Atualizado" });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro no updateUserManual:", error);
+    await logErro("USER_CONTROLLER_UPDATE_USER_MANUAL", error);
     res.status(500).json({ message: "Erro ao atualizar" });
   } finally {
     connection.release();
@@ -689,31 +665,26 @@ exports.deleteUser = async (req, res) => {
     res.json({ message: "Excluído" });
   } catch (error) {
     await connection.rollback();
+    await logErro("USER_CONTROLLER_DELETE_USER", error);
     res.status(500).json({ message: "Erro" });
   } finally {
     connection.release();
   }
 };
 
-// ============================================================
-// OUTROS (Não precisam de transação pesada)
-// ============================================================
 exports.uploadAvatar = async (req, res) => {
   try {
     if (!req.file)
       return res.status(400).json({ error: "Nenhuma imagem enviada." });
-
-    // Pega o caminho do arquivo salvo pelo Multer
     const filePath = req.file.path.replace(/\\/g, "/");
     const userId = req.body.userId;
-
     await db.execute("UPDATE usuarios SET foto = ? WHERE id = ?", [
       filePath,
       userId,
     ]);
     res.json({ message: "Foto atualizada com sucesso", path: filePath });
   } catch (error) {
-    console.error("Erro no upload do avatar:", error);
+    await logErro("USER_CONTROLLER_UPLOAD_AVATAR", error);
     res.status(500).json({ error: "Erro interno ao salvar a foto." });
   }
 };
@@ -729,21 +700,14 @@ exports.getUserStats = async (req, res) => {
       "SELECT AVG(valor_pago) as media FROM apostas WHERE usuario_id = ?",
       [id],
     );
-
     const [historico] = await db.execute(
-      `
-      SELECT pontos_antes, pontos_depois, motivo, data_alteracao 
-      FROM historico_pontos 
-      WHERE usuario_id = ? 
-      ORDER BY data_alteracao DESC LIMIT 10
-    `,
+      `SELECT pontos_antes, pontos_depois, motivo, data_alteracao FROM historico_pontos WHERE usuario_id = ? ORDER BY data_alteracao DESC LIMIT 10`,
       [id],
     );
-
-    // Busca quais eventos estão ABERTOS no momento
     const [partidasAbertas] = await db.execute(
       "SELECT titulo FROM partidas WHERE status = 'ABERTA'",
     );
+
     const titulosAbertos = partidasAbertas.map((p) => p.titulo.trim());
 
     const historicoFormatado = historico.map((h) => {
@@ -753,19 +717,11 @@ exports.getUserStats = async (req, res) => {
       const mes = String(dataObj.getMonth() + 1).padStart(2, "0");
 
       let tipoFinal = "credito";
-
-      // Se for uma dedução de pontos (diff < 0)
       if (diff < 0) {
-        tipoFinal = "gasto"; // Padrão: Gasto Definitivo
-
-        // Verifica se é uma dedução de lance (BID)
+        tipoFinal = "gasto";
         if (h.motivo && h.motivo.startsWith("BID:")) {
           const tituloEvento = h.motivo.replace("BID:", "").trim();
-
-          // Se o evento do lance AINDA estiver aberto, o ponto está BLOQUEADO!
-          if (titulosAbertos.includes(tituloEvento)) {
-            tipoFinal = "bloqueado";
-          }
+          if (titulosAbertos.includes(tituloEvento)) tipoFinal = "bloqueado";
         }
       }
 
@@ -782,10 +738,10 @@ exports.getUserStats = async (req, res) => {
         bidsVencidos: bids[0].vencidos || 0,
         mediaPontos: Math.round(medias[0].media || 0),
       },
-      historico: historicoFormatado.reverse(), // Inverte para a ordem cronológica do gráfico
+      historico: historicoFormatado.reverse(),
     });
   } catch (error) {
-    console.error("Erro nas estatísticas:", error);
+    await logErro("USER_CONTROLLER_GET_USER_STATS", error);
     res.status(500).json({ error: "Erro ao buscar estatísticas do usuário" });
   }
 };
@@ -798,67 +754,52 @@ exports.getHistorico = async (req, res) => {
     );
     res.json(rows);
   } catch (error) {
+    await logErro("USER_CONTROLLER_GET_HISTORICO", error);
     res.status(500).json({ error: "Erro" });
   }
 };
 
 exports.addBatchPoints = async (req, res) => {
-  // Recebe 'motive' do frontend (em inglês)
   const { targetType, targetIds, points, motive, adminId } = req.body;
   const pontosNum = Number(points);
 
-  if (!targetType || !pontosNum || pontosNum <= 0 || !motive) {
+  if (!targetType || !pontosNum || pontosNum <= 0 || !motive)
     return res.status(400).json({ message: "Dados inválidos." });
-  }
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
-    let whereClause = "ativo = 1"; // Atinge apenas usuários ativos
+    let whereClause = "ativo = 1";
     let updateParams = [pontosNum];
     let whereParams = [];
 
-    // Lida com as seleções múltiplas da Dual Listbox
     if (targetType !== "all") {
-      if (!targetIds || targetIds.length === 0) {
+      if (!targetIds || targetIds.length === 0)
         throw new Error("Nenhum alvo foi selecionado na lista.");
-      }
-
       const placeholders = targetIds.map(() => "?").join(",");
-
-      if (targetType === "empresas") {
+      if (targetType === "empresas")
         whereClause += ` AND empresa_id IN (${placeholders})`;
-      } else if (targetType === "setores") {
+      else if (targetType === "setores")
         whereClause += ` AND setor_id IN (${placeholders})`;
-      } else if (targetType === "users") {
+      else if (targetType === "users")
         whereClause += ` AND id IN (${placeholders})`;
-      }
 
       whereParams = [...targetIds];
       updateParams.push(...targetIds);
     }
 
-    // 1. Executa o UPDATE em massa
     const [updateResult] = await connection.execute(
       `UPDATE usuarios SET pontos = pontos + ? WHERE ${whereClause}`,
       updateParams,
     );
-
     const affectedRows = updateResult.affectedRows;
     if (affectedRows === 0)
       throw new Error("Nenhum usuário encontrado com os filtros selecionados.");
 
-    // 2. Insere no Histórico de Pontos em massa
     await connection.execute(
-      `
-      INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo)
-      SELECT id, ?, (pontos - ?), pontos, ? FROM usuarios WHERE ${whereClause}
-    `,
+      `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) SELECT id, ?, (pontos - ?), pontos, ? FROM usuarios WHERE ${whereClause}`,
       [adminId || 1, pontosNum, motive, ...whereParams],
-    ); // Aqui usamos 'motive'
-
-    // 3. Grava Auditoria Global (Usando a função segura gravarAuditoria)
+    );
     await gravarAuditoria(
       connection,
       adminId,
@@ -870,7 +811,7 @@ exports.addBatchPoints = async (req, res) => {
         alvos: targetIds,
         qtd_usuarios: affectedRows,
         pontos_add: pontosNum,
-        justificativa: motive, // Mapeado perfeitamente de 'motive' para o JSON
+        justificativa: motive,
       },
     );
 
@@ -880,7 +821,7 @@ exports.addBatchPoints = async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro no batch points:", error);
+    await logErro("USER_CONTROLLER_ADD_BATCH_POINTS", error);
     res.status(500).json({ message: error.message || "Erro interno." });
   } finally {
     connection.release();
@@ -894,6 +835,7 @@ exports.getGruposApostas = async (req, res) => {
     );
     res.json(rows);
   } catch (error) {
+    await logErro("USER_CONTROLLER_GET_GRUPOS_APOSTAS", error);
     res.status(500).json({ error: "Erro ao buscar grupos de apostas" });
   }
 };
@@ -901,56 +843,43 @@ exports.getGruposApostas = async (req, res) => {
 exports.updateBatchGroup = async (req, res) => {
   const { targetType, targetIds, grupoId, motive, adminId } = req.body;
 
-  if (!targetType || !motive) {
+  if (!targetType || !motive)
     return res.status(400).json({ message: "Dados inválidos." });
-  }
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
-    let whereClause = "ativo = 1"; // Atinge apenas usuários ativos
+    let whereClause = "ativo = 1";
     let updateParams = [grupoId || null];
     let whereParams = [];
 
-    // Lida com as seleções múltiplas da Dual Listbox
     if (targetType !== "all") {
-      if (!targetIds || targetIds.length === 0) {
+      if (!targetIds || targetIds.length === 0)
         throw new Error("Nenhum alvo foi selecionado na lista.");
-      }
       const placeholders = targetIds.map(() => "?").join(",");
-      if (targetType === "empresas") {
+      if (targetType === "empresas")
         whereClause += ` AND empresa_id IN (${placeholders})`;
-      } else if (targetType === "setores") {
+      else if (targetType === "setores")
         whereClause += ` AND setor_id IN (${placeholders})`;
-      } else if (targetType === "users") {
+      else if (targetType === "users")
         whereClause += ` AND id IN (${placeholders})`;
-      }
+
       whereParams = [...targetIds];
       updateParams.push(...targetIds);
     }
 
-    // 1. Executa o UPDATE em massa do Grupo
     const [updateResult] = await connection.execute(
       `UPDATE usuarios SET grupo_id = ? WHERE ${whereClause}`,
       updateParams,
     );
-
     const affectedRows = updateResult.affectedRows;
-    if (affectedRows === 0) {
+    if (affectedRows === 0)
       throw new Error("Nenhum usuário encontrado com os filtros selecionados.");
-    }
 
-    // 2. Insere no Histórico (Ícone de pergaminho 📜), mostrando que os pontos não mudaram, mas o cadastro sim
     await connection.execute(
-      `
-      INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo)
-      SELECT id, ?, pontos, pontos, ? FROM usuarios WHERE ${whereClause}
-    `,
+      `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) SELECT id, ?, pontos, pontos, ? FROM usuarios WHERE ${whereClause}`,
       [adminId || 1, `Troca em Lote: ${motive}`, ...whereParams],
     );
-
-    // 3. Grava Auditoria Global
     await gravarAuditoria(
       connection,
       adminId,
@@ -972,7 +901,7 @@ exports.updateBatchGroup = async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro no batch group:", error);
+    await logErro("USER_CONTROLLER_UPDATE_BATCH_GROUP", error);
     res.status(500).json({ message: error.message || "Erro interno." });
   } finally {
     connection.release();

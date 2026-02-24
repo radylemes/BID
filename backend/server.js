@@ -15,6 +15,7 @@ const settingsRoutes = require("./routes/settingsRoutes");
 const pointsRuleRoutes = require("./routes/pointsRuleRoutes");
 const sectorRoutes = require("./routes/sectorRoutes");
 const auditRoutes = require("./routes/auditRoutes");
+const systemMonitorRoutes = require("./routes/systemMonitorRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -35,6 +36,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/points-rules", pointsRuleRoutes);
 app.use("/api/sectors", sectorRoutes);
 app.use("/api/audits", auditRoutes);
+app.use("/api/system-errors", systemMonitorRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

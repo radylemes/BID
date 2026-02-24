@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const logErro = require("../utils/errorLogger");
 
 exports.getAllSectors = async (req, res) => {
   try {
@@ -10,7 +11,7 @@ exports.getAllSectors = async (req, res) => {
     `);
     res.json(rows);
   } catch (error) {
-    console.error("Erro ao buscar setores:", error);
+    await logErro("SECTOR_CONTROLLER_GET_ALL", error);
     res.status(500).json({ error: "Erro ao buscar setores." });
   }
 };

@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const logErro = require("../utils/errorLogger");
 
 async function gravarAuditoria(
   connection,
@@ -21,7 +22,7 @@ async function gravarAuditoria(
       ],
     );
   } catch (e) {
-    console.error("Falha ao gravar auditoria nas Configurações:", e.message);
+    await logErro("SETTINGS_CONTROLLER_GRAVAR_AUDITORIA", e);
   }
 }
 
@@ -34,18 +35,16 @@ exports.getSettings = async (req, res) => {
     }, {});
     res.json(settings);
   } catch (error) {
-    console.error("Erro ao buscar configurações:", error);
+    await logErro("SETTINGS_CONTROLLER_GET_SETTINGS", error);
     res.status(500).json({ error: "Erro ao carregar configurações" });
   }
 };
 
 exports.updateSettings = async (req, res) => {
   const { adminId, ...settings } = req.body;
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
     for (const chave in settings) {
       await connection.execute(
         "UPDATE configuracoes SET valor = ? WHERE chave = ?",
@@ -61,12 +60,11 @@ exports.updateSettings = async (req, res) => {
       null,
       settings,
     );
-
     await connection.commit();
     res.json({ message: "Configurações atualizadas com sucesso!" });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro ao atualizar configurações:", error);
+    await logErro("SETTINGS_CONTROLLER_UPDATE_SETTINGS", error);
     res.status(500).json({ error: "Erro ao salvar configurações" });
   } finally {
     connection.release();

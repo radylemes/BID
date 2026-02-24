@@ -56,7 +56,7 @@ async function initializeDatabase() {
     `);
 
     // ============================================================
-    // 3. AUDITORIA GLOBAL (Motor de Logs)
+    // 3. AUDITORIA GLOBAL E MONITOR DE ERROS (Motor de Logs)
     // ============================================================
     await connection.query(`
       CREATE TABLE IF NOT EXISTS auditoria (
@@ -67,6 +67,18 @@ async function initializeDatabase() {
         registro_id INT NULL,           -- ID do item afetado
         detalhes JSON NULL,             -- Guarda { "antes": {...}, "depois": {...}, "motivo": "..." }
         ip_address VARCHAR(50) NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // NOVO: Tabela para registar falhas e exceções do sistema
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS logs_erros (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        modulo VARCHAR(100) NOT NULL,
+        mensagem TEXT NOT NULL,
+        stack_trace TEXT NULL,
+        resolvido TINYINT(1) DEFAULT 0,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -293,7 +305,9 @@ async function initializeDatabase() {
       console.log("👤 Admin padrão recriado.");
     }
 
-    console.log("🏁 Banco Inicializado com Nova Arquitetura de Ingressos!");
+    console.log(
+      "🏁 Banco Inicializado com Nova Arquitetura de Ingressos e Monitoramento de Erros!",
+    );
   } catch (error) {
     console.error("❌ Erro fatal:", error);
   } finally {

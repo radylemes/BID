@@ -1,8 +1,8 @@
 const db = require("../config/db");
+const logErro = require("../utils/errorLogger");
 
 exports.getLogs = async (req, res) => {
   try {
-    // Busca os últimos 500 logs, convertendo criado_em para data_hora para o Frontend entender
     const [rows] = await db.query(`
       SELECT a.id, a.modulo, a.acao, a.registro_id, a.detalhes, a.criado_em as data_hora, 
              u.nome_completo as admin_nome 
@@ -12,7 +12,6 @@ exports.getLogs = async (req, res) => {
       LIMIT 500
     `);
 
-    // Tenta converter os detalhes (que estão em string JSON) de volta para Objeto para o Frontend
     const logsFormatados = rows.map((row) => {
       let detalhesObj = {};
       try {
@@ -25,7 +24,7 @@ exports.getLogs = async (req, res) => {
 
     res.json(logsFormatados);
   } catch (error) {
-    console.error("Erro ao buscar logs de auditoria:", error);
+    await logErro("AUDIT_CONTROLLER_GET_LOGS", error);
     res.status(500).json({ error: "Erro interno ao carregar a auditoria." });
   }
 };

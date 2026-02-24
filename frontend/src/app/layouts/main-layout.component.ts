@@ -133,6 +133,14 @@ import { Subscription } from 'rxjs';
             >
               <span class="mr-3 text-lg">⚙️</span> Configurações
             </a>
+            <a
+              *ngIf="isAdmin"
+              routerLink="/monitor"
+              routerLinkActive="bg-indigo-50 text-indigo-600"
+              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            >
+              <span class="mr-3 text-lg">🚨</span> Monitor de Sistema
+            </a>
           </div>
         </nav>
 
@@ -223,6 +231,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     '/auditoria': 'Logs de Auditoria',
     '/reception': 'App Portaria',
     '/settings': 'Configurações',
+    '/monitor': 'Monitor do Sistema',
   };
 
   constructor(

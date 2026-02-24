@@ -1,8 +1,6 @@
 const db = require("../config/db");
+const logErro = require("../utils/errorLogger");
 
-// ============================================================
-// MOTOR DE AUDITORIA INVISÍVEL
-// ============================================================
 async function gravarAuditoria(
   connection,
   adminId,
@@ -24,40 +22,29 @@ async function gravarAuditoria(
       ],
     );
   } catch (e) {
-    console.error("Falha ao gravar auditoria no GuestController:", e.message);
+    await logErro("GUEST_CONTROLLER_GRAVAR_AUDITORIA", e);
   }
 }
 
-// 1. Listar convidados do usuário (já trazendo os eventos que participaram)
 exports.getGuests = async (req, res) => {
   const { userId } = req.params;
   try {
     const query = `
-      SELECT 
-        c.*,
-        (
-          SELECT GROUP_CONCAT(DISTINCT p.titulo SEPARATOR ', ')
-          FROM apostas a
-          JOIN partidas p ON a.partida_id = p.id
-          WHERE a.convidado_id = c.id AND a.status = 'GANHOU'
-        ) as eventos_participados
-      FROM convidados c
-      WHERE c.usuario_id = ?
-      ORDER BY c.nome_completo ASC
+      SELECT c.*,
+        (SELECT GROUP_CONCAT(DISTINCT p.titulo SEPARATOR ', ') FROM apostas a JOIN partidas p ON a.partida_id = p.id WHERE a.convidado_id = c.id AND a.status = 'GANHOU') as eventos_participados
+      FROM convidados c WHERE c.usuario_id = ? ORDER BY c.nome_completo ASC
     `;
     const [rows] = await db.execute(query, [userId]);
     res.json(rows);
   } catch (error) {
-    console.error("Erro getGuests:", error);
+    await logErro("GUEST_CONTROLLER_GET_GUESTS", error);
     res.status(500).json({ error: "Erro ao buscar convidados." });
   }
 };
 
-// 2. Criar novo convidado
 exports.createGuest = async (req, res) => {
   const { usuario_id, nome_completo, cpf, email, telefone } = req.body;
   try {
-    // Busca o NOME do usuário para a auditoria
     const [userRows] = await db.execute(
       "SELECT nome_completo FROM usuarios WHERE id = ?",
       [usuario_id],
@@ -70,7 +57,6 @@ exports.createGuest = async (req, res) => {
       [usuario_id, nome_completo, cpf, email || null, telefone || null],
     );
 
-    // Grava a auditoria com o nome claro
     await gravarAuditoria(
       null,
       usuario_id,
@@ -87,11 +73,11 @@ exports.createGuest = async (req, res) => {
 
     res.json({ message: "Convidado salvo com sucesso!", id: result.insertId });
   } catch (error) {
+    await logErro("GUEST_CONTROLLER_CREATE_GUEST", error);
     res.status(500).json({ error: "Erro ao salvar convidado." });
   }
 };
 
-// 3. Atualizar convidado
 exports.updateGuest = async (req, res) => {
   const { id } = req.params;
   const { nome_completo, cpf, email, telefone } = req.body;
@@ -102,55 +88,48 @@ exports.updateGuest = async (req, res) => {
     );
     res.json({ message: "Convidado atualizado!" });
   } catch (error) {
+    await logErro("GUEST_CONTROLLER_UPDATE_GUEST", error);
     res.status(500).json({ error: "Erro ao atualizar." });
   }
 };
 
-// 4. Excluir convidado
 exports.deleteGuest = async (req, res) => {
   const { id } = req.params;
   try {
     await db.execute("DELETE FROM convidados WHERE id = ?", [id]);
     res.json({ message: "Convidado excluído!" });
   } catch (error) {
+    await logErro("GUEST_CONTROLLER_DELETE_GUEST", error);
     res.status(500).json({ error: "Erro ao excluir." });
   }
 };
 
-// 5. Vincular convidado ao Ingresso Específico (Blindado contra erros de rota)
 exports.assignGuestToTicket = async (req, res) => {
-  // Pega o ID venha ele com o nome que vier da rota!
   const ingressoId =
     req.params.ingressoId || req.params.apostaId || req.params.id;
   const { convidado_id, usuario_id } = req.body;
 
   try {
-    if (!ingressoId) {
-      console.error("❌ Erro: ID do ingresso não chegou ao Controller!");
+    if (!ingressoId)
       return res
         .status(400)
         .json({ error: "ID do ingresso não foi identificado." });
-    }
 
-    // 1. Verifica se o INGRESSO existe e se já foi retirado
     const [ticketData] = await db.execute(
       "SELECT checkin FROM ingressos WHERE id = ? AND usuario_id = ?",
       [ingressoId, usuario_id],
     );
-
-    if (ticketData.length === 0) {
+    if (ticketData.length === 0)
       return res
         .status(403)
         .json({ error: "Ingresso inválido ou não pertence a você." });
-    }
+    if (ticketData[0].checkin === 1)
+      return res
+        .status(403)
+        .json({
+          error: "Bloqueado! Este ingresso já foi retirado na portaria.",
+        });
 
-    if (ticketData[0].checkin === 1) {
-      return res.status(403).json({
-        error: "Bloqueado! Este ingresso já foi retirado na portaria.",
-      });
-    }
-
-    // 2. Busca nomes para auditoria
     const [userRows] = await db.execute(
       "SELECT nome_completo FROM usuarios WHERE id = ?",
       [usuario_id],
@@ -167,13 +146,11 @@ exports.assignGuestToTicket = async (req, res) => {
         ? guestRows[0].nome_completo
         : "Convidado Desconhecido";
 
-    // 3. Atualiza o INGRESSO específico
     await db.execute("UPDATE ingressos SET convidado_id = ? WHERE id = ?", [
       convidado_id,
       ingressoId,
     ]);
 
-    // 4. Grava Auditoria (Validação extra para não quebrar se a função global faltar)
     if (typeof gravarAuditoria === "function") {
       await gravarAuditoria(
         null,
@@ -191,7 +168,7 @@ exports.assignGuestToTicket = async (req, res) => {
 
     res.json({ message: "Retirante vinculado com sucesso!" });
   } catch (error) {
-    console.error("❌ Erro fatal no assignGuestToTicket:", error);
+    await logErro("GUEST_CONTROLLER_ASSIGN_TICKET", error);
     res
       .status(500)
       .json({

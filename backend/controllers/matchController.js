@@ -1,8 +1,6 @@
 const db = require("../config/db");
+const logErro = require("../utils/errorLogger");
 
-// ============================================================
-// MOTOR DE AUDITORIA GLOBAL INVISÍVEL
-// ============================================================
 async function gravarAuditoria(
   connection,
   adminId,
@@ -24,7 +22,7 @@ async function gravarAuditoria(
       ],
     );
   } catch (e) {
-    console.error("Falha ao gravar auditoria no MatchController:", e.message);
+    await logErro("MATCH_CONTROLLER_GRAVAR_AUDITORIA", e);
   }
 }
 
@@ -45,6 +43,7 @@ exports.getGroups = async (req, res) => {
     );
     res.json(rows);
   } catch (error) {
+    await logErro("MATCH_CONTROLLER_GET_GROUPS", error);
     res.status(500).json({ error: "Erro ao buscar grupos." });
   }
 };
@@ -59,7 +58,6 @@ exports.getMatches = async (req, res) => {
     if (users.length === 0) return res.json([]);
     const user = users[0];
 
-    // ATUALIZAÇÃO ARQUITETURAL: 'raw_ingressos' agora varre a tabela de Ingressos Reais
     let sql = `
       SELECT p.*, g.nome as nome_grupo,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as tickets_comprados,
@@ -76,7 +74,6 @@ exports.getMatches = async (req, res) => {
       WHERE 1=1 
     `;
 
-    // 4 Parâmetros para os 4 SELECTS embutidos na Query
     const params = [userId, userId, userId, userId];
 
     if (user.perfil !== "ADMIN") {
@@ -98,7 +95,7 @@ exports.getMatches = async (req, res) => {
     }));
     res.json(results);
   } catch (error) {
-    console.error("Erro em getMatches:", error);
+    await logErro("MATCH_CONTROLLER_GET_MATCHES", error);
     res.status(500).json({ error: "Erro ao buscar eventos." });
   }
 };
@@ -118,7 +115,6 @@ exports.createMatch = async (req, res) => {
       motivo,
       banner_existente,
     } = req.body;
-
     const grupoIdFinal =
       grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
     if (!data_jogo)
@@ -127,18 +123,14 @@ exports.createMatch = async (req, res) => {
     const inicioFormatado = data_inicio_apostas
       ? formatarDataLocal(data_inicio_apostas)
       : formatarDataLocal(new Date().toISOString());
-
     let bannerPath = banner_existente || banner || "";
-    if (req.file) {
-      bannerPath = req.file.path.replace(/\\/g, "/");
-    }
+    if (req.file) bannerPath = req.file.path.replace(/\\/g, "/");
 
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
       const [result] = await connection.execute(
-        `INSERT INTO partidas (titulo, banner, local, data_jogo, data_inicio_apostas, data_limite_aposta, quantidade_premios, grupo_id, status) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
+        `INSERT INTO partidas (titulo, banner, local, data_jogo, data_inicio_apostas, data_limite_aposta, quantidade_premios, grupo_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
         [
           titulo,
           bannerPath,
@@ -150,7 +142,6 @@ exports.createMatch = async (req, res) => {
           grupoIdFinal,
         ],
       );
-
       const novoBidId = result.insertId;
 
       if (adminId) {
@@ -172,7 +163,6 @@ exports.createMatch = async (req, res) => {
           motivo: motivo || `Criação do evento: ${titulo}`,
         },
       );
-
       await connection.commit();
       res.json({ message: "Evento criado com sucesso!" });
     } catch (err) {
@@ -182,6 +172,7 @@ exports.createMatch = async (req, res) => {
       connection.release();
     }
   } catch (error) {
+    await logErro("MATCH_CONTROLLER_CREATE_MATCH", error);
     res.status(500).json({ error: "Erro ao criar." });
   }
 };
@@ -201,16 +192,13 @@ exports.updateMatch = async (req, res) => {
     motivo,
     banner_existente,
   } = req.body;
-
   const grupoIdFinal =
     grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
   if (!data_jogo)
     return res.status(400).json({ error: "Data do evento obrigatória." });
 
   let bannerPath = banner_existente || banner || "";
-  if (req.file) {
-    bannerPath = req.file.path.replace(/\\/g, "/");
-  }
+  if (req.file) bannerPath = req.file.path.replace(/\\/g, "/");
 
   const connection = await db.getConnection();
   try {
@@ -244,11 +232,11 @@ exports.updateMatch = async (req, res) => {
       grupo_id: grupoIdFinal,
       motivo: motivo || `Edição do evento: ${titulo}`,
     });
-
     await connection.commit();
     res.json({ message: "Evento atualizado com sucesso!" });
   } catch (error) {
     await connection.rollback();
+    await logErro("MATCH_CONTROLLER_UPDATE_MATCH", error);
     res.status(500).json({ error: "Erro ao atualizar evento." });
   } finally {
     connection.release();
@@ -340,6 +328,7 @@ exports.placeBet = async (req, res) => {
     res.json({ message: "Participação confirmada!" });
   } catch (error) {
     if (connection) await connection.rollback();
+    await logErro("MATCH_CONTROLLER_PLACE_BET", error);
     res.status(400).json({ error: error.message });
   } finally {
     if (connection) connection.release();
@@ -378,13 +367,10 @@ exports.finishMatch = async (req, res) => {
         "UPDATE apostas SET status = 'GANHOU' WHERE id = ?",
         [win.id],
       );
-
-      // INSERÇÃO NA NOVA TABELA: Criação do Ingresso Físico para a Portaria
       await connection.execute(
         "INSERT INTO ingressos (aposta_id, usuario_id) VALUES (?, ?)",
         [win.id, win.usuario_id],
       );
-
       await connection.execute(
         "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)",
         [
@@ -412,7 +398,6 @@ exports.finishMatch = async (req, res) => {
       );
       const saldoAtual = Number(uRows[0]?.pontos || 0);
       const novoSaldo = saldoAtual + valorTotal;
-
       await connection.execute("UPDATE usuarios SET pontos = ? WHERE id = ?", [
         novoSaldo,
         userId,
@@ -433,7 +418,6 @@ exports.finishMatch = async (req, res) => {
       "UPDATE partidas SET status = 'FINALIZADA' WHERE id = ?",
       [partidaId],
     );
-
     await gravarAuditoria(
       connection,
       adminId,
@@ -451,6 +435,7 @@ exports.finishMatch = async (req, res) => {
     res.json({ message: "Sorteio realizado!" });
   } catch (error) {
     await connection.rollback();
+    await logErro("MATCH_CONTROLLER_FINISH_MATCH", error);
     res.status(500).json({ error: error.message });
   } finally {
     connection.release();
@@ -507,7 +492,6 @@ exports.deleteMatch = async (req, res) => {
     }
 
     await connection.execute("DELETE FROM partidas WHERE id = ?", [id]);
-
     await gravarAuditoria(connection, adminId, "BIDS", "DELETE_BID", id, {
       titulo: match.titulo,
       motivo: motivo || "Exclusão do evento pelo Administrador",
@@ -517,6 +501,7 @@ exports.deleteMatch = async (req, res) => {
     res.json({ message: "Evento excluído e pontos reembolsados." });
   } catch (error) {
     await connection.rollback();
+    await logErro("MATCH_CONTROLLER_DELETE_MATCH", error);
     res.status(500).json({ error: error.message });
   } finally {
     connection.release();
@@ -531,13 +516,13 @@ exports.getBalance = async (req, res) => {
     );
     res.json({ pontos: rows[0].pontos });
   } catch (error) {
+    await logErro("MATCH_CONTROLLER_GET_BALANCE", error);
     res.status(500).json({ error: "Erro" });
   }
 };
 
 exports.getMatchWinnersReport = async (req, res) => {
   try {
-    // ATUALIZAÇÃO NO RELATÓRIO: Cruzamento das tabelas de Apostas e Ingressos
     const [rows] = await db.execute(
       `
       SELECT u.nome_completo AS titular_nome, s.nome AS titular_setor, a.valor_pago AS lance_pago,
@@ -554,53 +539,25 @@ exports.getMatchWinnersReport = async (req, res) => {
     );
     res.json(rows);
   } catch (error) {
+    await logErro("MATCH_CONTROLLER_WINNERS_REPORT", error);
     res.status(500).json({ error: "Erro." });
   }
 };
 
 exports.getPublicHistory = async (req, res) => {
   try {
-    console.log("🔍 [HISTÓRICO] Frontend pediu a lista de BIDs finalizados...");
-
-    // 1. Busca os eventos já finalizados
-    const [matches] = await db.execute(`
-      SELECT id, titulo, banner, data_jogo, quantidade_premios
-      FROM partidas
-      WHERE status = 'FINALIZADA'
-      ORDER BY data_jogo DESC
-      LIMIT 20
-    `);
-
-    console.log(
-      `✅ [HISTÓRICO] Encontrados ${matches.length} eventos finalizados no banco.`,
+    const [matches] = await db.execute(
+      `SELECT id, titulo, banner, data_jogo, quantidade_premios FROM partidas WHERE status = 'FINALIZADA' ORDER BY data_jogo DESC LIMIT 20`,
     );
-
     const history = [];
 
-    // 2. Para cada evento, calcula as estatísticas e busca os vencedores
     for (let match of matches) {
       const [stats] = await db.execute(
-        `
-        SELECT 
-          COUNT(id) as total_lances,
-          COUNT(DISTINCT usuario_id) as total_participantes,
-          SUM(valor_pago) as total_pontos,
-          AVG(valor_pago) as media_pontos
-        FROM apostas
-        WHERE partida_id = ?
-      `,
+        `SELECT COUNT(id) as total_lances, COUNT(DISTINCT usuario_id) as total_participantes, SUM(valor_pago) as total_pontos, AVG(valor_pago) as media_pontos FROM apostas WHERE partida_id = ?`,
         [match.id],
       );
-
-      // Removi a coluna 'u.foto' temporariamente caso ela seja o motivo de um possível crash SQL
       const [winners] = await db.execute(
-        `
-        SELECT u.nome_completo, a.valor_pago
-        FROM apostas a
-        JOIN usuarios u ON a.usuario_id = u.id
-        WHERE a.partida_id = ? AND a.status = 'GANHOU'
-        ORDER BY a.valor_pago DESC
-      `,
+        `SELECT u.nome_completo, a.valor_pago FROM apostas a JOIN usuarios u ON a.usuario_id = u.id WHERE a.partida_id = ? AND a.status = 'GANHOU' ORDER BY a.valor_pago DESC`,
         [match.id],
       );
 
@@ -618,13 +575,9 @@ exports.getPublicHistory = async (req, res) => {
         })),
       });
     }
-
-    console.log(
-      "🚀 [HISTÓRICO] Dados processados com sucesso. Enviando para o Frontend!",
-    );
     res.json(history);
   } catch (error) {
-    console.error("❌ [ERRO FATAL NO HISTÓRICO]:", error);
+    await logErro("MATCH_CONTROLLER_PUBLIC_HISTORY", error);
     res.status(500).json({ error: "Erro ao carregar o mural de histórico." });
   }
 };

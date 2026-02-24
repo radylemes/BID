@@ -1,8 +1,6 @@
 const db = require("../config/db");
+const logErro = require("../utils/errorLogger");
 
-// ============================================================
-// MOTOR DE AUDITORIA INVISÍVEL
-// ============================================================
 async function gravarAuditoria(
   connection,
   adminId,
@@ -23,44 +21,29 @@ async function gravarAuditoria(
         JSON.stringify(detalhes),
       ],
     );
-    console.log(
-      `✅ [AUDITORIA] Portaria: Acesso liberado registrado com sucesso!`,
-    );
   } catch (e) {
-    console.error("❌ Falha ao gravar auditoria na Portaria:", e.message);
+    await logErro("RECEPTION_CONTROLLER_GRAVAR_AUDITORIA", e);
   }
 }
 
-// 1. Carrega os eventos
 exports.getTodayEvents = async (req, res) => {
   try {
-    const [rows] = await db.execute(`
-      SELECT id, titulo, data_jogo as data_evento 
-      FROM partidas 
-      ORDER BY data_jogo ASC
-    `);
+    const [rows] = await db.execute(
+      `SELECT id, titulo, data_jogo as data_evento FROM partidas ORDER BY data_jogo ASC`,
+    );
     res.json(rows);
   } catch (error) {
+    await logErro("RECEPTION_CONTROLLER_GET_TODAY_EVENTS", error);
     res.status(500).json({ error: "Erro ao buscar eventos." });
   }
 };
 
-// 2. Busca a lista INDIVIDUAL de ingressos
 exports.getEventGuests = async (req, res) => {
   const { eventId } = req.params;
   try {
     const query = `
-      SELECT 
-        i.id as ingresso_id,
-        i.aposta_id,
-        i.checkin,
-        i.assinatura,
-        i.recebedor_nome as aposta_recebedor_nome,
-        i.recebedor_cpf as aposta_recebedor_cpf,
-        u.nome_completo as titular_nome,
-        e.nome as empresa,
-        c.nome_completo as retirante_nome,
-        c.cpf as retirante_cpf
+      SELECT i.id as ingresso_id, i.aposta_id, i.checkin, i.assinatura, i.recebedor_nome as aposta_recebedor_nome, i.recebedor_cpf as aposta_recebedor_cpf,
+        u.nome_completo as titular_nome, e.nome as empresa, c.nome_completo as retirante_nome, c.cpf as retirante_cpf
       FROM ingressos i
       JOIN apostas a ON i.aposta_id = a.id
       JOIN usuarios u ON i.usuario_id = u.id
@@ -70,7 +53,6 @@ exports.getEventGuests = async (req, res) => {
       ORDER BY u.nome_completo ASC
     `;
     const [rows] = await db.execute(query, [eventId]);
-
     const formatedRows = rows.map((r) => ({
       ingresso_id: r.ingresso_id,
       aposta_id: r.aposta_id,
@@ -83,17 +65,14 @@ exports.getEventGuests = async (req, res) => {
       retirante_nome: r.retirante_nome || "Não indicado",
       retirante_cpf: r.retirante_cpf || "---",
     }));
-
     res.json(formatedRows);
   } catch (error) {
-    console.error("Erro getEventGuests:", error);
+    await logErro("RECEPTION_CONTROLLER_GET_EVENT_GUESTS", error);
     res.status(500).json({ error: "Erro ao buscar lista de acesso." });
   }
 };
 
-// 3. Processa o Check-in POR INGRESSO
 exports.checkin = async (req, res) => {
-  // Pega tanto ingressoId (novo) quanto apostaId (fallback de segurança)
   const idFinal = req.body.ingressoId || req.body.apostaId;
   const { assinaturaBase64, recebedorNome, recebedorCpf, adminId } = req.body;
 
@@ -106,23 +85,15 @@ exports.checkin = async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
-    // Atualiza a tabela INGRESSOS
     await connection.execute(
       `UPDATE ingressos SET checkin = 1, assinatura = ?, recebedor_nome = ?, recebedor_cpf = ?, data_checkin = NOW() WHERE id = ?`,
       [assinaturaBase64, recebedorNome, recebedorCpf, idFinal],
     );
 
     const [dados] = await connection.execute(
-      `SELECT p.titulo, u.nome_completo as titular 
-       FROM ingressos i
-       JOIN apostas a ON i.aposta_id = a.id 
-       JOIN partidas p ON a.partida_id = p.id 
-       JOIN usuarios u ON i.usuario_id = u.id 
-       WHERE i.id = ?`,
+      `SELECT p.titulo, u.nome_completo as titular FROM ingressos i JOIN apostas a ON i.aposta_id = a.id JOIN partidas p ON a.partida_id = p.id JOIN usuarios u ON i.usuario_id = u.id WHERE i.id = ?`,
       [idFinal],
     );
-
     const eventoTitulo =
       dados.length > 0 ? dados[0].titulo : "Evento Desconhecido";
     const titularNome =
@@ -154,7 +125,7 @@ exports.checkin = async (req, res) => {
     res.json({ message: "Entrada liberada com sucesso." });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro interno no checkin:", error);
+    await logErro("RECEPTION_CONTROLLER_CHECKIN", error);
     res.status(500).json({ error: "Falha interna ao processar o check-in." });
   } finally {
     connection.release();
