@@ -1,81 +1,164 @@
 const db = require("../config/db");
 
-// 1. Busca os eventos recentes prontos para a Portaria
+// ============================================================
+// MOTOR DE AUDITORIA INVISÍVEL
+// ============================================================
+async function gravarAuditoria(
+  connection,
+  adminId,
+  modulo,
+  acao,
+  registroId,
+  detalhes,
+) {
+  try {
+    const executor = connection || db;
+    await executor.execute(
+      `INSERT INTO auditoria (admin_id, modulo, acao, registro_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
+      [
+        adminId || 1,
+        modulo,
+        acao,
+        registroId || null,
+        JSON.stringify(detalhes),
+      ],
+    );
+    console.log(
+      `✅ [AUDITORIA] Portaria: Acesso liberado registrado com sucesso!`,
+    );
+  } catch (e) {
+    console.error("❌ Falha ao gravar auditoria na Portaria:", e.message);
+  }
+}
+
+// 1. Carrega os eventos
 exports.getTodayEvents = async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT id, titulo, local, data_jogo AS data_evento, banner 
+    const [rows] = await db.execute(`
+      SELECT id, titulo, data_jogo as data_evento 
       FROM partidas 
-      WHERE status = 'FINALIZADA' OR status = 'ENCERRADA'
-      ORDER BY data_jogo DESC
-      LIMIT 15
+      ORDER BY data_jogo ASC
     `);
     res.json(rows);
   } catch (error) {
-    console.error("❌ [Portaria] Erro no getTodayEvents:", error);
     res.status(500).json({ error: "Erro ao buscar eventos." });
   }
 };
 
-// 2. Busca a lista de convidados (AGORA TRAZ OS DADOS DO RECEBEDOR)
+// 2. Busca a lista INDIVIDUAL de ingressos
 exports.getEventGuests = async (req, res) => {
   const { eventId } = req.params;
   try {
-    const [rows] = await db.query(
-      `
+    const query = `
       SELECT 
-        a.id AS aposta_id,
-        c.nome_completo AS retirante_nome,
-        c.cpf AS retirante_cpf,
-        u.nome_completo AS titular_nome,
-        COALESCE(g.nome, 'Geral') AS empresa,
-        a.checkin,
-        a.assinatura,
-        a.recebedor_nome,
-        a.recebedor_cpf
-      FROM apostas a
-      JOIN usuarios u ON a.usuario_id = u.id
-      LEFT JOIN grupos g ON u.grupo_id = g.id
-      JOIN convidados c ON a.convidado_id = c.id
+        i.id as ingresso_id,
+        i.aposta_id,
+        i.checkin,
+        i.assinatura,
+        i.recebedor_nome as aposta_recebedor_nome,
+        i.recebedor_cpf as aposta_recebedor_cpf,
+        u.nome_completo as titular_nome,
+        e.nome as empresa,
+        c.nome_completo as retirante_nome,
+        c.cpf as retirante_cpf
+      FROM ingressos i
+      JOIN apostas a ON i.aposta_id = a.id
+      JOIN usuarios u ON i.usuario_id = u.id
+      LEFT JOIN empresas e ON u.empresa_id = e.id
+      LEFT JOIN convidados c ON i.convidado_id = c.id
       WHERE a.partida_id = ? AND a.status = 'GANHOU'
-      ORDER BY empresa ASC, c.nome_completo ASC
-    `,
-      [eventId],
-    );
+      ORDER BY u.nome_completo ASC
+    `;
+    const [rows] = await db.execute(query, [eventId]);
 
-    res.json(rows);
+    const formatedRows = rows.map((r) => ({
+      ingresso_id: r.ingresso_id,
+      aposta_id: r.aposta_id,
+      checkin: r.checkin === 1,
+      assinatura: r.assinatura,
+      titular_nome: r.titular_nome,
+      empresa: r.empresa || "Geral",
+      recebedor_nome: r.aposta_recebedor_nome || r.retirante_nome || "Pendente",
+      recebedor_cpf: r.aposta_recebedor_cpf || r.retirante_cpf || "---",
+      retirante_nome: r.retirante_nome || "Não indicado",
+      retirante_cpf: r.retirante_cpf || "---",
+    }));
+
+    res.json(formatedRows);
   } catch (error) {
-    console.error("❌ [Portaria] Erro no getEventGuests:", error);
-    res.status(500).json({ error: "Erro ao buscar convidados." });
+    console.error("Erro getEventGuests:", error);
+    res.status(500).json({ error: "Erro ao buscar lista de acesso." });
   }
 };
 
-// 3. Realiza o Check-in salvando a assinatura e os dados do acompanhante
-exports.confirmCheckin = async (req, res) => {
-  const { apostaId, assinaturaBase64, recebedorNome, recebedorCpf } = req.body;
+// 3. Processa o Check-in POR INGRESSO
+exports.checkin = async (req, res) => {
+  // Pega tanto ingressoId (novo) quanto apostaId (fallback de segurança)
+  const idFinal = req.body.ingressoId || req.body.apostaId;
+  const { assinaturaBase64, recebedorNome, recebedorCpf, adminId } = req.body;
+
+  if (!idFinal || !assinaturaBase64 || !recebedorNome || !recebedorCpf) {
+    return res
+      .status(400)
+      .json({ error: "Dados incompletos para o check-in." });
+  }
+
+  const connection = await db.getConnection();
   try {
-    await db.query(
-      "UPDATE apostas SET checkin = TRUE, assinatura = ?, recebedor_nome = ?, recebedor_cpf = ? WHERE id = ?",
-      [assinaturaBase64, recebedorNome, recebedorCpf, apostaId],
+    await connection.beginTransaction();
+
+    // Atualiza a tabela INGRESSOS
+    await connection.execute(
+      `UPDATE ingressos SET checkin = 1, assinatura = ?, recebedor_nome = ?, recebedor_cpf = ?, data_checkin = NOW() WHERE id = ?`,
+      [assinaturaBase64, recebedorNome, recebedorCpf, idFinal],
     );
-    res.json({ message: "Check-in realizado com sucesso!" });
+
+    const [dados] = await connection.execute(
+      `SELECT p.titulo, u.nome_completo as titular 
+       FROM ingressos i
+       JOIN apostas a ON i.aposta_id = a.id 
+       JOIN partidas p ON a.partida_id = p.id 
+       JOIN usuarios u ON i.usuario_id = u.id 
+       WHERE i.id = ?`,
+      [idFinal],
+    );
+
+    const eventoTitulo =
+      dados.length > 0 ? dados[0].titulo : "Evento Desconhecido";
+    const titularNome =
+      dados.length > 0 ? dados[0].titular : "Titular Desconhecido";
+
+    const [adminDados] = await connection.execute(
+      `SELECT nome_completo FROM usuarios WHERE id = ?`,
+      [adminId || 1],
+    );
+    const nomePorteiro =
+      adminDados.length > 0 ? adminDados[0].nome_completo : "Portaria";
+
+    await gravarAuditoria(
+      connection,
+      adminId || 1,
+      "PORTARIA",
+      "CHECKIN_INGRESSO",
+      idFinal,
+      {
+        evento: eventoTitulo,
+        titular: titularNome,
+        recebedor: recebedorNome,
+        cpf_recebedor: recebedorCpf,
+        motivo: `O(a) funcionário(a) ${nomePorteiro} liberou a entrada de ${recebedorNome} usando o ingresso #${idFinal} de ${titularNome} no evento: ${eventoTitulo}`,
+      },
+    );
+
+    await connection.commit();
+    res.json({ message: "Entrada liberada com sucesso." });
   } catch (error) {
-    console.error("❌ [Portaria] Erro no confirmCheckin:", error);
-    res.status(500).json({ error: "Erro ao confirmar check-in." });
+    await connection.rollback();
+    console.error("Erro interno no checkin:", error);
+    res.status(500).json({ error: "Falha interna ao processar o check-in." });
+  } finally {
+    connection.release();
   }
 };
 
-// 4. Rota de RAIO-X (Debug)
-exports.debugEvents = async (req, res) => {
-  try {
-    const [dbDate] = await db.query(
-      "SELECT CURDATE() as data_hoje, NOW() as data_hora_agora",
-    );
-    const [partidas] = await db.query(
-      "SELECT id, titulo, data_jogo, status FROM partidas",
-    );
-    res.json({ relogio: dbDate[0], total: partidas.length, eventos: partidas });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+exports.processCheckin = exports.checkin;

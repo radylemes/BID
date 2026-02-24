@@ -12,18 +12,18 @@ import Swal from 'sweetalert2';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="min-h-screen bg-gray-50 py-8">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
           <div
-            class="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col relative"
+            class="lg:col-span-3 bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden flex flex-col relative pb-8"
           >
-            <div class="h-28 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
+            <div class="h-32 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
 
-            <div class="px-6 pb-6 relative flex-1 flex flex-col">
-              <div class="relative -mt-14 mb-4 flex justify-center">
+            <div class="px-6 relative flex-1 flex flex-col items-center text-center">
+              <div class="relative -mt-16 mb-4 flex justify-center w-full">
                 <div class="relative group">
                   <div
-                    class="w-24 h-24 rounded-full border-4 border-white bg-white shadow-md overflow-hidden flex items-center justify-center"
+                    class="w-32 h-32 rounded-full border-[6px] border-white bg-white shadow-md overflow-hidden flex items-center justify-center"
                   >
                     <img
                       *ngIf="user?.foto"
@@ -33,14 +33,14 @@ import Swal from 'sweetalert2';
                     />
                     <div
                       *ngIf="!user?.foto"
-                      class="w-full h-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-3xl font-black uppercase"
+                      class="w-full h-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-4xl font-black uppercase"
                     >
                       {{ (user?.nome_completo || 'U').charAt(0) }}
                     </div>
                   </div>
                   <button
                     (click)="fileInput.click()"
-                    class="absolute bottom-0 right-0 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110"
+                    class="absolute bottom-1 right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -67,266 +67,272 @@ import Swal from 'sweetalert2';
                 </div>
               </div>
 
-              <div class="text-center mb-6">
-                <h1 class="text-xl font-black text-gray-900 leading-tight">
-                  {{ user?.nome_completo || 'Carregando...' }}
-                </h1>
-                <p class="text-xs text-gray-500 mt-1">{{ user?.email || user?.username }}</p>
+              <h1 class="text-2xl font-black text-gray-900 leading-tight">
+                {{ user?.nome_completo || 'Carregando...' }}
+              </h1>
+              <p class="text-sm text-gray-500 mt-0.5">{{ user?.email || user?.username }}</p>
 
-                <div class="mt-3 flex justify-center gap-2">
-                  <span
-                    class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
-                    [class]="
-                      user?.perfil === 'ADMIN' || user?.role === 'ADMIN'
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-indigo-50 text-indigo-700'
-                    "
-                  >
-                    {{ user?.perfil || user?.role || 'USER' }}
-                  </span>
-                  <span
-                    class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700"
-                  >
-                    Conta Ativa
-                  </span>
-                </div>
-              </div>
+              <p
+                class="text-[11px] font-black text-indigo-700 mt-2 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-lg"
+              >
+                {{ user?.setor || user?.setor_nome || 'Geral' }}
+              </p>
 
-              <div class="border-t border-gray-100 pt-5 mt-auto">
-                <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  Informações de Rede
-                </h3>
-                <div class="space-y-3">
-                  <div>
-                    <label class="block text-[10px] font-bold text-gray-500">Setor</label>
-                    <input
-                      type="text"
-                      [value]="user?.setor || 'Não identificado'"
-                      disabled
-                      class="mt-1 block w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-bold text-gray-500">Login</label>
-                    <input
-                      type="text"
-                      [value]="user?.username || 'N/A'"
-                      disabled
-                      class="mt-1 block w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-600"
-                    />
-                  </div>
-                </div>
+              <div class="mt-6 flex justify-center gap-2">
+                <span
+                  class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                  [class]="
+                    user?.perfil === 'ADMIN' || user?.role === 'ADMIN'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-indigo-50 text-indigo-700'
+                  "
+                >
+                  {{ user?.perfil || user?.role || 'USER' }}
+                </span>
+                <span
+                  class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700"
+                >
+                  Conta Ativa
+                </span>
               </div>
             </div>
           </div>
 
-          <div class="lg:col-span-8 flex flex-col gap-6">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="lg:col-span-3 flex flex-col gap-4 h-full">
+            <div
+              class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
+            >
               <div
-                class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
+                class="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100"
               >
-                <div
-                  class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl"
-                >
-                  💰
-                </div>
-                <div>
-                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    Saldo Atual
-                  </p>
-                  <p class="text-2xl font-black text-gray-800 leading-none mt-1">
-                    {{ user?.pontos || 0 }}
-                    <span class="text-sm font-medium text-gray-400">pts</span>
-                  </p>
-                </div>
+                <img
+                  src="/assets/wtoken_coin.png"
+                  alt="W Token Coin"
+                  class="w-8 h-8 object-contain drop-shadow-sm"
+                />
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Saldo Atual
+                </p>
+                <p class="text-3xl font-black text-gray-800 leading-none mt-1">
+                  {{ user?.pontos || 0 }} <span class="text-sm font-bold text-gray-400">pts</span>
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
+            >
+              <div
+                class="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100"
+              >
+                <img
+                  src="/assets/wtokenl_trophy.png"
+                  alt="Troféu"
+                  class="w-8 h-8 object-contain drop-shadow-sm"
+                />
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Bids Vencidos
+                </p>
+                <p class="text-3xl font-black text-gray-800 leading-none mt-1">
+                  {{ stats.bidsVencidos }}
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
+            >
+              <div
+                class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center text-3xl border border-blue-100"
+              >
+                📊
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Média / Lance
+                </p>
+                <p class="text-3xl font-black text-gray-800 leading-none mt-1">
+                  {{ stats.mediaPontos }} <span class="text-sm font-bold text-gray-400">pts</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="lg:col-span-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col"
+          >
+            <div class="flex justify-between items-start mb-6">
+              <div>
+                <h3 class="text-lg font-black text-gray-800 tracking-tight">Evolução do Saldo</h3>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Últimas movimentações reais
+                </p>
               </div>
 
               <div
-                class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
+                class="flex items-center gap-3 text-[9px] font-black tracking-wider text-gray-500 uppercase flex-wrap justify-end"
               >
-                <div
-                  class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl"
-                >
-                  🏆
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Créditos
                 </div>
-                <div>
-                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    Bids Vencidos
-                  </p>
-                  <p class="text-2xl font-black text-gray-800 leading-none mt-1">
-                    {{ stats.bidsVencidos }}
-                  </p>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Bloqueados
                 </div>
-              </div>
-
-              <div
-                class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
-              >
-                <div
-                  class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl"
-                >
-                  📊
-                </div>
-                <div>
-                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    Média / Lance
-                  </p>
-                  <p class="text-2xl font-black text-gray-800 leading-none mt-1">
-                    {{ stats.mediaPontos }}
-                    <span class="text-sm font-medium text-gray-400">pts</span>
-                  </p>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span> Gastos
                 </div>
               </div>
             </div>
 
             <div
-              class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col"
+              *ngIf="historicoPontos.length === 0"
+              class="flex-1 flex flex-col items-center justify-center text-gray-400 h-48"
             >
-              <div class="flex justify-between items-end mb-4">
-                <div>
-                  <h3 class="text-sm font-black text-gray-800">Evolução do Saldo</h3>
-                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    Últimas movimentações
-                  </p>
-                </div>
-                <div class="flex items-center gap-3 text-[10px] font-bold text-gray-500 uppercase">
-                  <div class="flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Créditos
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-rose-400"></span> Gastos
-                  </div>
-                </div>
+              <span class="text-4xl mb-2 opacity-50 grayscale">📊</span>
+              <span class="text-xs font-bold uppercase tracking-wider"
+                >Nenhuma movimentação recente</span
+              >
+            </div>
+
+            <div
+              *ngIf="historicoPontos.length > 0"
+              class="relative flex-1 flex items-end justify-between gap-3 h-48 mt-auto border-b border-gray-200 pb-6 pt-8"
+            >
+              <div
+                class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6 pt-8"
+              >
+                <div class="w-full border-t border-dashed border-gray-100"></div>
+                <div class="w-full border-t border-dashed border-gray-100"></div>
+                <div class="w-full border-t border-dashed border-gray-100"></div>
               </div>
 
               <div
-                class="relative flex-1 flex items-end justify-between gap-2 h-40 mt-auto border-b border-gray-200 pb-5 pt-6"
+                *ngFor="let item of historicoPontos"
+                class="relative w-full rounded-t-xl group transition-all duration-300 cursor-pointer z-10"
+                [ngClass]="{
+                  'bg-emerald-200 hover:bg-emerald-400': item.tipo === 'credito',
+                  'bg-amber-200 hover:bg-amber-400': item.tipo === 'bloqueado',
+                  'bg-rose-200 hover:bg-rose-400': item.tipo === 'gasto',
+                }"
+                [style.height]="(item.valor / maxPonto) * 100 + '%'"
               >
                 <div
-                  class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-5 pt-6"
+                  class="absolute -top-6 left-1/2 -translate-x-1/2 text-[11px] font-black tracking-tight"
+                  [ngClass]="{
+                    'text-emerald-600': item.tipo === 'credito',
+                    'text-amber-600': item.tipo === 'bloqueado',
+                    'text-rose-600': item.tipo === 'gasto',
+                  }"
                 >
-                  <div class="w-full border-t border-dashed border-gray-100"></div>
-                  <div class="w-full border-t border-dashed border-gray-100"></div>
-                  <div class="w-full border-t border-dashed border-gray-100"></div>
+                  {{ item.valor }}
                 </div>
 
                 <div
-                  *ngFor="let item of historicoPontos"
-                  class="relative w-full rounded-t-md group transition-all duration-300 cursor-pointer z-10"
-                  [ngClass]="
-                    item.tipo === 'credito'
-                      ? 'bg-emerald-200 hover:bg-emerald-500'
-                      : 'bg-rose-200 hover:bg-rose-500'
-                  "
-                  [style.height]="(item.valor / maxPonto) * 100 + '%'"
+                  class="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-2 px-3 rounded-lg font-bold pointer-events-none transition-opacity whitespace-nowrap shadow-xl flex flex-col items-center z-50"
                 >
-                  <div
-                    class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-black tracking-tighter"
-                    [ngClass]="item.tipo === 'credito' ? 'text-emerald-600' : 'text-rose-600'"
+                  <span class="text-[9px] text-gray-300 font-medium mb-1 truncate max-w-[150px]">{{
+                    item.evento || 'Movimentação'
+                  }}</span>
+                  <span
+                    [ngClass]="{
+                      'text-emerald-400': item.tipo === 'credito',
+                      'text-amber-400': item.tipo === 'bloqueado',
+                      'text-rose-400': item.tipo === 'gasto',
+                    }"
+                    class="text-xs"
                   >
-                    {{ item.valor }}
-                  </div>
+                    {{ item.tipo === 'credito' ? '+' : '-' }}{{ item.valor }} pts
+                  </span>
+                  <span class="text-[8px] text-gray-400 font-normal mt-0.5">{{ item.data }}</span>
+                </div>
 
-                  <div
-                    class="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-2 px-3 rounded-lg font-bold pointer-events-none transition-opacity whitespace-nowrap shadow-xl flex flex-col items-center z-50"
-                  >
-                    <span
-                      class="text-[9px] text-gray-300 font-medium mb-1 truncate max-w-[120px]"
-                      title="{{ item.evento || 'Movimentação' }}"
-                    >
-                      {{ item.evento || 'Movimentação' }}
-                    </span>
-                    <span
-                      [ngClass]="item.tipo === 'credito' ? 'text-emerald-400' : 'text-rose-400'"
-                      class="text-xs"
-                    >
-                      {{ item.tipo === 'credito' ? '+' : '-' }}{{ item.valor }} pts
-                    </span>
-                    <span class="text-[8px] text-gray-400 font-normal mt-0.5">{{ item.data }}</span>
-                  </div>
-
-                  <div
-                    class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-400 whitespace-nowrap"
-                  >
-                    {{ item.data }}
-                  </div>
+                <div
+                  class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-gray-400 whitespace-nowrap"
+                >
+                  {{ item.data }}
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100">
           <div
             class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
           >
             <div>
-              <h2 class="text-lg font-black text-gray-800">Meus Convidados (Retirantes)</h2>
-              <p class="text-xs text-gray-500 mt-1">
+              <h2 class="text-2xl font-black text-gray-800 tracking-tight">
+                Meus Convidados (Retirantes)
+              </h2>
+              <p class="text-sm text-gray-500 mt-1">
                 Pessoas autorizadas a retirar seus ingressos ganhos na portaria do evento.
               </p>
             </div>
             <button
               (click)="abrirFormularioConvidado()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-indigo-200 transition-all active:scale-95 whitespace-nowrap flex items-center gap-2"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center gap-2"
             >
-              <span class="text-base leading-none">+</span> Adicionar Convidado
+              <span class="text-lg leading-none">+</span> Adicionar Convidado
             </button>
           </div>
 
-          <div class="overflow-x-auto rounded-xl border border-gray-100">
+          <div class="overflow-x-auto rounded-2xl border border-gray-100">
             <table class="w-full text-left text-sm text-gray-600">
               <thead
-                class="bg-gray-50 text-[10px] uppercase font-bold text-gray-400 border-b border-gray-100 tracking-wider"
+                class="bg-gray-50/50 text-[10px] uppercase font-black text-gray-400 border-b border-gray-100 tracking-widest"
               >
                 <tr>
-                  <th class="px-4 py-3">Nome / Contato</th>
-                  <th class="px-4 py-3">CPF</th>
-                  <th class="px-4 py-3">Eventos Participados</th>
-                  <th class="px-4 py-3 text-right">Ações</th>
+                  <th class="px-6 py-4">Nome / Contato</th>
+                  <th class="px-6 py-4">CPF</th>
+                  <th class="px-6 py-4">Eventos Participados</th>
+                  <th class="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngIf="convidados.length === 0">
-                  <td colspan="4" class="text-center py-12 text-gray-400 font-medium bg-gray-50/30">
-                    <span class="text-3xl block mb-2 opacity-50">🎫</span>
+                  <td colspan="4" class="text-center py-16 text-gray-400 font-medium">
+                    <span class="text-4xl block mb-3 opacity-40 grayscale">🎫</span>
                     Nenhum convidado cadastrado.
                   </td>
                 </tr>
                 <tr
                   *ngFor="let conv of convidados"
-                  class="border-b border-gray-50 hover:bg-gray-50/80 transition-colors"
+                  class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                 >
-                  <td class="px-4 py-3">
-                    <p class="font-bold text-gray-800 text-sm">{{ conv.nome_completo }}</p>
-                    <p class="text-[10px] text-gray-400 mt-0.5">
+                  <td class="px-6 py-4">
+                    <p class="font-black text-gray-800 text-sm">{{ conv.nome_completo }}</p>
+                    <p class="text-[11px] text-gray-400 font-medium mt-0.5">
                       {{ conv.email || 'Sem e-mail' }} | {{ conv.telefone || 'Sem telefone' }}
                     </p>
                   </td>
-                  <td class="px-4 py-3 font-mono text-xs">{{ conv.cpf }}</td>
-                  <td class="px-4 py-3">
+                  <td class="px-6 py-4 font-mono text-xs font-medium">{{ conv.cpf }}</td>
+                  <td class="px-6 py-4">
                     <span
                       *ngIf="conv.eventos_participados"
-                      class="bg-emerald-50 border border-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-[10px] font-bold inline-block max-w-[200px] truncate"
+                      class="text-gray-600 text-[11px] font-bold italic"
                     >
                       {{ conv.eventos_participados }}
                     </span>
                     <span
                       *ngIf="!conv.eventos_participados"
-                      class="text-gray-400 text-[10px] italic"
+                      class="text-gray-300 text-[11px] font-medium italic"
                       >Nenhum evento ainda</span
                     >
                   </td>
-                  <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                  <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                     <button
                       (click)="abrirFormularioConvidado(conv)"
-                      class="text-indigo-600 hover:text-indigo-800 font-bold text-[11px] uppercase tracking-wide bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                      class="text-indigo-600 font-black text-[10px] uppercase tracking-widest bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors"
                     >
                       Editar
                     </button>
                     <button
                       (click)="excluirConvidado(conv.id)"
-                      class="text-rose-600 hover:text-rose-800 font-bold text-[11px] uppercase tracking-wide bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors"
+                      class="text-rose-600 font-black text-[10px] uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-lg transition-colors"
                     >
                       Excluir
                     </button>
@@ -347,23 +353,13 @@ export class ProfileComponent implements OnInit {
 
   stats = { bidsVencidos: 0, mediaPontos: 0 };
 
-  // Interface atualizada com o campo opcional 'evento'
+  // Atualizado para receber os 3 tipos
   historicoPontos: Array<{
     valor: number;
-    tipo: 'credito' | 'gasto';
+    tipo: 'credito' | 'gasto' | 'bloqueado';
     data: string;
     evento?: string;
-  }> = [
-    // Dados temporários (Mocks) já atualizados com nomes de eventos para testar enquanto o backend não volta dados reais
-    { valor: 100, tipo: 'credito', data: '01/10', evento: 'Bônus de Indicação' },
-    { valor: 50, tipo: 'gasto', data: '05/10', evento: 'Show do Bruno Mars' },
-    { valor: 150, tipo: 'credito', data: '12/10', evento: 'Reembolso: Jogo cancelado' },
-    { valor: 80, tipo: 'gasto', data: '15/10', evento: 'Fórmula 1 SP' },
-    { valor: 40, tipo: 'gasto', data: '18/10', evento: 'Teatro Municipal' },
-    { valor: 200, tipo: 'credito', data: '22/10', evento: 'Prêmio Mensal' },
-    { valor: 120, tipo: 'gasto', data: '25/10', evento: 'Ingresso VIP Allianz' },
-    { valor: 260, tipo: 'credito', data: '28/10', evento: 'Reembolso: Show Rock' },
-  ];
+  }> = [];
   maxPonto: number = 300;
 
   constructor(
@@ -386,21 +382,22 @@ export class ProfileComponent implements OnInit {
       this.user.role = this.user.role || this.user.perfil || 'user';
 
       this.carregarConvidados();
-
-      // Quando a rota do backend estiver pronta, descomente a linha abaixo para usar os dados reais:
       this.carregarEstatisticas();
 
       if (this.user.id) {
         this.userService.getById(this.user.id).subscribe({
           next: (fullUser: any) => {
-            const usuarioAtualizado = {
-              ...fullUser,
-              role: fullUser.perfil || fullUser.role || this.user.role,
-              setor: fullUser.setor || this.user.setor,
-              nome_completo: fullUser.nome_completo || fullUser.nome || this.user.nome_completo,
-            };
-            this.user = usuarioAtualizado;
-            localStorage.setItem('currentUser', JSON.stringify(usuarioAtualizado));
+            setTimeout(() => {
+              const usuarioAtualizado = {
+                ...fullUser,
+                role: fullUser.perfil || fullUser.role || this.user.role,
+                setor:
+                  fullUser.setor || fullUser.setor_nome || this.user.setor || this.user.setor_nome,
+                nome_completo: fullUser.nome_completo || fullUser.nome || this.user.nome_completo,
+              };
+              this.user = usuarioAtualizado;
+              localStorage.setItem('currentUser', JSON.stringify(usuarioAtualizado));
+            });
           },
           error: (err) => console.error('Erro ao atualizar perfil:', err),
         });
@@ -410,19 +407,14 @@ export class ProfileComponent implements OnInit {
     }
   }
 
-  // ==========================================
-  // FUNÇÃO DE ESTATÍSTICAS
-  // ==========================================
   carregarEstatisticas() {
     if (!this.user || !this.user.id) return;
 
-    // Verifica se a função existe no service antes de chamar
     if (typeof this.userService.getUserStats === 'function') {
       this.userService.getUserStats(this.user.id).subscribe({
         next: (data) => {
           this.stats = data.stats;
 
-          // Só substitui se o backend retornar um array válido (impede a tela de quebrar se não tiver dados)
           if (data.historico && Array.isArray(data.historico)) {
             this.historicoPontos = data.historico;
           }
@@ -439,10 +431,6 @@ export class ProfileComponent implements OnInit {
       });
     }
   }
-
-  // ==========================================
-  // FUNÇÕES DE CONVIDADOS
-  // ==========================================
 
   carregarConvidados() {
     if (!this.user || !this.user.id) return;
@@ -570,15 +558,11 @@ export class ProfileComponent implements OnInit {
     });
   }
 
-  // ==========================================
-  // FUNÇÕES DE USUÁRIO
-  // ==========================================
-
   getFotoUrl(path: string) {
     if (!path) return '';
     if (path.startsWith('http')) return path;
     let cleanPath = path.replace(/\\/g, '/').replace(/^\//, '');
-    return `${this.apiUrl}/${cleanPath}?t=${new Date().getTime()}`;
+    return `http://localhost:3005/${cleanPath}?t=${new Date().getTime()}`;
   }
 
   onFileSelected(event: any) {

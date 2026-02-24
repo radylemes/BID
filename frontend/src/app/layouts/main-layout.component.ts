@@ -92,7 +92,7 @@ import { Subscription } from 'rxjs';
               routerLinkActive="bg-indigo-50 text-indigo-600"
               class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
             >
-              <span class="mr-3 text-lg">🏢</span> Gerenciar Empresas
+              <span class="mr-3 text-lg">🏢</span> Gerenciar Grupos
             </a>
             <a
               routerLink="/matches/manage"
@@ -108,6 +108,14 @@ import { Subscription } from 'rxjs';
               class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
             >
               <span class="mr-3 text-lg">📱</span> App Portaria
+            </a>
+            <a
+              *ngIf="isAdmin"
+              routerLink="/settings"
+              routerLinkActive="bg-indigo-50 text-indigo-600"
+              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            >
+              <span class="mr-3 text-lg">⚙️</span> Configurações
             </a>
           </div>
         </nav>

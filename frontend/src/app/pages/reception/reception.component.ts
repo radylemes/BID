@@ -1,8 +1,15 @@
-import { Component, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ViewChild,
+  ElementRef,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin } from 'rxjs';
+import { forkJoin, interval, Subscription } from 'rxjs';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -24,8 +31,19 @@ import Swal from 'sweetalert2';
           </div>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-xs font-bold text-indigo-200 hidden md:block">
-            {{ events.length }} Evento(s) Ativo(s) Hoje
+          <button
+            (click)="carregarTudoUnificado()"
+            class="text-indigo-200 hover:text-white flex items-center gap-1.5 text-xs font-bold transition-colors bg-indigo-800 hover:bg-indigo-700 px-3 py-1.5 rounded-lg border border-indigo-600 active:scale-95"
+            title="Sincronizar dados agora"
+          >
+            <span class="text-base leading-none">↻</span>
+            <span class="hidden md:inline">Sincronizar</span>
+          </button>
+
+          <span
+            class="text-xs font-bold text-indigo-200 hidden md:block border-l border-indigo-700 pl-4"
+          >
+            {{ events.length }} Evento(s) Ativos
           </span>
           <div
             class="w-10 h-10 bg-indigo-700 rounded-full flex items-center justify-center font-bold border border-indigo-500 shadow-inner"
@@ -155,8 +173,8 @@ import Swal from 'sweetalert2';
                 class="bg-indigo-50/50 text-indigo-900 uppercase font-black text-[10px] tracking-wider border-b border-gray-200"
               >
                 <tr>
-                  <th class="px-6 py-4">Empresa</th>
                   <th class="px-6 py-4">Usuário (Titular)</th>
+                  <th class="px-6 py-4">Empresa</th>
                   <th class="px-6 py-4">Convidado (Retirante)</th>
                   <th class="px-6 py-4">Evento / Data</th>
                   <th class="px-6 py-4 text-center">Status Ingressos</th>
@@ -168,14 +186,17 @@ import Swal from 'sweetalert2';
                   *ngFor="let group of filteredGroupedGuests()"
                   class="hover:bg-gray-50 transition-colors group"
                 >
+                  <td class="px-6 py-4 font-bold text-gray-700">{{ group.titular_nome }}</td>
+
                   <td class="px-6 py-4">
-                    <span
-                      class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase border border-indigo-200"
+                    <div
+                      class="inline-block max-w-[130px] truncate align-middle bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase border border-indigo-200 cursor-help"
+                      title="{{ group.empresa }}"
                     >
                       {{ group.empresa }}
-                    </span>
+                    </div>
                   </td>
-                  <td class="px-6 py-4 font-bold text-gray-700">{{ group.titular_nome }}</td>
+
                   <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                       <div
@@ -364,9 +385,10 @@ import Swal from 'sweetalert2';
     </div>
   `,
 })
-export class ReceptionComponent implements OnInit {
+export class ReceptionComponent implements OnInit, OnDestroy {
   apiUrl = 'http://localhost:3005/api/reception';
 
+  currentUser: any = {};
   loading = false;
   events: any[] = [];
   allGuests: any[] = [];
@@ -381,12 +403,15 @@ export class ReceptionComponent implements OnInit {
 
   selectedGroup: any = null;
   showSignatureModal = false;
-  ingressosParaAssinar: any[] = []; // Array temporário para os inputs do modal
+  ingressosParaAssinar: any[] = [];
 
   @ViewChild('signatureCanvas') signatureCanvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D | null;
   private isDrawing = false;
   private isCanvasEmpty = true;
+
+  // Variável para gerenciar o refresh automático
+  private autoRefreshSub?: Subscription;
 
   constructor(
     private http: HttpClient,
@@ -394,24 +419,48 @@ export class ReceptionComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     this.carregarTudoUnificado();
+    this.iniciarAutoRefresh();
   }
 
-  carregarTudoUnificado() {
-    this.loading = true;
-    this.cd.detectChanges();
+  ngOnDestroy() {
+    // Evita vazamento de memória quando sair da tela
+    if (this.autoRefreshSub) {
+      this.autoRefreshSub.unsubscribe();
+    }
+  }
+
+  iniciarAutoRefresh() {
+    // Atualiza silenciosamente a cada 30 segundos
+    this.autoRefreshSub = interval(30000).subscribe(() => {
+      // SÓ ATUALIZA SE O MODAL ESTIVER FECHADO!
+      // Assim o guarda não perde o que estava a escrever/assinar
+      if (!this.showSignatureModal) {
+        this.carregarTudoUnificado(true);
+      }
+    });
+  }
+
+  // Adicionado parâmetro 'silencioso' para não mostrar a tela de loading no auto-refresh
+  carregarTudoUnificado(silencioso = false) {
+    if (!silencioso) {
+      this.loading = true;
+      this.cd.detectChanges();
+    }
 
     this.http.get<any[]>(`${this.apiUrl}/events/today`).subscribe({
       next: (eventsRes) => {
         this.events = Array.isArray(eventsRes) ? eventsRes : [];
         if (this.events.length === 0) {
-          this.loading = false;
+          if (!silencioso) this.loading = false;
           this.agruparEAtualizar();
           this.cd.detectChanges();
           return;
         }
 
-        this.allGuests = [];
+        // Variável temporária para não piscar a tela caso seja silencioso
+        let novosGuests: any[] = [];
         let completedRequests = 0;
 
         this.events.forEach((ev) => {
@@ -422,10 +471,12 @@ export class ReceptionComponent implements OnInit {
                 evento_titulo: ev.titulo,
                 data_evento: ev.data_evento || ev.data_jogo,
               }));
-              this.allGuests = [...this.allGuests, ...mappedGuests];
+              novosGuests = [...novosGuests, ...mappedGuests];
               completedRequests++;
+
               if (completedRequests === this.events.length) {
-                this.loading = false;
+                this.allGuests = novosGuests;
+                if (!silencioso) this.loading = false;
                 this.agruparEAtualizar();
                 this.cd.detectChanges();
               }
@@ -433,7 +484,8 @@ export class ReceptionComponent implements OnInit {
             error: () => {
               completedRequests++;
               if (completedRequests === this.events.length) {
-                this.loading = false;
+                this.allGuests = novosGuests;
+                if (!silencioso) this.loading = false;
                 this.agruparEAtualizar();
                 this.cd.detectChanges();
               }
@@ -442,7 +494,7 @@ export class ReceptionComponent implements OnInit {
         });
       },
       error: () => {
-        this.loading = false;
+        if (!silencioso) this.loading = false;
         this.cd.detectChanges();
       },
     });
@@ -473,6 +525,7 @@ export class ReceptionComponent implements OnInit {
       const key = `${guest.retirante_cpf}-${guest.evento_titulo}`;
 
       const infoIngresso = {
+        ingresso_id: guest.ingresso_id,
         aposta_id: guest.aposta_id,
         checkin: guest.checkin,
         recebedor_nome: guest.recebedor_nome || '',
@@ -521,10 +574,8 @@ export class ReceptionComponent implements OnInit {
   abrirAssinatura(group: any) {
     this.selectedGroup = group;
 
-    // Filtra apenas os ingressos que ainda não fizeram check-in
     const ingressosPendentes = group.ingressos_detalhes.filter((t: any) => !t.checkin);
 
-    // Prepara os formulários. O primeiro ingresso vem preenchido com o titular do grupo
     this.ingressosParaAssinar = ingressosPendentes.map((t: any, index: number) => {
       return {
         ...t,
@@ -594,7 +645,6 @@ export class ReceptionComponent implements OnInit {
   }
 
   confirmarCheckinLote() {
-    // 1. Validação de preenchimento dos nomes e cpfs
     const inputsInvalidos = this.ingressosParaAssinar.filter(
       (t) => !t.recebedor_nome || !t.recebedor_cpf,
     );
@@ -607,7 +657,6 @@ export class ReceptionComponent implements OnInit {
       return;
     }
 
-    // 2. Validação da assinatura
     if (this.isCanvasEmpty) {
       Swal.fire('Atenção', 'A assinatura é obrigatória para liberar a entrada.', 'warning');
       return;
@@ -616,13 +665,13 @@ export class ReceptionComponent implements OnInit {
     const canvas = this.signatureCanvas.nativeElement;
     const base64Signature = canvas.toDataURL('image/png');
 
-    // 3. Prepara os dados para salvar
     const requests = this.ingressosParaAssinar.map((ticket: any) => {
       return this.http.post(`${this.apiUrl}/checkin`, {
-        apostaId: ticket.aposta_id,
+        ingressoId: ticket.ingresso_id,
         assinaturaBase64: base64Signature,
         recebedorNome: ticket.recebedor_nome,
         recebedorCpf: ticket.recebedor_cpf,
+        adminId: this.currentUser.id,
       });
     });
 
@@ -639,7 +688,7 @@ export class ReceptionComponent implements OnInit {
         // Atualiza a base de dados local para refletir na tela
         this.allGuests.forEach((guest) => {
           const ingressoAtualizado = this.ingressosParaAssinar.find(
-            (t) => t.aposta_id === guest.aposta_id,
+            (t) => t.ingresso_id === guest.ingresso_id,
           );
           if (ingressoAtualizado) {
             guest.checkin = true;

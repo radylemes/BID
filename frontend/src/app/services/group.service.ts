@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
   providedIn: 'root',
 })
 export class GroupService {
-  private apiUrl = 'http://localhost:3005/api/groups'; // Ajuste porta se necessário
+  private apiUrl = 'http://localhost:3005/api/groups';
 
   constructor(private http: HttpClient) {}
 
@@ -14,27 +14,28 @@ export class GroupService {
     return this.http.get<any[]>(this.apiUrl);
   }
 
-  createGroup(nome: string, descricao: string): Observable<any> {
-    return this.http.post(this.apiUrl, { nome, descricao });
+  createGroup(data: {
+    nome: string;
+    descricao: string;
+    motivo: string;
+    adminId: number;
+  }): Observable<any> {
+    return this.http.post(this.apiUrl, data);
   }
 
-  addMember(grupoId: number, usuarioId: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/add-member`, { grupoId, usuarioId });
+  updateGroup(
+    id: number,
+    data: { nome: string; descricao: string; motivo: string; adminId: number },
+  ): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${id}`, data);
   }
 
-  removeMember(grupoId: number, usuarioId: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/remove-member`, { grupoId, usuarioId });
+  deleteGroup(id: number, adminId: number, motivo: string): Observable<any> {
+    // Usamos o 'body' no DELETE para conseguir enviar o motivo e adminId
+    return this.http.delete(`${this.apiUrl}/${id}`, { body: { adminId, motivo } });
   }
 
   getUserGroups(userId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/user/${userId}`);
-  }
-
-  updateGroup(id: number, nome: string, descricao: string): Observable<any> {
-    return this.http.put(`${this.apiUrl}/${id}`, { nome, descricao });
-  }
-
-  deleteGroup(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/${id}`);
   }
 }

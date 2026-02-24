@@ -1,103 +1,173 @@
 const db = require("../config/db");
 
 // ============================================================
-// 1. LISTAR TODOS OS GRUPOS (CORRIGIDO)
+// MOTOR DE AUDITORIA GLOBAL
+// ============================================================
+async function gravarAuditoria(
+  connection,
+  adminId,
+  modulo,
+  acao,
+  registroId,
+  detalhes,
+) {
+  try {
+    const executor = connection || db;
+    await executor.execute(
+      `INSERT INTO auditoria (admin_id, modulo, acao, registro_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
+      [
+        adminId || 1,
+        modulo,
+        acao,
+        registroId || null,
+        JSON.stringify(detalhes),
+      ],
+    );
+  } catch (e) {
+    console.error("Falha ao gravar auditoria no GroupController:", e.message);
+  }
+}
+
+// ============================================================
+// 1. LISTAR GRUPOS DE APOSTAS (Com contagem de membros)
 // ============================================================
 exports.getAllGroups = async (req, res) => {
   try {
-    // AQUI ESTAVA O ERRO: Trocamos 'grupo_membros' por 'usuarios'
-    // Agora contamos quantos usuários apontam para este grupo via 'grupo_id'
-    const [rows] = await db.execute(`
-      SELECT 
-        g.id,
-        g.nome,
-        g.descricao,
-        COUNT(u.id) as total_membros 
+    // Busca os grupos e já conta quantos usuários pertencem a cada um
+    const [grupos] = await db.execute(`
+      SELECT g.id, g.nome, g.descricao, COUNT(u.id) as total_membros
       FROM grupos g
-      LEFT JOIN usuarios u ON g.id = u.grupo_id
+      LEFT JOIN usuarios u ON u.grupo_id = g.id
       GROUP BY g.id, g.nome, g.descricao
       ORDER BY g.nome ASC
     `);
-    res.json(rows);
+
+    res.json(grupos);
   } catch (error) {
-    console.error("Erro ao buscar grupos:", error);
-    res.status(500).json({ error: "Erro ao buscar grupos" });
+    console.error("Erro ao buscar grupos de apostas:", error);
+    res.status(500).json({ error: "Erro ao buscar dados." });
   }
 };
 
 // ============================================================
-// 2. CRIAR NOVO GRUPO
+// 2. CRIAR GRUPO DE APOSTA
 // ============================================================
 exports.createGroup = async (req, res) => {
-  const { nome, descricao } = req.body;
+  const { nome, descricao, motivo, adminId } = req.body;
+  const connection = await db.getConnection();
   try {
-    const [result] = await db.execute(
-      "INSERT INTO grupos (nome, descricao) VALUES (?, ?)",
+    await connection.beginTransaction();
+
+    const [result] = await connection.execute(
+      "INSERT INTO grupos (nome, descricao) VALUES (?, ?)", // AGORA SALVA NO LUGAR CERTO!
       [nome, descricao || ""],
     );
-    res.json({
-      id: result.insertId,
-      nome,
-      descricao,
-      message: "Empresa criada!",
-    });
+
+    const newId = result.insertId;
+
+    await gravarAuditoria(
+      connection,
+      adminId,
+      "GRUPOS_APOSTAS",
+      "CREATE_GRUPO",
+      newId,
+      { nome, descricao, motivo },
+    );
+
+    await connection.commit();
+    res
+      .status(201)
+      .json({ id: newId, nome, descricao, message: "Grupo criado!" });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao criar empresa" });
+    await connection.rollback();
+    res.status(500).json({ error: "Erro ao criar grupo" });
+  } finally {
+    connection.release();
   }
 };
 
 // ============================================================
-// 3. EDITAR GRUPO
+// 3. EDITAR GRUPO DE APOSTA
 // ============================================================
 exports.updateGroup = async (req, res) => {
   const { id } = req.params;
-  const { nome, descricao } = req.body;
+  const { nome, descricao, motivo, adminId } = req.body;
+  const connection = await db.getConnection();
   try {
-    await db.execute("UPDATE grupos SET nome = ?, descricao = ? WHERE id = ?", [
-      nome,
-      descricao,
+    await connection.beginTransaction();
+
+    await connection.execute(
+      "UPDATE grupos SET nome = ?, descricao = ? WHERE id = ?",
+      [nome, descricao, id],
+    );
+
+    await gravarAuditoria(
+      connection,
+      adminId,
+      "GRUPOS_APOSTAS",
+      "UPDATE_GRUPO",
       id,
-    ]);
-    res.json({ message: "Empresa atualizado com sucesso" });
+      { nome, descricao, motivo },
+    );
+
+    await connection.commit();
+    res.json({ message: "Grupo atualizado com sucesso" });
   } catch (error) {
+    await connection.rollback();
     res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
   }
 };
 
 // ============================================================
-// 4. EXCLUIR GRUPO
+// 4. EXCLUIR GRUPO DE APOSTA
 // ============================================================
 exports.deleteGroup = async (req, res) => {
   const { id } = req.params;
+  const { motivo, adminId } = req.body;
+  const connection = await db.getConnection();
   try {
-    await db.execute("UPDATE usuarios SET grupo_id = NULL WHERE grupo_id = ?", [
-      id,
-    ]);
+    await connection.beginTransaction();
 
-    await db.execute("DELETE FROM grupos WHERE id = ?", [id]);
-    res.json({ message: "Empresa removido com sucesso" });
+    await connection.execute("DELETE FROM grupos WHERE id = ?", [id]);
+
+    await gravarAuditoria(
+      connection,
+      adminId,
+      "GRUPOS_APOSTAS",
+      "DELETE_GRUPO",
+      id,
+      { excluido_por: adminId, motivo },
+    );
+
+    await connection.commit();
+    res.json({ message: "Grupo removido com sucesso" });
   } catch (error) {
+    await connection.rollback();
     res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
   }
 };
 
 // ============================================================
-// 5. LISTAR GRUPO DE UM USUÁRIO (OPCIONAL/LEGADO)
+// 5. RETORNO DO GRUPO DO USUÁRIO
 // ============================================================
 exports.getUserGroups = async (req, res) => {
   const { userId } = req.params;
   try {
-    // Ajustado para buscar o grupo único do usuário na tabela nova
     const [rows] = await db.execute(
       `
-        SELECT g.* FROM grupos g
-        JOIN usuarios u ON u.grupo_id = g.id
-        WHERE u.id = ?
-      `,
+      SELECT g.id AS grupo_id, g.nome AS grupo_nome
+      FROM usuarios u
+      LEFT JOIN grupos g ON u.grupo_id = g.id
+      WHERE u.id = ?
+    `,
       [userId],
     );
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ error: "Erro ao buscar empresa do usuário" });
+    res.status(500).json({ error: "Erro ao buscar grupo do usuário" });
   }
 };

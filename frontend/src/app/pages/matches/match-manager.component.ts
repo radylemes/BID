@@ -21,7 +21,6 @@ import * as XLSX from 'xlsx';
             Total de {{ matches.length }} BIDs cadastrados
           </p>
         </div>
-
         <div>
           <button
             (click)="criarJogo()"
@@ -36,7 +35,6 @@ import * as XLSX from 'xlsx';
         <div *ngIf="loading" class="p-8 text-center text-gray-500">
           <span class="animate-pulse">Carregando BIDs...</span>
         </div>
-
         <div *ngIf="!loading && matches.length === 0" class="p-8 text-center text-gray-400">
           Nenhum bid encontrado. Crie um novo!
         </div>
@@ -45,7 +43,7 @@ import * as XLSX from 'xlsx';
           <thead class="bg-gray-100 text-gray-500 uppercase font-bold text-xs sticky top-0">
             <tr>
               <th class="px-6 py-4 tracking-wider">BID</th>
-              <th class="px-6 py-4 tracking-wider">Empresa</th>
+              <th class="px-6 py-4 tracking-wider">Grupo de Apostas</th>
               <th class="px-6 py-4 tracking-wider">Ingressos</th>
               <th class="px-6 py-4 tracking-wider">Datas</th>
               <th class="px-6 py-4 tracking-wider">Status</th>
@@ -60,25 +58,19 @@ import * as XLSX from 'xlsx';
                   <span>📍</span> {{ m.local || 'Local não definido' }}
                 </div>
               </td>
-
               <td class="px-6 py-4">
                 <span
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100"
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 shadow-sm"
                 >
-                  {{ m.nome_grupo || 'Geral' }}
+                  {{ m.nome_grupo || 'Público (Todos)' }}
                 </span>
               </td>
-
               <td class="px-6 py-4">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="bg-amber-100 text-amber-800 px-2 py-1 rounded-md font-bold text-xs border border-amber-200"
-                  >
-                    🏆 {{ m.quantidade_premios || 1 }}
-                  </span>
-                </div>
+                <span
+                  class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md font-bold text-xs border border-blue-200"
+                  >🎫 {{ m.quantidade_premios || 1 }}</span
+                >
               </td>
-
               <td class="px-6 py-4">
                 <div class="flex flex-col gap-1 text-xs font-medium">
                   <div class="text-emerald-600 flex items-center gap-1">
@@ -89,7 +81,6 @@ import * as XLSX from 'xlsx';
                   </div>
                 </div>
               </td>
-
               <td class="px-6 py-4">
                 <span
                   [ngClass]="{
@@ -97,19 +88,24 @@ import * as XLSX from 'xlsx';
                     'bg-gray-100 text-gray-600 border-gray-200': m.status !== 'ABERTA',
                   }"
                   class="px-3 py-1 rounded-full text-[10px] font-bold uppercase border"
+                  >{{ m.status }}</span
                 >
-                  {{ m.status }}
-                </span>
               </td>
-
               <td class="px-6 py-4 text-right">
-                <div class="flex justify-end items-center gap-2 transition-opacity">
+                <div class="flex justify-end items-center gap-2">
                   <button
                     (click)="editarJogo(m)"
                     class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition shadow-sm border border-blue-100"
                     title="Editar"
                   >
                     ✏️
+                  </button>
+                  <button
+                    (click)="clonarJogo(m)"
+                    class="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 hover:text-purple-700 transition shadow-sm border border-purple-100"
+                    title="Clonar BID"
+                  >
+                    📑
                   </button>
                   <button
                     *ngIf="m.status === 'ABERTA'"
@@ -126,9 +122,7 @@ import * as XLSX from 'xlsx';
                   >
                     🗑️
                   </button>
-
                   <div *ngIf="m.status !== 'ABERTA'" class="w-px h-6 bg-gray-200 mx-1"></div>
-
                   <button
                     *ngIf="m.status !== 'ABERTA'"
                     (click)="baixarRelatorio(m, 'pdf')"
@@ -137,7 +131,6 @@ import * as XLSX from 'xlsx';
                   >
                     <span>📄</span> PDF
                   </button>
-
                   <button
                     *ngIf="m.status !== 'ABERTA'"
                     (click)="baixarRelatorio(m, 'excel')"
@@ -196,40 +189,53 @@ export class MatchManagerComponent implements OnInit {
   async criarJogo() {
     await this.abrirFormulario();
   }
+
   async editarJogo(match: any) {
     await this.abrirFormulario(match);
   }
 
+  async clonarJogo(match: any) {
+    // Chamamos o formulário passando a flag "isClone" = true
+    await this.abrirFormulario(match, true);
+  }
+
   async excluirJogo(match: any) {
-    const result = await Swal.fire({
+    const { value: motivo, isConfirmed } = await Swal.fire({
       title: 'Excluir BID?',
-      text: `Tem certeza que deseja apagar "${match.titulo}"? Essa ação não pode ser desfeita e será auditada.`,
+      text: `Justifique a exclusão de "${match.titulo}". (Todos os pontos serão reembolsados)`,
       icon: 'warning',
+      input: 'text',
+      inputPlaceholder: 'Motivo da exclusão para auditoria...',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#3b82f6',
       confirmButtonText: 'Sim, excluir',
       cancelButtonText: 'Cancelar',
+      inputValidator: (value) => (!value ? 'O motivo é obrigatório para a auditoria!' : null),
     });
 
-    if (result.isConfirmed) {
-      this.matchService.deleteMatch(match.id, this.currentUser.id).subscribe(() => {
-        this.carregar();
-        Swal.fire('Excluído!', 'O BID foi removido.', 'success');
+    if (isConfirmed && motivo) {
+      this.matchService.deleteMatch(match.id, this.currentUser.id, motivo).subscribe({
+        next: () => {
+          this.carregar();
+          Swal.fire('Excluído!', 'O BID foi removido e os pontos devolvidos.', 'success');
+        },
+        error: () => Swal.fire('Erro', 'Não foi possível excluir o evento.', 'error'),
       });
     }
   }
 
-  async abrirFormulario(match: any = null) {
-    const isEdit = !!match;
+  async abrirFormulario(match: any = null, isClone: boolean = false) {
+    const isEdit = !!match && !isClone;
+
+    const tituloModal = isEdit ? '✏️ Editar BID' : isClone ? '📑 Clonar BID' : '🎫 Novo BID';
+    const tituloInput = isClone ? `${match.titulo} (Cópia)` : match?.titulo || '';
 
     const formatData = (iso: string) => {
       if (!iso) return '';
       try {
         const d = new Date(iso);
         const offset = d.getTimezoneOffset() * 60000;
-        const localISOTime = new Date(d.getTime() - offset).toISOString().slice(0, 16);
-        return localISOTime;
+        return new Date(d.getTime() - offset).toISOString().slice(0, 16);
       } catch (e) {
         return '';
       }
@@ -238,23 +244,24 @@ export class MatchManagerComponent implements OnInit {
     const groupsOptions = this.groups
       .map(
         (g) =>
-          `<option value="${g.id}" ${match && match.grupo_id === g.id ? 'selected' : ''}>${g.nome}</option>`,
+          `<option value="${g.id}" ${match && match.grupo_id === g.id ? 'selected' : ''}>🎲 ${g.nome}</option>`,
       )
       .join('');
 
     const { value: formValues } = await Swal.fire({
-      title: isEdit ? '✏️ Editar BID' : '🎫 Novo BID',
+      title: tituloModal,
       width: '700px',
       html: `
         <div class="text-left space-y-4 px-2">
           <div class="grid grid-cols-3 gap-4">
               <div class="col-span-2">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do BID</label>
-                <input id="titulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg" placeholder="Ex: Show Coldplay" value="${match?.titulo || ''}">
+                <input id="titulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 focus:ring-indigo-500 rounded-lg" value="${tituloInput}">
               </div>
               <div class="col-span-1">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Empresa</label>
-                <select id="grupoId" class="swal2-select w-full m-0 h-10 text-sm border-gray-300 rounded-lg">
+                <label class="block text-[10px] font-extrabold text-amber-600 uppercase mb-1">Grupo de Apostas</label>
+                <select id="grupoId" class="swal2-select w-full m-0 h-10 text-sm border-amber-200 bg-amber-50 text-amber-700 rounded-lg">
+                    <option value="null">👥 Público (Todos)</option>
                     ${groupsOptions}
                 </select>
               </div>
@@ -262,12 +269,13 @@ export class MatchManagerComponent implements OnInit {
 
           <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Banner URL</label>
-                <input id="banner" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://..." value="${match?.banner || ''}">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Banner (Imagem)</label>
+                <input id="bannerFile" type="file" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer border border-gray-300 rounded-lg h-10 bg-white">
+                ${match?.banner ? `<p class="text-[9px] text-emerald-600 mt-1 font-bold">✓ Imagem vinculada. Envie outra para trocar.</p>` : ''}
               </div>
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Local</label>
-                <input id="local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="Ex: Allianz Parque" value="${match?.local || ''}">
+                <input id="local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="${match?.local || ''}">
               </div>
           </div>
           
@@ -285,11 +293,11 @@ export class MatchManagerComponent implements OnInit {
           <div class="grid grid-cols-2 gap-4">
             <div>
                 <label class="block text-xs font-bold text-emerald-600 uppercase mb-1">Início das Apostas</label>
-                <input id="dataInicio" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-emerald-200 focus:border-emerald-500 rounded-lg" value="${match ? formatData(match.data_inicio_apostas) : ''}">
+                <input id="dataInicio" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-emerald-200 rounded-lg" value="${match ? formatData(match.data_inicio_apostas) : ''}">
             </div>
             <div>
                 <label class="block text-xs font-bold text-rose-500 uppercase mb-1">Fim das Apostas</label>
-                <input id="dataLimite" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-rose-200 focus:border-rose-500 rounded-lg" value="${match ? formatData(match.data_limite_aposta) : ''}">
+                <input id="dataLimite" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-rose-200 rounded-lg" value="${match ? formatData(match.data_limite_aposta) : ''}">
             </div>
           </div>
         </div>
@@ -298,28 +306,51 @@ export class MatchManagerComponent implements OnInit {
       showCancelButton: true,
       confirmButtonColor: '#4f46e5',
       confirmButtonText: 'Salvar BID',
-      cancelButtonText: 'Cancelar',
       preConfirm: () => {
         const getVal = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value;
-        return {
-          titulo: getVal('titulo'),
-          grupo_id: Number(getVal('grupoId')),
-          banner: getVal('banner'),
-          local: getVal('local'),
-          data_jogo: getVal('dataEvento'),
-          data_inicio_apostas: getVal('dataInicio'),
-          data_limite_aposta: getVal('dataLimite'),
-          quantidade_premios: Number(getVal('qtdPremios')) || 1,
-          adminId: this.currentUser.id,
-        };
+        const titulo = getVal('titulo');
+        const dataJogo = getVal('dataEvento');
+
+        // Geração do motivo de auditoria 100% invisível e automático
+        let motivo = '';
+        if (isClone) {
+          motivo = `Clonagem do evento: ${match.titulo} -> ${titulo}`;
+        } else if (isEdit) {
+          motivo = `Edição do evento: ${titulo}`;
+        } else {
+          motivo = `Criação do evento: ${titulo}`;
+        }
+
+        if (!titulo || !dataJogo) {
+          Swal.showValidationMessage('Título e Data do Show/Jogo são obrigatórios.');
+          return false;
+        }
+
+        const formData = new FormData();
+        formData.append('titulo', titulo);
+        formData.append('grupo_id', getVal('grupoId'));
+        formData.append('local', getVal('local'));
+        formData.append('data_jogo', dataJogo);
+        formData.append('data_inicio_apostas', getVal('dataInicio'));
+        formData.append('data_limite_aposta', getVal('dataLimite'));
+        formData.append('quantidade_premios', String(Number(getVal('qtdPremios')) || 1));
+        formData.append('motivo', motivo);
+        formData.append('adminId', String(this.currentUser.id));
+
+        if (match?.banner) {
+          formData.append('banner_existente', match.banner);
+        }
+
+        const bannerFile = (document.getElementById('bannerFile') as HTMLInputElement).files?.[0];
+        if (bannerFile) {
+          formData.append('banner_file', bannerFile);
+        }
+
+        return formData;
       },
     });
 
     if (formValues) {
-      if (!formValues.titulo || !formValues.data_jogo || !formValues.data_inicio_apostas) {
-        Swal.fire('Atenção', 'Título e Datas são obrigatórios.', 'warning');
-        return;
-      }
       this.loading = true;
       const req = isEdit
         ? this.matchService.updateMatch(match.id, formValues)
@@ -336,39 +367,42 @@ export class MatchManagerComponent implements OnInit {
           });
           this.carregar();
         },
-        error: (err) => {
+        error: () => {
           this.loading = false;
-          console.error(err);
-          Swal.fire('Erro', 'Falha ao salvar BID. Verifique os dados.', 'error');
+          Swal.fire('Erro', 'Falha ao salvar BID.', 'error');
         },
       });
     }
   }
 
   async finalizarJogo(match: any) {
-    const result = await Swal.fire({
+    const { value: motivo, isConfirmed } = await Swal.fire({
       title: 'Encerrar Leilão?',
       html: `
-        <div class="text-left bg-amber-50 p-4 rounded-lg border border-amber-100 text-sm">
+        <div class="text-left bg-amber-50 p-4 rounded-lg border border-amber-100 text-sm mb-4">
             <p class="font-bold text-amber-800 mb-2">Atenção:</p>
             <ul class="list-disc pl-4 text-amber-700 space-y-1">
                 <li>Os <b>Top ${match.quantidade_premios}</b> maiores lances vencerão.</li>
-                <li>Todos os outros participantes serão <b>REEMBOLSADOS</b> integralmente.</li>
-                <li>O status mudará para <span class="font-bold">FINALIZADA</span>.</li>
+                <li>Todos os outros serão <b>REEMBOLSADOS</b> integralmente.</li>
             </ul>
         </div>
+        <input id="swal-motivo-fim" class="swal2-input w-full m-0 text-sm" placeholder="Motivo/Auditoria (Obrigatório)">
       `,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#f59e0b',
-      confirmButtonText: 'Sim, Encerrar e Reembolsar',
-      cancelButtonText: 'Cancelar',
+      confirmButtonText: 'Sim, Encerrar',
+      preConfirm: () => {
+        const m = (document.getElementById('swal-motivo-fim') as HTMLInputElement).value;
+        if (!m) Swal.showValidationMessage('O motivo é obrigatório!');
+        return m;
+      },
     });
 
-    if (result.isConfirmed) {
+    if (isConfirmed && motivo) {
       this.loading = true;
       this.matchService
-        .finishMatch({ partidaId: match.id, adminId: this.currentUser.id })
+        .finishMatch({ partidaId: match.id, adminId: this.currentUser.id, motivo })
         .subscribe({
           next: () => {
             Swal.fire('Concluído', 'Vencedores definidos e reembolsos processados.', 'success');
@@ -383,20 +417,16 @@ export class MatchManagerComponent implements OnInit {
   }
 
   baixarRelatorio(match: any, tipo: 'pdf' | 'excel') {
-    // 1. Busca os dados no servidor
     this.matchService.getWinnersReport(match.id).subscribe({
-      // CORREÇÃO: Alterado de (dados: any[]) para (dados: any)
       next: (dados: any) => {
         if (dados.length === 0) {
           Swal.fire('Vazio', 'Não há ganhadores para este evento.', 'info');
           return;
         }
 
-        // Formata os dados para a tabela
         const formatoTabela = dados.map((item: any) => [
           item.titular_nome,
           item.titular_setor || 'N/A',
-          // `${item.lance_pago} pts`,
           item.retirante_nome || 'Pendente de indicação',
           item.retirante_cpf || '---',
         ]);
@@ -404,12 +434,11 @@ export class MatchManagerComponent implements OnInit {
         const colunas = [
           'Ganhador (Titular)',
           'Setor',
-          // 'Lance Vencedor',
           'Retirante Autorizado',
           'CPF do Retirante',
           'Assinatura',
         ];
-        const nomeArquivo = `Lista_Portaria_${match.titulo.replace(/\s+/g, '_')}`;
+        const nomeArquivo = `Lista_Portaria_${match.titulo.replace(/\\s+/g, '_')}`;
 
         if (tipo === 'pdf') {
           this.gerarPDF(match.titulo, colunas, formatoTabela, nomeArquivo);
@@ -417,24 +446,19 @@ export class MatchManagerComponent implements OnInit {
           this.gerarExcel(colunas, formatoTabela, nomeArquivo);
         }
       },
-      error: () =>
-        Swal.fire('Erro', 'A rota de listagem ainda não foi criada no backend.', 'error'),
+      error: () => Swal.fire('Erro', 'Falha ao buscar relatório.', 'error'),
     });
   }
 
   gerarPDF(tituloEvento: string, colunas: string[], linhas: any[], nomeArquivo: string) {
     const doc = new jsPDF();
-
-    // Cabeçalho
     doc.setFontSize(18);
     doc.text('Lista de Acesso (Concierge)', 14, 22);
-
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Evento: ${tituloEvento}`, 14, 30);
     doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 36);
 
-    // Tabela
     autoTable(doc, {
       head: [colunas],
       body: linhas,
@@ -443,7 +467,6 @@ export class MatchManagerComponent implements OnInit {
       headStyles: { fillColor: [79, 70, 229] },
       alternateRowStyles: { fillColor: [249, 250, 251] },
     });
-
     doc.save(`${nomeArquivo}.pdf`);
   }
 

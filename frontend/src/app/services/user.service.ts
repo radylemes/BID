@@ -40,10 +40,18 @@ export class UserService {
     return this.http.post(`${this.apiUrl}/bulk-update`, { alteracoes, adminId, motivoGlobal });
   }
 
+  // ==========================================
+  // FUNÇÃO CORRIGIDA DE UPLOAD
+  // ==========================================
   uploadAvatar(userId: number, file: File): Observable<any> {
     const formData = new FormData();
-    formData.append('foto', file);
+
+    // 1ª Regra: O ID (Texto) DEVE vir antes do ficheiro
     formData.append('userId', userId.toString());
+
+    // 2ª Regra: O nome do campo do ficheiro deve coincidir com o upload.single('avatar') do backend
+    formData.append('avatar', file);
+
     return this.http.post(`${this.apiUrl}/upload-avatar`, formData);
   }
 
@@ -57,7 +65,12 @@ export class UserService {
     motivo: string,
     adminId: number,
   ): Observable<any> {
-    return this.http.post(`${this.apiUrl}/update-groups`, { usuarioId, grupoId, motivo, adminId });
+    return this.http.put(`${this.apiUrl}/${usuarioId}/grupo`, {
+      usuarioId,
+      grupoId,
+      motivo,
+      adminId,
+    });
   }
 
   createUser(userData: any): Observable<any> {
@@ -77,5 +90,17 @@ export class UserService {
 
   getUserStats(userId: number): Observable<any> {
     return this.http.get(`${this.apiUrl}/${userId}/stats`);
+  }
+
+  addBatchPoints(data: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/batch-points`, data);
+  }
+
+  getGruposApostas(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/grupos-apostas`);
+  }
+
+  updateBatchGroup(data: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/batch-group`, data);
   }
 }

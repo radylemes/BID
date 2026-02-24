@@ -1,56 +1,32 @@
 const express = require("express");
 const router = express.Router();
 const matchController = require("../controllers/matchController");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-// Debug: Verifica se o controller foi carregado corretamente
-if (!matchController) {
-  console.error("ERRO CRÍTICO: matchController não foi carregado.");
-}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = "uploads/banners/";
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "banner-" + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+const upload = multer({ storage });
 
-// 1. Listar Eventos (Dashboard)
-if (matchController.getMatches) {
-  router.get("/", matchController.getMatches);
-} else {
-  console.error("Erro: Função 'getMatches' não encontrada.");
-}
+router.get("/", matchController.getMatches);
 
-// 2. Criar Novo Evento (Admin)
-if (matchController.createMatch) {
-  router.post("/", matchController.createMatch);
-}
+router.post("/", upload.single("banner_file"), matchController.createMatch);
+router.put("/:id", upload.single("banner_file"), matchController.updateMatch);
 
-// 3. Apostar / Dar Lance
-if (matchController.placeBet) {
-  router.post("/bet", matchController.placeBet);
-}
-
-// 4. Finalizar Evento (Admin - Sorteio e Ranking)
-if (matchController.finishMatch) {
-  router.post("/finish", matchController.finishMatch);
-}
-
-// 5. Excluir Evento (Admin)
-if (matchController.deleteMatch) {
-  router.delete("/:id", matchController.deleteMatch);
-}
-
-// ==========================================
-// 6. EDITAR/ATUALIZAR EVENTO (A ROTA DO ERRO 404)
-// ==========================================
-if (matchController.updateMatch) {
-  router.put("/:id", matchController.updateMatch);
-} else {
-  console.error(
-    "Erro: Função 'updateMatch' não encontrada no matchController.",
-  );
-}
-
-// 7. Buscar Saldo
-if (matchController.getBalance) {
-  router.get("/balance/:userId", matchController.getBalance);
-}
-
-// Rota para o relatório de ganhadores e retirantes da portaria
+router.post("/bet", matchController.placeBet);
+router.post("/finish", matchController.finishMatch);
+router.delete("/:id", matchController.deleteMatch);
+router.get("/balance/:userId", matchController.getBalance);
 router.get("/:id/winners-report", matchController.getMatchWinnersReport);
 
 module.exports = router;

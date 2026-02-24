@@ -467,6 +467,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     if (valores) {
+      // 🚀 ATUALIZAÇÃO OTIMISTA E BLOQUEIO DE TELA IMEDIATO
+      // Somamos a quantidade antiga de tickets com a nova para travar o botão na hora
+      match.tickets_comprados = (match.tickets_comprados || 0) + valores.length;
+      this.cd.detectChanges();
+
       this.matchService
         .placeBet({ partidaId: match.id, usuarioId: this.currentUser.id, valores: valores })
         .subscribe({
@@ -478,9 +483,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
               timer: 2000,
               showConfirmButton: false,
             });
-            this.carregarDados();
+
+            // BUSCA O NOVO SALDO NO SERVIDOR E ATUALIZA A TELA
+            this.matchService.getBalance(this.currentUser.id).subscribe((res: any) => {
+              this.currentUser.pontos = res.pontos;
+              localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+              this.carregarDados();
+              this.cd.detectChanges();
+            });
           },
-          error: (err) => Swal.fire('Erro', err.error?.error || 'Erro ao processar', 'error'),
+          error: (err) => {
+            // Em caso de erro, reverte a trava do botão
+            match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
+            this.cd.detectChanges();
+            Swal.fire('Erro', err.error?.error || 'Erro ao processar', 'error');
+          },
         });
     }
   }

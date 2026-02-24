@@ -1,6 +1,33 @@
 const db = require("../config/db");
 
-// Função auxiliar para formatar data (mantém horário local)
+// ============================================================
+// MOTOR DE AUDITORIA GLOBAL INVISÍVEL
+// ============================================================
+async function gravarAuditoria(
+  connection,
+  adminId,
+  modulo,
+  acao,
+  registroId,
+  detalhes,
+) {
+  try {
+    const executor = connection || db;
+    await executor.execute(
+      `INSERT INTO auditoria (admin_id, modulo, acao, registro_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
+      [
+        adminId || 1,
+        modulo,
+        acao,
+        registroId || null,
+        JSON.stringify(detalhes),
+      ],
+    );
+  } catch (e) {
+    console.error("Falha ao gravar auditoria no MatchController:", e.message);
+  }
+}
+
 const formatarDataLocal = (dataString) => {
   if (!dataString) return null;
   if (dataString instanceof Date) {
@@ -11,21 +38,19 @@ const formatarDataLocal = (dataString) => {
   return dataString.slice(0, 19).replace("T", " ");
 };
 
-// 0. LISTAR GRUPOS
 exports.getGroups = async (req, res) => {
   try {
-    const [rows] = await db.execute("SELECT * FROM grupos ORDER BY nome ASC");
+    const [rows] = await db.execute(
+      "SELECT id, nome, descricao FROM grupos ORDER BY nome ASC",
+    );
     res.json(rows);
   } catch (error) {
-    console.error("Erro getGroups:", error);
     res.status(500).json({ error: "Erro ao buscar grupos." });
   }
 };
 
-// 1. LISTAR EVENTOS
 exports.getMatches = async (req, res) => {
   const { userId } = req.query;
-
   try {
     const [users] = await db.execute(
       "SELECT perfil, grupo_id FROM usuarios WHERE id = ?",
@@ -34,24 +59,25 @@ exports.getMatches = async (req, res) => {
     if (users.length === 0) return res.json([]);
     const user = users[0];
 
+    // ATUALIZAÇÃO ARQUITETURAL: 'raw_ingressos' agora varre a tabela de Ingressos Reais
     let sql = `
-      SELECT 
-        p.*,
-        g.nome as nome_grupo,
+      SELECT p.*, g.nome as nome_grupo,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as tickets_comprados,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ? AND a.status = 'GANHOU') as tickets_ganhos,
-        
-        (SELECT GROUP_CONCAT(CONCAT(a.id, ':', a.valor_pago, ':', a.status, ':', COALESCE(c.nome_completo, '')) ORDER BY a.valor_pago DESC) 
-        FROM apostas a 
-        LEFT JOIN convidados c ON a.convidado_id = c.id 
-        WHERE a.partida_id = p.id AND a.usuario_id = ?) as meus_lances_detalhados
-
+        (SELECT GROUP_CONCAT(CONCAT(a.id, ':', a.valor_pago, ':', a.status) ORDER BY a.valor_pago DESC) 
+         FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as meus_lances_detalhados,
+        (SELECT GROUP_CONCAT(CONCAT(i.id, ':', COALESCE(c.nome_completo, ''), ':', i.checkin) SEPARATOR ',') 
+         FROM ingressos i
+         JOIN apostas a ON i.aposta_id = a.id
+         LEFT JOIN convidados c ON i.convidado_id = c.id
+         WHERE a.partida_id = p.id AND a.usuario_id = ?) as raw_ingressos
       FROM partidas p
       LEFT JOIN grupos g ON p.grupo_id = g.id
       WHERE 1=1 
     `;
 
-    const params = [userId, userId, userId];
+    // 4 Parâmetros para os 4 SELECTS embutidos na Query
+    const params = [userId, userId, userId, userId];
 
     if (user.perfil !== "ADMIN") {
       sql += ` AND (p.grupo_id = ? OR p.grupo_id IS NULL) `;
@@ -59,89 +85,93 @@ exports.getMatches = async (req, res) => {
     }
 
     sql += ` ORDER BY p.data_jogo DESC`;
-
     const [rows] = await db.execute(sql, params);
 
     const results = rows.map((row) => ({
       ...row,
       data_evento: row.data_jogo,
-      titulo: row.titulo || `${row.time_casa} x ${row.time_fora}`,
+      titulo: row.titulo || "Evento sem título",
       quantidade_premios: row.quantidade_premios || 1,
       raw_lances: row.meus_lances_detalhados,
+      raw_ingressos: row.raw_ingressos,
       status: row.status || "ABERTA",
     }));
-
     res.json(results);
   } catch (error) {
-    console.error("Erro getMatches:", error);
+    console.error("Erro em getMatches:", error);
     res.status(500).json({ error: "Erro ao buscar eventos." });
   }
 };
 
-// 2. CRIAR EVENTO
 exports.createMatch = async (req, res) => {
   try {
     const {
       titulo,
       banner,
       local,
-      data_evento,
       data_jogo,
-      data_inicio,
       data_inicio_apostas,
-      data_limite,
       data_limite_aposta,
-      qtd_premios,
       quantidade_premios,
       grupo_id,
       adminId,
+      motivo,
+      banner_existente,
     } = req.body;
 
-    const dataReal = data_jogo || data_evento;
-    const inicioReal = data_inicio_apostas || data_inicio;
-    const fimReal = data_limite_aposta || data_limite;
-    const qtdReal = quantidade_premios || qtd_premios;
-
-    if (!dataReal)
+    const grupoIdFinal =
+      grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
+    if (!data_jogo)
       return res.status(400).json({ error: "Data do evento obrigatória." });
 
-    const inicioFormatado = inicioReal
-      ? formatarDataLocal(inicioReal)
+    const inicioFormatado = data_inicio_apostas
+      ? formatarDataLocal(data_inicio_apostas)
       : formatarDataLocal(new Date().toISOString());
 
-    const connection = await db.getConnection();
+    let bannerPath = banner_existente || banner || "";
+    if (req.file) {
+      bannerPath = req.file.path.replace(/\\/g, "/");
+    }
 
+    const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-
       const [result] = await connection.execute(
-        `INSERT INTO partidas 
-            (titulo, banner, local, data_jogo, data_inicio_apostas, data_limite_aposta, quantidade_premios, grupo_id, time_casa, time_fora, status) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
+        `INSERT INTO partidas (titulo, banner, local, data_jogo, data_inicio_apostas, data_limite_aposta, quantidade_premios, grupo_id, status) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
         [
           titulo,
-          banner || "",
+          bannerPath,
           local || "Local a definir",
-          formatarDataLocal(dataReal),
+          formatarDataLocal(data_jogo),
           inicioFormatado,
-          formatarDataLocal(fimReal),
-          qtdReal || 1,
-          grupo_id || null,
-          "Evento",
-          "Evento",
+          formatarDataLocal(data_limite_aposta),
+          quantidade_premios || 1,
+          grupoIdFinal,
         ],
       );
+
+      const novoBidId = result.insertId;
 
       if (adminId) {
         await connection.execute(
           `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
-          [
-            adminId,
-            adminId,
-            `Admin: Criou BID #${result.insertId} (${titulo})`,
-          ],
+          [adminId, adminId, `Admin: Criou BID #${novoBidId} (${titulo})`],
         );
       }
+
+      await gravarAuditoria(
+        connection,
+        adminId,
+        "BIDS",
+        "CREATE_BID",
+        novoBidId,
+        {
+          titulo,
+          grupo_id: grupoIdFinal,
+          motivo: motivo || `Criação do evento: ${titulo}`,
+        },
+      );
 
       await connection.commit();
       res.json({ message: "Evento criado com sucesso!" });
@@ -152,12 +182,79 @@ exports.createMatch = async (req, res) => {
       connection.release();
     }
   } catch (error) {
-    console.error("Erro CREATE:", error);
-    res.status(500).json({ error: "Erro ao criar evento." });
+    res.status(500).json({ error: "Erro ao criar." });
   }
 };
 
-// 3. APOSTAR
+exports.updateMatch = async (req, res) => {
+  const { id } = req.params;
+  const {
+    titulo,
+    banner,
+    local,
+    data_jogo,
+    data_inicio_apostas,
+    data_limite_aposta,
+    quantidade_premios,
+    grupo_id,
+    adminId,
+    motivo,
+    banner_existente,
+  } = req.body;
+
+  const grupoIdFinal =
+    grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
+  if (!data_jogo)
+    return res.status(400).json({ error: "Data do evento obrigatória." });
+
+  let bannerPath = banner_existente || banner || "";
+  if (req.file) {
+    bannerPath = req.file.path.replace(/\\/g, "/");
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.execute(
+      `UPDATE partidas SET titulo = ?, banner = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, quantidade_premios = ?, grupo_id = ? WHERE id = ?`,
+      [
+        titulo,
+        bannerPath,
+        local || "Local a definir",
+        formatarDataLocal(data_jogo),
+        formatarDataLocal(data_inicio_apostas),
+        formatarDataLocal(data_limite_aposta),
+        quantidade_premios || 1,
+        grupoIdFinal,
+        id,
+      ],
+    );
+
+    if (result.affectedRows === 0) throw new Error("Evento não encontrado.");
+
+    if (adminId) {
+      await connection.execute(
+        `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
+        [adminId, adminId, `Admin: Editou BID #${id} (${titulo})`],
+      );
+    }
+
+    await gravarAuditoria(connection, adminId, "BIDS", "UPDATE_BID", id, {
+      titulo,
+      grupo_id: grupoIdFinal,
+      motivo: motivo || `Edição do evento: ${titulo}`,
+    });
+
+    await connection.commit();
+    res.json({ message: "Evento atualizado com sucesso!" });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: "Erro ao atualizar evento." });
+  } finally {
+    connection.release();
+  }
+};
+
 exports.placeBet = async (req, res) => {
   const { partidaId, usuarioId, valores, valorApostado } = req.body;
   const connection = await db.getConnection();
@@ -182,28 +279,29 @@ exports.placeBet = async (req, res) => {
       throw new Error("Participação Única: Você já registrou seus lances.");
 
     const [matchData] = await connection.execute(
-      "SELECT data_inicio_apostas, data_limite_aposta, status FROM partidas WHERE id = ?",
+      "SELECT titulo, data_inicio_apostas, data_limite_aposta, status FROM partidas WHERE id = ?",
       [pId],
     );
-
     if (matchData.length === 0) throw new Error("Evento não encontrado.");
     const match = matchData[0];
     const agora = new Date();
-    const inicio = new Date(match.data_inicio_apostas);
-    const fim = new Date(match.data_limite_aposta);
 
     if (match.status !== "ABERTA")
       throw new Error("Este evento não está aberto para lances.");
-    if (agora < inicio)
+    if (agora < new Date(match.data_inicio_apostas))
       throw new Error("O período de lances ainda não iniciou.");
-    if (agora > fim) throw new Error("O período de lances já encerrou.");
+    if (agora > new Date(match.data_limite_aposta))
+      throw new Error("O período de lances já encerrou.");
 
     const totalValor = lancesParaProcessar.reduce((acc, v) => acc + v, 0);
+
     const [userRows] = await connection.execute(
-      "SELECT pontos FROM usuarios WHERE id = ?",
+      "SELECT pontos, nome_completo FROM usuarios WHERE id = ?",
       [uId],
     );
     if (userRows.length === 0) throw new Error("Usuário não encontrado.");
+    const userName = userRows[0].nome_completo;
+
     if (Number(userRows[0].pontos) < totalValor)
       throw new Error("Saldo insuficiente.");
 
@@ -212,6 +310,7 @@ exports.placeBet = async (req, res) => {
       "UPDATE usuarios SET pontos = pontos - ? WHERE id = ?",
       [totalValor, uId],
     );
+
     for (const valor of lancesParaProcessar) {
       await connection.execute(
         "INSERT INTO apostas (partida_id, usuario_id, valor_pago, status) VALUES (?, ?, ?, 'PENDENTE')",
@@ -219,21 +318,23 @@ exports.placeBet = async (req, res) => {
       );
     }
 
-    const [matchRows] = await connection.execute(
-      "SELECT titulo FROM partidas WHERE id = ?",
-      [pId],
-    );
-    const titulo = matchRows[0]?.titulo || "Evento";
     await connection.execute(
       "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, ?, ?, ?)",
       [
         uId,
-        1,
+        uId,
         Number(userRows[0].pontos),
         Number(userRows[0].pontos) - totalValor,
-        `BID Único: ${titulo}`.slice(0, 45),
+        `BID: ${match.titulo}`.slice(0, 45),
       ],
     );
+
+    await gravarAuditoria(connection, uId, "BIDS", "PLACE_BET", pId, {
+      usuario: userName,
+      lances: lancesParaProcessar,
+      total: totalValor,
+      motivo: `${userName} realizou ${lancesParaProcessar.length} lance(s) totalizando ${totalValor}pts no evento: ${match.titulo}`,
+    });
 
     await connection.commit();
     res.json({ message: "Participação confirmada!" });
@@ -245,20 +346,16 @@ exports.placeBet = async (req, res) => {
   }
 };
 
-// 4. FINALIZAR EVENTO
 exports.finishMatch = async (req, res) => {
-  const { partidaId, adminId } = req.body;
+  const { partidaId, adminId, motivo } = req.body;
   const connection = await db.getConnection();
-
   try {
     await connection.beginTransaction();
-
     const [matches] = await connection.execute(
       "SELECT titulo, quantidade_premios FROM partidas WHERE id = ?",
       [partidaId],
     );
     if (matches.length === 0) throw new Error("Partida não encontrada");
-
     const match = matches[0];
     const qtdPremios = match.quantidade_premios || 1;
 
@@ -266,7 +363,6 @@ exports.finishMatch = async (req, res) => {
       "SELECT id, usuario_id, valor_pago FROM apostas WHERE partida_id = ?",
       [partidaId],
     );
-
     const apostas = apostasRaw
       .map((a) => ({ ...a, valor_pago: Number(a.valor_pago) }))
       .sort((a, b) => {
@@ -282,6 +378,13 @@ exports.finishMatch = async (req, res) => {
         "UPDATE apostas SET status = 'GANHOU' WHERE id = ?",
         [win.id],
       );
+
+      // INSERÇÃO NA NOVA TABELA: Criação do Ingresso Físico para a Portaria
+      await connection.execute(
+        "INSERT INTO ingressos (aposta_id, usuario_id) VALUES (?, ?)",
+        [win.id, win.usuario_id],
+      );
+
       await connection.execute(
         "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)",
         [
@@ -321,7 +424,7 @@ exports.finishMatch = async (req, res) => {
           adminId || 1,
           saldoAtual,
           novoSaldo,
-          `REEMBOLSO: ${match.titulo}`,
+          `REEMBOLSO BID: ${match.titulo}`,
         ],
       );
     }
@@ -330,14 +433,22 @@ exports.finishMatch = async (req, res) => {
       "UPDATE partidas SET status = 'FINALIZADA' WHERE id = ?",
       [partidaId],
     );
-    await connection.commit();
-    res.json({
-      message: "Sorteio realizado!",
-      detalhes: {
+
+    await gravarAuditoria(
+      connection,
+      adminId,
+      "BIDS",
+      "FINISH_BID",
+      partidaId,
+      {
         vencedores: vencedores.length,
         reembolsados: perdedores.length,
+        motivo: motivo || "Sorteio e encerramento do evento",
       },
-    });
+    );
+
+    await connection.commit();
+    res.json({ message: "Sorteio realizado!" });
   } catch (error) {
     await connection.rollback();
     res.status(500).json({ error: error.message });
@@ -346,15 +457,12 @@ exports.finishMatch = async (req, res) => {
   }
 };
 
-// 5. EXCLUIR EVENTO (Corrigido para devolver pontos)
 exports.deleteMatch = async (req, res) => {
   const { id } = req.params;
-  const { adminId } = req.query;
+  const { adminId, motivo } = req.query;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
-    // 1. Verifica se o evento existe
     const [matches] = await connection.execute(
       "SELECT titulo FROM partidas WHERE id = ?",
       [id],
@@ -362,192 +470,90 @@ exports.deleteMatch = async (req, res) => {
     if (matches.length === 0) throw new Error("Evento não encontrado.");
     const match = matches[0];
 
-    // 2. Busca todos os lances para reembolso
     const [apostas] = await connection.execute(
       "SELECT usuario_id, valor_pago FROM apostas WHERE partida_id = ?",
       [id],
     );
-
-    // 3. Processa os reembolsos
     if (apostas.length > 0) {
       const reembolsos = {};
-
-      // Agrupa os valores por usuário
       for (const aposta of apostas) {
         if (!reembolsos[aposta.usuario_id]) reembolsos[aposta.usuario_id] = 0;
         reembolsos[aposta.usuario_id] += Number(aposta.valor_pago);
       }
-
-      // Devolve para cada usuário
       for (const [userId, valorTotal] of Object.entries(reembolsos)) {
         const [uRows] = await connection.execute(
           "SELECT pontos FROM usuarios WHERE id = ?",
           [userId],
         );
         const saldoAtual = Number(uRows[0]?.pontos || 0);
-        const novoSaldo = saldoAtual + valorTotal;
-
         await connection.execute(
-          "UPDATE usuarios SET pontos = ? WHERE id = ?",
-          [novoSaldo, userId],
+          "UPDATE usuarios SET pontos = pontos + ? WHERE id = ?",
+          [valorTotal, userId],
         );
-
         await connection.execute(
           "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, ?, ?, ?)",
           [
             userId,
             adminId || 1,
             saldoAtual,
-            novoSaldo,
-            `REEMBOLSO: Cancelamento BID (${match.titulo})`,
+            saldoAtual + valorTotal,
+            `REEMBOLSO CANCELAMENTO BID: ${match.titulo}`,
           ],
         );
       }
-
-      // Exclui as apostas agora que o dinheiro foi devolvido
       await connection.execute("DELETE FROM apostas WHERE partida_id = ?", [
         id,
       ]);
     }
 
-    // 4. Exclui a Partida
     await connection.execute("DELETE FROM partidas WHERE id = ?", [id]);
 
-    // 5. Log do Admin
-    if (adminId) {
-      await connection.execute(
-        "INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)",
-        [adminId, adminId, `Admin: Excluiu BID #${id}`],
-      );
-    }
+    await gravarAuditoria(connection, adminId, "BIDS", "DELETE_BID", id, {
+      titulo: match.titulo,
+      motivo: motivo || "Exclusão do evento pelo Administrador",
+    });
 
     await connection.commit();
-    res.json({ message: "Evento excluído e pontos reembolsados com sucesso." });
+    res.json({ message: "Evento excluído e pontos reembolsados." });
   } catch (error) {
     await connection.rollback();
-    console.error("Erro DELETE:", error);
     res.status(500).json({ error: error.message });
   } finally {
     connection.release();
   }
 };
 
-// 6. EDITAR EVENTO (Restaurado)
-exports.updateMatch = async (req, res) => {
-  const { id } = req.params;
-  const {
-    titulo,
-    banner,
-    local,
-    data_evento,
-    data_jogo,
-    data_inicio,
-    data_inicio_apostas,
-    data_limite,
-    data_limite_aposta,
-    qtd_premios,
-    quantidade_premios,
-    grupo_id,
-    adminId,
-  } = req.body;
-
-  const dataReal = data_jogo || data_evento;
-  const inicioReal = data_inicio_apostas || data_inicio;
-  const fimReal = data_limite_aposta || data_limite;
-  const qtdReal = quantidade_premios || qtd_premios;
-
-  if (!dataReal)
-    return res.status(400).json({ error: "Data do evento obrigatória." });
-
-  const inicioFormatado = inicioReal
-    ? formatarDataLocal(inicioReal)
-    : formatarDataLocal(new Date().toISOString());
-
-  const connection = await db.getConnection();
-
-  try {
-    await connection.beginTransaction();
-
-    const [result] = await connection.execute(
-      `UPDATE partidas 
-       SET titulo = ?, banner = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, quantidade_premios = ?, grupo_id = ?
-       WHERE id = ?`,
-      [
-        titulo,
-        banner || "",
-        local || "Local a definir",
-        formatarDataLocal(dataReal),
-        inicioFormatado,
-        formatarDataLocal(fimReal),
-        qtdReal || 1,
-        grupo_id || null,
-        id,
-      ],
-    );
-
-    if (result.affectedRows === 0) {
-      throw new Error("Evento não encontrado.");
-    }
-
-    if (adminId) {
-      await connection.execute(
-        `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
-        [adminId, adminId, `Admin: Editou BID #${id} (${titulo})`],
-      );
-    }
-
-    await connection.commit();
-    res.json({ message: "Evento atualizado com sucesso!" });
-  } catch (error) {
-    await connection.rollback();
-    console.error("Erro UPDATE:", error);
-    res.status(500).json({ error: "Erro ao atualizar evento." });
-  } finally {
-    connection.release();
-  }
-};
-
-// 7. BUSCAR SALDO
 exports.getBalance = async (req, res) => {
-  const { userId } = req.params;
   try {
     const [rows] = await db.execute(
       "SELECT pontos FROM usuarios WHERE id = ?",
-      [userId],
+      [req.params.userId],
     );
-    if (rows.length === 0)
-      return res.status(404).json({ error: "Usuário não encontrado" });
     res.json({ pontos: rows[0].pontos });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao buscar saldo." });
+    res.status(500).json({ error: "Erro" });
   }
 };
 
 exports.getMatchWinnersReport = async (req, res) => {
-  const { id } = req.params;
-  const db = require("../config/db");
-
   try {
+    // ATUALIZAÇÃO NO RELATÓRIO: Cruzamento das tabelas de Apostas e Ingressos
     const [rows] = await db.execute(
       `
-      SELECT 
-        u.nome_completo AS titular_nome,
-        u.setor AS titular_setor,
-        a.valor_pago AS lance_pago,
-        c.nome_completo AS retirante_nome,
-        c.cpf AS retirante_cpf
+      SELECT u.nome_completo AS titular_nome, s.nome AS titular_setor, a.valor_pago AS lance_pago,
+             c.nome_completo AS retirante_nome, c.cpf AS retirante_cpf, i.checkin
       FROM apostas a
+      JOIN ingressos i ON i.aposta_id = a.id
       JOIN usuarios u ON a.usuario_id = u.id
-      LEFT JOIN convidados c ON a.convidado_id = c.id
+      LEFT JOIN setores s ON u.setor_id = s.id
+      LEFT JOIN convidados c ON i.convidado_id = c.id
       WHERE a.partida_id = ? AND a.status = 'GANHOU'
       ORDER BY a.valor_pago DESC
     `,
-      [id],
+      [req.params.id],
     );
-
     res.json(rows);
   } catch (error) {
-    console.error("Erro ao gerar relatório:", error);
-    res.status(500).json({ error: "Erro ao buscar lista de ganhadores." });
+    res.status(500).json({ error: "Erro." });
   }
 };
