@@ -4,6 +4,12 @@ const userController = require("../controllers/userController");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const { authMiddleware, authorizeRoles } = require("../middleware/authMiddleware");
+const validateRequest = require("../middleware/validateRequest");
+const {
+  createUserSchema,
+  batchPointsSchema,
+} = require("../validations/userSchema");
 
 // Configuração do destino da foto de perfil
 const storage = multer.diskStorage({
@@ -23,9 +29,12 @@ const upload = multer({ storage });
 // ⚠️ ATENÇÃO: Rotas específicas DEVEM vir ANTES das rotas com parâmetro (/:id)
 // ==============================================================================
 
-// Sincronização e Importação
-router.post("/sync", userController.syncUsers);
-router.post("/import", userController.bulkUpdate);
+// Diagnóstico de conexão com os tenants Azure AD (ADMIN)
+router.get("/tenants-status", authMiddleware, authorizeRoles("ADMIN"), userController.getTenantsStatus);
+
+// Sincronização e Importação (ADMIN)
+router.post("/sync", authMiddleware, authorizeRoles("ADMIN"), userController.syncUsers);
+router.post("/import", authMiddleware, authorizeRoles("ADMIN"), userController.bulkUpdate);
 
 // Ações em Lote (Pontos e Grupos)
 router.post("/batch-points", userController.addBatchPoints);

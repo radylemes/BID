@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const helmet = require("helmet");
 require("dotenv").config();
 const initializeDatabase = require("./config/setupDatabase");
 const initAutomations = require("./cron/automations");
@@ -16,6 +17,8 @@ const pointsRuleRoutes = require("./routes/pointsRuleRoutes");
 const sectorRoutes = require("./routes/sectorRoutes");
 const auditRoutes = require("./routes/auditRoutes");
 const systemMonitorRoutes = require("./routes/systemMonitorRoutes");
+const setoresEventoRoutes = require("./routes/setoresEventoRoutes");
+const emailRoutes = require("./routes/emailRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -37,6 +40,8 @@ app.use("/api/points-rules", pointsRuleRoutes);
 app.use("/api/sectors", sectorRoutes);
 app.use("/api/audits", auditRoutes);
 app.use("/api/system-errors", systemMonitorRoutes);
+app.use("/api/setores-evento", setoresEventoRoutes);
+app.use("/api/email", emailRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

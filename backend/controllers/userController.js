@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const qs = require("qs");
 const fs = require("fs");
 const logErro = require("../utils/errorLogger");
+const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -43,7 +44,7 @@ async function gravarAuditoria(
         modulo,
         acao,
         registroId || null,
-        JSON.stringify(detalhes),
+        safeAuditoriaDetalhes(detalhes),
       ],
     );
   } catch (e) {
@@ -127,26 +128,139 @@ exports.getUserById = async (req, res) => {
   }
 };
 
+/** Retorna a lista de configurações de tenants (tenant 1 + tenant 2 se configurado). */
+function getTenantConfigs() {
+  const configs = [
+    {
+      label: "Tenant 1",
+      tenantId: process.env.AZURE_TENANT_ID,
+      clientId: process.env.AZURE_CLIENT_ID,
+      clientSecret: process.env.AZURE_CLIENT_SECRET,
+    },
+  ];
+  if (process.env.AZURE_TENANT_ID_2 && process.env.AZURE_CLIENT_ID_2 && process.env.AZURE_CLIENT_SECRET_2) {
+    configs.push({
+      label: "Tenant 2",
+      tenantId: process.env.AZURE_TENANT_ID_2,
+      clientId: process.env.AZURE_CLIENT_ID_2,
+      clientSecret: process.env.AZURE_CLIENT_SECRET_2,
+    });
+  }
+  return configs;
+}
+
+/**
+ * GET /api/users/tenants-status — Diagnóstico: testa conexão e permissão Graph em cada tenant.
+ */
+exports.getTenantsStatus = async (req, res) => {
+  try {
+    const configs = getTenantConfigs();
+    const results = [];
+    for (const config of configs) {
+      const item = {
+        label: config.label,
+        tenantId: config.tenantId,
+        status: "error",
+        message: null,
+        userCount: null,
+      };
+      try {
+        const tokenUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`;
+        const tokenData = qs.stringify({
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          scope: "https://graph.microsoft.com/.default",
+          grant_type: "client_credentials",
+        });
+        const tokenResponse = await axios.post(tokenUrl, tokenData, {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+        if (tokenResponse.status !== 200 || !tokenResponse.data?.access_token) {
+          item.message = "Falha ao obter token OAuth";
+          results.push(item);
+          continue;
+        }
+        const graphResponse = await axios.get(
+          "https://graph.microsoft.com/v1.0/users?$top=1&$select=id",
+          {
+            headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
+            validateStatus: () => true,
+          },
+        );
+        if (graphResponse.status === 200 && Array.isArray(graphResponse.data?.value)) {
+          item.status = "ok";
+          item.message = "Conectado e com permissão para listar usuários (User.Read.All)";
+        } else {
+          const msg = graphResponse.data?.error?.message || graphResponse.statusText || `HTTP ${graphResponse.status}`;
+          item.message = `${graphResponse.status}: ${msg}`;
+        }
+      } catch (err) {
+        item.message = err.response?.data?.error?.message || err.message || "Erro ao conectar";
+      }
+      results.push(item);
+    }
+    res.json({ tenants: results });
+  } catch (error) {
+    await logErro("USER_CONTROLLER_GET_TENANTS_STATUS", error);
+    res.status(500).json({ error: "Erro ao verificar tenants.", details: error.message });
+  }
+};
+
 exports.syncUsers = async (req, res) => {
   const adminId = req.body.adminId || 1;
   try {
-    const tokenUrl = `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`;
-    const tokenData = qs.stringify({
-      client_id: process.env.AZURE_CLIENT_ID,
-      client_secret: process.env.AZURE_CLIENT_SECRET,
-      scope: "https://graph.microsoft.com/.default",
-      grant_type: "client_credentials",
-    });
-    const tokenResponse = await axios.post(tokenUrl, tokenData, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    const graphResponse = await axios.get(
-      "https://graph.microsoft.com/v1.0/users?$top=999&$select=id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName",
-      {
-        headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
-      },
-    );
-    const adUsers = graphResponse.data.value;
+    const tenantConfigs = getTenantConfigs().map((c) => ({
+      tenantId: c.tenantId,
+      clientId: c.clientId,
+      clientSecret: c.clientSecret,
+    }));
+
+    const adUsers = [];
+    const tenantErrors = [];
+    for (const config of tenantConfigs) {
+      try {
+        const tokenUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`;
+        const tokenData = qs.stringify({
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          scope: "https://graph.microsoft.com/.default",
+          grant_type: "client_credentials",
+        });
+        const tokenResponse = await axios.post(tokenUrl, tokenData, {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+        if (tokenResponse.status !== 200 || !tokenResponse.data?.access_token) {
+          tenantErrors.push(`Tenant ${config.tenantId}: falha ao obter token`);
+          continue;
+        }
+        const graphResponse = await axios.get(
+          "https://graph.microsoft.com/v1.0/users?$top=999&$select=id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName",
+          {
+            headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
+            validateStatus: () => true,
+          },
+        );
+        if (graphResponse.status === 200 && Array.isArray(graphResponse.data?.value)) {
+          adUsers.push(...graphResponse.data.value);
+        } else {
+          const msg = graphResponse.data?.error?.message || graphResponse.statusText || `HTTP ${graphResponse.status}`;
+          tenantErrors.push(`Tenant ${config.tenantId}: ${graphResponse.status} - ${msg}`);
+        }
+      } catch (err) {
+        const status = err.response?.status;
+        const msg = err.response?.data?.error?.message || err.message || "Erro desconhecido";
+        tenantErrors.push(`Tenant ${config.tenantId}: ${status || "erro"} - ${msg}`);
+        await logErro("USER_CONTROLLER_SYNC_TENANT", err);
+      }
+    }
+
+    if (adUsers.length === 0 && tenantErrors.length > 0) {
+      return res.status(502).json({
+        error: "Nenhum usuário obtido dos tenants.",
+        details: "Todos os tenants falharam. Verifique permissões da aplicação no Azure AD (ex.: User.Read.All com consentimento de admin).",
+        tenantErrors,
+      });
+    }
 
     let criados = 0;
     let atualizados = 0;
@@ -215,9 +329,11 @@ exports.syncUsers = async (req, res) => {
       connection.release();
     }
 
+    const details = `Criados: ${criados}, Atualizados: ${atualizados}, Ignorados: ${ignorados}.`;
     res.json({
       message: "Sincronização concluída com sucesso!",
-      details: `Criados: ${criados}, Atualizados: ${atualizados}, Ignorados: ${ignorados}.`,
+      details: tenantErrors.length > 0 ? `${details} Avisos: ${tenantErrors.join("; ")}` : details,
+      tenantErrors: tenantErrors.length > 0 ? tenantErrors : undefined,
     });
   } catch (error) {
     await logErro("USER_CONTROLLER_SYNC_USERS", error);
@@ -354,7 +470,7 @@ exports.toggleStatus = async (req, res) => {
     ]);
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
-      [id, adminId || 1, `Status alterado para ${ativo ? "ATIVO" : "INATIVO"}`],
+      [id, adminId || 1, truncateMotivo(`Status alterado para ${ativo ? "ATIVO" : "INATIVO"}`)],
     );
 
     await gravarAuditoria(
@@ -389,7 +505,7 @@ exports.mudarPerfil = async (req, res) => {
       [
         req.params.id,
         req.body.adminId || 1,
-        `Alteração de Perfil para ${req.body.perfil}`,
+        truncateMotivo(`Alteração de Perfil para ${req.body.perfil}`),
       ],
     );
 
@@ -431,7 +547,7 @@ exports.updatePontos = async (req, res) => {
         req.body.adminId || 1,
         user[0]?.pontos || 0,
         req.body.novosPontos,
-        req.body.motivo || "Ajuste manual",
+        truncateMotivo(req.body.motivo || "Ajuste manual"),
       ],
     );
 
@@ -469,7 +585,7 @@ exports.updateUserGroup = async (req, res) => {
     ]);
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
-      [usuarioId, adminId || 1, `Grupo de Aposta Atualizado. Obs: ${motivo}`],
+      [usuarioId, adminId || 1, truncateMotivo(`Grupo de Aposta Atualizado. Obs: ${motivo}`)],
     );
 
     await gravarAuditoria(
@@ -509,9 +625,9 @@ exports.createUser = async (req, res) => {
   try {
     await connection.beginTransaction();
     const hashedPassword = await bcrypt.hash(senha, 10);
-    const empId = empresa_id && empresa_id !== "null" ? empresa_id : null;
-    const setId = setor_id && setor_id !== "null" ? setor_id : null;
-    const grpId = grupo_id && grupo_id !== "null" ? grupo_id : null;
+    const empId = safeInt(empresa_id);
+    const setId = safeInt(setor_id);
+    const grpId = safeInt(grupo_id);
     const pontosIniciais = pontos ? Number(pontos) : 0;
 
     const [result] = await connection.execute(
@@ -536,7 +652,7 @@ exports.createUser = async (req, res) => {
         novoUserId,
         adminId || 1,
         pontosIniciais,
-        motivo || "Criação de Usuário",
+        truncateMotivo(motivo || "Criação de Usuário"),
       ],
     );
     await gravarAuditoria(
@@ -616,7 +732,7 @@ exports.updateUserManual = async (req, res) => {
         adminId || 1,
         pontosAntes,
         pontosDepois,
-        motivo || "Edição de Cadastro",
+        truncateMotivo(motivo || "Edição de Cadastro"),
       ],
     );
     await gravarAuditoria(
@@ -798,7 +914,7 @@ exports.addBatchPoints = async (req, res) => {
 
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) SELECT id, ?, (pontos - ?), pontos, ? FROM usuarios WHERE ${whereClause}`,
-      [adminId || 1, pontosNum, motive, ...whereParams],
+      [adminId || 1, pontosNum, truncateMotivo(motive), ...whereParams],
     );
     await gravarAuditoria(
       connection,
@@ -878,7 +994,7 @@ exports.updateBatchGroup = async (req, res) => {
 
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) SELECT id, ?, pontos, pontos, ? FROM usuarios WHERE ${whereClause}`,
-      [adminId || 1, `Troca em Lote: ${motive}`, ...whereParams],
+      [adminId || 1, truncateMotivo(`Troca em Lote: ${motive}`), ...whereParams],
     );
     await gravarAuditoria(
       connection,

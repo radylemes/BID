@@ -3,8 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
+import { SettingsService } from '../../services/settings.service';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
+import { environment } from '../../../environments/environment';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-user-list',
@@ -22,11 +26,12 @@ export class UserListComponent implements OnInit {
   gruposApostas: any[] = []; // Grupos de Lances/Eventos
 
   loading = false;
-  apiUrl = 'http://localhost:3005';
+  apiUrl = environment.apiUri.replace('/api', '');
 
   constructor(
     private userService: UserService,
     private groupService: GroupService,
+    private settingsService: SettingsService,
     private cd: ChangeDetectorRef,
   ) {}
 
@@ -36,9 +41,9 @@ export class UserListComponent implements OnInit {
     this.carregarGruposApostas();
   }
 
-  // Busca Empresas e Setores
+  // Busca Empresas e Setores (organograma para modais Atribuir Grupo / Pontos em Lote)
   carregarListaDeGrupos() {
-    this.groupService.getAllGroups().subscribe({
+    this.groupService.getEmpresasComSetores().subscribe({
       next: (data) => {
         this.gruposDisponiveis = data;
       },
@@ -278,26 +283,66 @@ export class UserListComponent implements OnInit {
     reader.readAsBinaryString(target.files[0]);
   }
 
+  private getValorCampoUsuario(u: any, key: string): string | number {
+    switch (key) {
+      case 'nome': return u.nome_completo ?? '';
+      case 'email': return u.email ?? '';
+      case 'empresa': return u.empresa || '';
+      case 'setor': return u.setor || '';
+      case 'grupo_apostas': return u.grupo_nome || '';
+      case 'pontos': return u.pontos ?? 0;
+      case 'status': return u.ativo ? 'Ativo' : 'Inativo';
+      case 'perfil': return u.perfil ?? '';
+      default: return '';
+    }
+  }
+
   exportarExcel() {
-    const dados = this.users.map((u) => ({
-      Nome: u.nome_completo,
-      Email: u.email,
-      Empresa: u.empresa || '',
-      Setor: u.setor || '',
-      GrupoApostas: u.grupo_nome || '',
-      Pontos: u.pontos || 0,
-      Status: u.ativo ? 'Ativo' : 'Inativo',
-      Perfil: u.perfil,
-    }));
-    const ws = XLSX.utils.json_to_sheet(dados);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
-    XLSX.writeFile(wb, 'Relatorio_Usuarios.xlsx');
+    this.settingsService.getExportSettings().pipe(
+      catchError(() => of(null)),
+    ).subscribe({
+      next: (settings) => {
+        const fields = this.settingsService.parseUsuariosFields(settings).filter((f) => f.enabled !== false);
+        const colunas = fields.map((f) => f.label);
+        const dados = this.users.map((u) => {
+          const row: Record<string, string | number> = {};
+          fields.forEach((f) => { row[f.label] = this.getValorCampoUsuario(u, f.key); });
+          return row;
+        });
+        const ws = colunas.length ? XLSX.utils.json_to_sheet(dados) : XLSX.utils.aoa_to_sheet([[]]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
+        XLSX.writeFile(wb, 'Relatorio_Usuarios.xlsx');
+      },
+      error: () => {
+        const dados = this.users.map((u) => ({
+          Nome: u.nome_completo,
+          Email: u.email,
+          Empresa: u.empresa || '',
+          Setor: u.setor || '',
+          GrupoApostas: u.grupo_nome || '',
+          Pontos: u.pontos || 0,
+          Status: u.ativo ? 'Ativo' : 'Inativo',
+          Perfil: u.perfil,
+        }));
+        const ws = XLSX.utils.json_to_sheet(dados);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
+        XLSX.writeFile(wb, 'Relatorio_Usuarios.xlsx');
+      },
+    });
   }
 
   getFotoUrl(path: string) {
     if (!path) return '';
+    if (path === 'db') return '';
     return path.startsWith('http') ? path : `${this.apiUrl}/${path.replace(/\\/g, '/')}`;
+  }
+
+  getAvatarUrl(user: { foto?: string; id?: number }): string {
+    if (!user?.foto) return '';
+    if (user.foto === 'db' && user.id) return `${environment.apiUri}/users/${user.id}/avatar`;
+    return this.getFotoUrl(user.foto);
   }
 
   sincronizar() {

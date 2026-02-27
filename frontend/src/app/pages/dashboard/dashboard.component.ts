@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
 import Swal from 'sweetalert2';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-dashboard',
@@ -41,11 +42,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.timerInterval) clearInterval(this.timerInterval);
   }
 
+  getBannerUrl(match: { banner?: string; id?: number }): string {
+    if (!match?.banner) return 'assets/placeholder.jpg';
+    if (match.banner.startsWith('http')) return match.banner;
+    if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
+    const base = environment.apiUri.replace(/\/api\/?$/, '');
+    return `${base}/${match.banner.replace(/\\/g, '/').replace(/^\//, '')}`;
+  }
+
   carregarDados() {
+    if (!localStorage.getItem('token') || !this.currentUser?.id) {
+      this.loading = false;
+      return;
+    }
     this.loading = true;
-    this.matchService.getMatches(this.currentUser.id).subscribe({
+    this.matchService.getMatches(this.currentUser.id, true).subscribe({
       next: (data) => {
-        this.matches = data.map((match: any) => {
+        // FILTRO LOCAL GARANTIDO: Remove eventos passados (baseado na data_jogo)
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        
+        const dadosFiltrados = data.filter((m: any) => {
+          if (!m.data_jogo) return true;
+          const dataJogo = new Date(m.data_jogo);
+          dataJogo.setHours(0, 0, 0, 0);
+          return dataJogo.getTime() >= hoje.getTime();
+        });
+
+        this.matches = dadosFiltrados.map((match: any) => {
           let ingressosGanhos: any[] = [];
 
           // 1. Processa Lances (Financeiro/Compatibilidade)
@@ -102,19 +126,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.cd.detectChanges();
       },
-      error: (err) => {
-        console.error(err);
+      error: () => {
         this.loading = false;
         this.cd.detectChanges();
       },
     });
 
-    this.matchService.getBalance(this.currentUser.id).subscribe({
-      next: (res: any) => {
-        this.currentUser.pontos = res.pontos;
-        localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-      },
-    });
+    const uid = this.currentUser?.id;
+    if (uid != null) {
+      this.matchService.getBalance(uid).subscribe({
+        next: (res: any) => {
+          const pts = res?.pontos != null ? Number(res.pontos) : 0;
+          if (this.currentUser) this.currentUser.pontos = pts;
+          localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+          this.cd.detectChanges();
+        },
+        error: () => {
+          // Atualiza no próximo ciclo para evitar NG0100 (ExpressionChangedAfterItHasBeenCheckedError)
+          setTimeout(() => {
+            if (this.currentUser) this.currentUser.pontos = 0;
+            this.cd.detectChanges();
+          }, 0);
+        },
+      });
+    }
   }
 
   atualizarTimers() {
@@ -376,7 +411,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  async apostar(match: any) {
+  async apostar(match: any, previousValues: number[] = []) {
     if (match.estado_tempo === 'EM_BREVE') {
       Swal.fire('Aguarde', 'O período de lances ainda não iniciou.', 'warning');
       return;
@@ -395,10 +430,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    let lancesAtivosNoPopup = 1;
+    let lancesAtivosNoPopup = Math.max(1, previousValues.length);
     const saldoInicial = this.currentUser.pontos || 0;
 
-    const { value: valores } = await Swal.fire({
+    const { value: valores, isDismissed } = await Swal.fire({
       title: `<span class="text-xl font-black text-gray-800 tracking-tight">🎟️ Realizar Lances</span>`,
       width: '450px',
       showCancelButton: true,
@@ -428,17 +463,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
         <div id="lances-wrapper">
           ${Array.from({ length: lancesQuePodeDar })
             .map(
-              (_, i) => `
-            <div id="container-lance-${i + 1}" class="flex items-center gap-3 mb-3 ${i > 0 ? 'hidden' : ''}">
+              (_, i) => {
+                const isVisible = i === 0 || i < previousValues.length;
+                const val = previousValues[i] ? previousValues[i] : '';
+                return `
+            <div id="container-lance-${i + 1}" class="flex items-center gap-3 mb-3 ${isVisible ? '' : 'hidden'}">
               <div class="w-24 text-[11px] font-black text-gray-400 uppercase tracking-tighter">Lance ${lancesJaRealizados + i + 1}</div>
               <div class="relative flex-1">
-                <input id="lance-${i + 1}" type="number" class="swal2-input m-0 px-4 py-2 text-sm font-bold border-gray-200 focus:border-indigo-500 rounded-lg shadow-sm" placeholder="Valor do lance">
+                <input id="lance-${i + 1}" type="number" class="swal2-input m-0 px-4 py-2 text-sm font-bold border-gray-200 focus:border-indigo-500 rounded-lg shadow-sm" placeholder="Valor do lance" value="${val}">
               </div>
-            </div>`,
+            </div>`;
+              }
             )
             .join('')}
         </div>
-        ${lancesQuePodeDar > 1 ? `<button id="add-lance-btn" type="button" class="w-full mt-2 py-2 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-[10px] font-bold hover:border-indigo-300 hover:text-indigo-500 transition-all">+ Adicionar outro lance (${lancesQuePodeDar - 1} vaga(s) restante(s))</button>` : ''}
+        ${lancesQuePodeDar > lancesAtivosNoPopup ? `<button id="add-lance-btn" type="button" class="w-full mt-2 py-2 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-[10px] font-bold hover:border-indigo-300 hover:text-indigo-500 transition-all">+ Adicionar outro lance (${lancesQuePodeDar - lancesAtivosNoPopup} vaga(s) restante(s))</button>` : ''}
       </div>`,
       didOpen: () => {
         const btn = document.getElementById('add-lance-btn');
@@ -449,7 +488,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         );
 
         const atualizarCalculo = () => {
-          const total = inputs.reduce((acc, input) => acc + (parseFloat(input.value) || 0), 0);
+          const total = inputs.reduce((acc, input) => acc + (parseFloat(input?.value) || 0), 0);
           const restante = saldoInicial - total;
           if (totalLancesEl) totalLancesEl.innerText = `${total} pts`;
           if (saldoRestanteEl) {
@@ -463,6 +502,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             }
           }
         };
+        
+        atualizarCalculo();
+
         inputs.forEach((input) => {
           if (input) {
             input.addEventListener('input', atualizarCalculo);
@@ -485,8 +527,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const inputsValidos = [];
         for (let i = 1; i <= lancesAtivosNoPopup; i++) {
           const el = document.getElementById(`lance-${i}`) as HTMLInputElement;
-          const val = parseFloat(el.value);
-          if (val > 0) inputsValidos.push(val);
+          if (el && el.value) {
+            const val = parseFloat(el.value);
+            if (val > 0) inputsValidos.push(val);
+          }
         }
         const total = inputsValidos.reduce((a, b) => a + b, 0);
         if (inputsValidos.length === 0) {
@@ -501,7 +545,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
     });
 
+    if (isDismissed) {
+      return;
+    }
+
     if (valores) {
+      const totalApostado = valores.reduce((a: number, b: number) => a + b, 0);
+      const qtdLances = valores.length;
+
+      const { isConfirmed } = await Swal.fire({
+        title: '⚠️ Atenção: Participação Única',
+        html: `
+          <div class="text-left bg-rose-50 p-4 rounded-xl border border-rose-100 mt-2">
+            <p class="text-sm text-gray-700 mb-2">
+              Você está prestes a realizar <b>${qtdLances}</b> lance(s), consumindo um total de <b>${totalApostado} pts</b>.
+            </p>
+            <p class="text-sm font-black text-rose-700">
+              Esta é uma ação definitiva! Após confirmar, você NÃO poderá alterar, adicionar novos lances ou cancelar sua participação neste evento.
+            </p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Estou ciente, registrar lances',
+        cancelButtonText: 'Voltar para revisar',
+        reverseButtons: true
+      });
+
+      if (!isConfirmed) {
+        this.apostar(match, valores);
+        return;
+      }
+
       match.tickets_comprados = (match.tickets_comprados || 0) + valores.length;
       this.cd.detectChanges();
 
@@ -517,12 +594,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
               showConfirmButton: false,
             });
 
-            this.matchService.getBalance(this.currentUser.id).subscribe((res: any) => {
-              this.currentUser.pontos = res.pontos;
-              localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+            const uid = this.currentUser?.id;
+            if (uid != null) {
+              this.matchService.getBalance(uid).subscribe({
+                next: (res: any) => {
+                  const pts = res?.pontos != null ? Number(res.pontos) : 0;
+                  if (this.currentUser) this.currentUser.pontos = pts;
+                  localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                  this.carregarDados();
+                  this.cd.detectChanges();
+                },
+                error: () => {
+                  this.carregarDados();
+                  this.cd.detectChanges();
+                },
+              });
+            } else {
               this.carregarDados();
               this.cd.detectChanges();
-            });
+            }
           },
           error: (err) => {
             match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;

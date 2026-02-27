@@ -106,7 +106,7 @@
     >
       <div class="h-40 w-full bg-gray-200 relative overflow-hidden shrink-0">
         <img
-          [src]="match.banner ? 'http://localhost:3005/' + match.banner : 'assets/placeholder.jpg'"
+          [src]="getBannerUrl(match)"
           (error)="$any($event.target).src = 'https://placehold.co/600x400?text=BID'"
           class="w-full h-full object-cover"
         />
@@ -138,7 +138,7 @@
           </h3>
           <span
             class="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap shrink-0 border border-gray-200"
-            >🎫 {{ match.quantidade_premios }} Ingresso(s)</span
+            ><img src="assets/allianz_ticket_blue_cartoon.png" alt="" class="w-4 h-4 object-contain inline-block align-middle" /> {{ match.quantidade_premios_efetiva ?? match.quantidade_premios }} Ingresso(s)</span
           >
         </div>
 
@@ -150,9 +150,14 @@
               class="bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded text-[10px] uppercase"
               >{{ match.nome_grupo || 'Geral' }}</span
             >
-            <div class="flex items-center gap-1 text-gray-600">
+            <div class="flex items-center gap-1.5 text-gray-600 flex-wrap">
               <span class="text-rose-500 text-sm">📍</span>
               <span class="font-medium truncate max-w-[100px]">{{ match.local }}</span>
+              <span *ngIf="match.setor_evento_nome" class="text-gray-400 text-[10px] font-bold">·</span>
+              <span *ngIf="match.setor_evento_nome" class="inline-flex items-center gap-1 font-bold text-indigo-600 truncate max-w-[80px]">
+                <span class="text-sm opacity-90" aria-hidden="true">🪑</span>
+                {{ match.setor_evento_nome }}
+              </span>
             </div>
           </div>
 

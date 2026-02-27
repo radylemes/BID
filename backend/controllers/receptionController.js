@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 
 async function gravarAuditoria(
   connection,
@@ -18,7 +19,7 @@ async function gravarAuditoria(
         modulo,
         acao,
         registroId || null,
-        JSON.stringify(detalhes),
+        safeAuditoriaDetalhes(detalhes),
       ],
     );
   } catch (e) {
@@ -29,7 +30,10 @@ async function gravarAuditoria(
 exports.getTodayEvents = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT id, titulo, data_jogo as data_evento FROM partidas ORDER BY data_jogo ASC`,
+      `SELECT id, titulo, data_jogo as data_evento
+       FROM partidas
+       WHERE DATE(data_jogo) = CURDATE()
+       ORDER BY data_jogo ASC`,
     );
     res.json(rows);
   } catch (error) {

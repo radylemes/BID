@@ -5,15 +5,17 @@ import { UserService } from '../../services/user.service';
 import { AuthService } from '../../services/auth.service';
 import { GuestService } from '../../services/guest.service';
 import Swal from 'sweetalert2';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  styles: [`:host { display: block; height: 100%; }`],
   template: `
-    <div class="min-h-screen bg-gray-50 py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
+    <div class="h-full w-full flex flex-col min-h-0 bg-gray-50">
+      <div class="flex-1 flex flex-col min-h-0 w-full px-0 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 flex-shrink-0">
           <div
             class="lg:col-span-3 bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden flex flex-col relative pb-8"
           >
@@ -27,7 +29,7 @@ import Swal from 'sweetalert2';
                   >
                     <img
                       *ngIf="user?.foto"
-                      [src]="getFotoUrl(user.foto)"
+                      [src]="getAvatarUrl(user)"
                       class="w-full h-full object-cover"
                       alt="Foto de perfil"
                     />
@@ -98,7 +100,7 @@ import Swal from 'sweetalert2';
             </div>
           </div>
 
-          <div class="lg:col-span-3 flex flex-col gap-4 h-full">
+          <div class="lg:col-span-2 flex flex-col gap-3 h-full">
             <div
               class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
             >
@@ -163,7 +165,7 @@ import Swal from 'sweetalert2';
           </div>
 
           <div
-            class="lg:col-span-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col"
+            class="lg:col-span-7 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col"
           >
             <div class="flex justify-between items-start mb-6">
               <div>
@@ -260,7 +262,7 @@ import Swal from 'sweetalert2';
           </div>
         </div>
 
-        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100">
+        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0 overflow-hidden">
           <div
             class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
           >
@@ -280,7 +282,7 @@ import Swal from 'sweetalert2';
             </button>
           </div>
 
-          <div class="overflow-x-auto rounded-2xl border border-gray-100">
+          <div class="overflow-auto flex-1 min-h-0 rounded-2xl border border-gray-100">
             <table class="w-full text-left text-sm text-gray-600">
               <thead
                 class="bg-gray-50/50 text-[10px] uppercase font-black text-gray-400 border-b border-gray-100 tracking-widest"
@@ -295,7 +297,7 @@ import Swal from 'sweetalert2';
               <tbody>
                 <tr *ngIf="convidados.length === 0">
                   <td colspan="4" class="text-center py-16 text-gray-400 font-medium">
-                    <span class="text-4xl block mb-3 opacity-40 grayscale">🎫</span>
+                    <img src="assets/allianz_ticket_blue_cartoon.png" alt="" class="w-12 h-12 object-contain block mb-3 opacity-40 grayscale" />
                     Nenhum convidado cadastrado.
                   </td>
                 </tr>
@@ -348,7 +350,7 @@ import Swal from 'sweetalert2';
 })
 export class ProfileComponent implements OnInit {
   user: any = null;
-  apiUrl = 'http://localhost:3005';
+  apiUrl = environment.apiUri.replace('/api', '');
   convidados: any[] = [];
 
   stats = { bidsVencidos: 0, mediaPontos: 0 };
@@ -560,9 +562,16 @@ export class ProfileComponent implements OnInit {
 
   getFotoUrl(path: string) {
     if (!path) return '';
+    if (path === 'db') return '';
     if (path.startsWith('http')) return path;
     let cleanPath = path.replace(/\\/g, '/').replace(/^\//, '');
-    return `http://localhost:3005/${cleanPath}?t=${new Date().getTime()}`;
+    return `${this.apiUrl}/${cleanPath}?t=${new Date().getTime()}`;
+  }
+
+  getAvatarUrl(user: { foto?: string; id?: number }): string {
+    if (!user?.foto) return '';
+    if (user.foto === 'db' && user.id) return `${environment.apiUri}/users/${user.id}/avatar`;
+    return this.getFotoUrl(user.foto);
   }
 
   onFileSelected(event: any) {

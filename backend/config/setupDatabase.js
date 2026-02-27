@@ -140,6 +140,15 @@ async function initializeDatabase() {
       );
     `);
 
+    // Setores de evento (catálogo: Cadeira inferior, Pista, Camarote, etc.)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS setores_evento (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // ============================================================
     // 6. EVENTOS (PARTIDAS), LANCES E INGRESSOS (Nova Arquitetura)
     // ============================================================
@@ -156,8 +165,10 @@ async function initializeDatabase() {
         status ENUM('ABERTA', 'ENCERRADA', 'FINALIZADA') DEFAULT 'ABERTA',
         custo_aposta INT DEFAULT 10,
         grupo_id INT NULL,
+        setor_evento_id INT NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL
+        FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL,
+        FOREIGN KEY (setor_evento_id) REFERENCES setores_evento(id) ON DELETE SET NULL
       );
     `);
 
@@ -193,6 +204,34 @@ async function initializeDatabase() {
       );
     `);
 
+    // Transferências de ingressos não sorteados entre BIDs (origem → destino)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS transferencias_ingressos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partida_origem_id INT NOT NULL,
+        partida_destino_id INT NOT NULL,
+        quantidade INT NOT NULL DEFAULT 0,
+        motivo VARCHAR(500) NULL,
+        admin_id INT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (partida_origem_id) REFERENCES partidas(id) ON DELETE CASCADE,
+        FOREIGN KEY (partida_destino_id) REFERENCES partidas(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Acréscimo de ingressos a BID finalizado (atribui à fila PERDEU, debita pontos)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS acrescimos_ingressos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partida_id INT NOT NULL,
+        quantidade INT NOT NULL DEFAULT 0,
+        motivo VARCHAR(500) NULL,
+        admin_id INT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (partida_id) REFERENCES partidas(id) ON DELETE CASCADE
+      );
+    `);
+
     // ============================================================
     // 7. CONFIGURAÇÕES E REGRAS DE PONTUAÇÃO
     // ============================================================
@@ -225,6 +264,38 @@ async function initializeDatabase() {
         
         FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE,
         FOREIGN KEY (setor_id) REFERENCES setores(id) ON DELETE SET NULL
+      );
+    `);
+
+    // ============================================================
+    // 8. LISTAS DE E-MAIL E TEMPLATES
+    // ============================================================
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS listas_email (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(255) NOT NULL,
+        descricao TEXT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS listas_email_itens (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lista_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        nome_opcional VARCHAR(255) NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (lista_id) REFERENCES listas_email(id) ON DELETE CASCADE
+      );
+    `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS templates_email (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(255) NOT NULL,
+        assunto VARCHAR(255) NOT NULL,
+        corpo_html LONGTEXT NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
 
@@ -274,12 +345,48 @@ async function initializeDatabase() {
       { nome: "empresa_id", tipo: "INT NULL" },
       { nome: "setor_id", tipo: "INT NULL" },
       { nome: "grupo_id", tipo: "INT NULL" },
+      { nome: "avatar_data", tipo: "MEDIUMBLOB NULL" },
+      { nome: "avatar_tipo", tipo: "VARCHAR(100) NULL" },
     ]);
 
-    await ensureColumns("partidas", [{ nome: "grupo_id", tipo: "INT NULL" }]);
+    await ensureColumns("partidas", [
+      { nome: "grupo_id", tipo: "INT NULL" },
+      { nome: "setor_evento_id", tipo: "INT NULL" },
+      { nome: "banner_data", tipo: "MEDIUMBLOB NULL" },
+      { nome: "banner_tipo", tipo: "VARCHAR(100) NULL" },
+      { nome: "subtitulo", tipo: "VARCHAR(255) NULL" },
+      { nome: "informacoes_extras", tipo: "TEXT NULL" },
+      { nome: "link_extra", tipo: "VARCHAR(500) NULL" },
+    ]);
     await ensureColumns("regras_pontuacao", [
       { nome: "grupo_id", tipo: "INT NULL" },
     ]);
+
+    // 3. Garante utf8mb4 em templates_email (emojis e Unicode completo)
+    try {
+      const [tbl] = await connection.query(
+        "SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'templates_email'"
+      );
+      if (tbl.length > 0 && tbl[0].TABLE_COLLATION && !String(tbl[0].TABLE_COLLATION).startsWith("utf8mb4")) {
+        await connection.query(
+          "ALTER TABLE templates_email CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        );
+        console.log("✨ Migration: tabela 'templates_email' convertida para utf8mb4 (suporte a emojis).");
+      }
+    } catch (e) {}
+
+    // 4. Garante utf8mb4 em partidas (emojis em titulo, subtitulo, informacoes_extras, etc.)
+    try {
+      const [tblPartidas] = await connection.query(
+        "SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'partidas'"
+      );
+      if (tblPartidas.length > 0 && tblPartidas[0].TABLE_COLLATION && !String(tblPartidas[0].TABLE_COLLATION).startsWith("utf8mb4")) {
+        await connection.query(
+          "ALTER TABLE partidas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        );
+        console.log("✨ Migration: tabela 'partidas' convertida para utf8mb4 (suporte a emojis).");
+      }
+    } catch (e) {}
 
     // População Básica se estiver vazio
     const [users] = await connection.query("SELECT * FROM usuarios LIMIT 1");

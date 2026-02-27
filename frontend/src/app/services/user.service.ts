@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
-  private apiUrl = 'http://localhost:3005/api/users';
+  private apiUrl = `${environment.apiUri}/users`;
 
   constructor(private http: HttpClient) {}
 
@@ -102,5 +103,10 @@ export class UserService {
 
   updateBatchGroup(data: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/batch-group`, data);
+  }
+
+  /** Diagnóstico: status de conexão com cada tenant Azure AD (login + Graph). */
+  getTenantsStatus(): Observable<{ tenants: Array<{ label: string; tenantId: string; status: string; message: string | null; userCount?: number }> }> {
+    return this.http.get<{ tenants: Array<{ label: string; tenantId: string; status: string; message: string | null; userCount?: number }> }>(`${this.apiUrl}/tenants-status`);
   }
 }

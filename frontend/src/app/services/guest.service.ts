@@ -1,13 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class GuestService {
-  // Ajuste a URL se o seu backend estiver em outra porta
-  private apiUrl = 'http://localhost:3005/api/guests';
+  private apiUrl = `${environment.apiUri}/guests`;
 
   constructor(private http: HttpClient) {}
 

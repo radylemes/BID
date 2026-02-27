@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class GroupService {
-  private apiUrl = 'http://localhost:3005/api/groups';
+  private apiUrl = `${environment.apiUri}/groups`;
 
   constructor(private http: HttpClient) {}
 
@@ -37,5 +38,10 @@ export class GroupService {
 
   getUserGroups(userId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/user/${userId}`);
+  }
+
+  /** Organograma: empresas com setores aninhados (para modais Atribuir Grupo / Pontos em Lote). */
+  getEmpresasComSetores(): Observable<any[]> {
+    return this.http.get<any[]>(`${environment.apiUri}/sectors/organograma`);
   }
 }

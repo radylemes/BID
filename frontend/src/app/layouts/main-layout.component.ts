@@ -127,19 +127,19 @@ import { Subscription } from 'rxjs';
             </a>
             <a
               *ngIf="isAdmin"
+              routerLink="/email/disparo"
+              routerLinkActive="bg-indigo-50 text-indigo-600"
+              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            >
+              <span class="mr-3 text-lg">📧</span> Disparo de E-mails
+            </a>
+            <a
+              *ngIf="isAdmin"
               routerLink="/settings"
               routerLinkActive="bg-indigo-50 text-indigo-600"
               class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
             >
               <span class="mr-3 text-lg">⚙️</span> Configurações
-            </a>
-            <a
-              *ngIf="isAdmin"
-              routerLink="/monitor"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
-            >
-              <span class="mr-3 text-lg">🚨</span> Monitor de Sistema
             </a>
           </div>
         </nav>
@@ -230,6 +230,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     '/matches': 'Bids',
     '/auditoria': 'Logs de Auditoria',
     '/reception': 'App Portaria',
+    '/email/disparo': 'Disparo de E-mails',
     '/settings': 'Configurações',
     '/monitor': 'Monitor do Sistema',
   };
@@ -279,8 +280,8 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
 
       if (u.foto) this.fotoUrlCompleta = this.getFotoUrl(u.foto);
 
-      // Carrega os pontos bloqueados e lances ativos
-      this.carregarEstatisticasGlobais();
+      // Pequeno delay para garantir que o token já foi gravado após o login
+      setTimeout(() => this.carregarEstatisticasGlobais(), 0);
     } else {
       setTimeout(() => this.carregarDados(), 500);
     }
@@ -290,13 +291,12 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   // FUNÇÃO QUE CALCULA A CARTEIRA DO MENU
   // ==========================================
   carregarEstatisticasGlobais() {
-    if (!this.userId) return;
+    if (!this.userId || !localStorage.getItem('token')) return;
 
     // 1. Atualiza o saldo mais recente do banco
     this.matchService.getBalance(this.userId).subscribe({
       next: (res: any) => {
         this.saldo = res.pontos;
-        // Atualiza no localStorage discretamente
         const userStr = localStorage.getItem('currentUser');
         if (userStr) {
           const u = JSON.parse(userStr);
@@ -304,6 +304,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
           localStorage.setItem('currentUser', JSON.stringify(u));
         }
       },
+      error: () => {},
     });
 
     // 2. Calcula Pontos Bloqueados e Lances Ativos
@@ -329,6 +330,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
           }
         });
       },
+      error: () => {},
     });
   }
 

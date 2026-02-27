@@ -29,20 +29,20 @@
     >
       <div class="w-full md:w-48 h-32 md:h-auto relative bg-gray-200 shrink-0">
         <img
-          [src]="match.banner ? 'http://localhost:3005/' + match.banner : 'assets/placeholder.jpg'"
+          [src]="getBannerUrl(match)"
           (error)="$any($event.target).src = 'https://placehold.co/600x400?text=BID'"
           class="w-full h-full object-cover grayscale opacity-90"
         />
         <div class="absolute top-2 left-2">
           <span
             *ngIf="match.status === 'ABERTA'"
-            class="bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow"
-            >EM ANDAMENTO</span
+            class="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm animate-pulse"
+            >● Aberto</span
           >
           <span
             *ngIf="match.status !== 'ABERTA'"
-            class="bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow"
-            >FINALIZADO</span
+            class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >Encerrado</span
           >
         </div>
       </div>
@@ -99,8 +99,12 @@
         <div class="flex-1 flex flex-col justify-center min-w-0">
           <div
             *ngIf="match.tickets_ganhos > 0 && match.status !== 'ABERTA'"
-            (click)="definirRetirantes(match)"
-            class="bg-gray-50/50 hover:bg-indigo-50/30 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 cursor-pointer transition-all flex flex-col w-full h-full justify-center group/area"
+            [ngClass]="{
+              'cursor-not-allowed opacity-70': eventoAnteriorHoje(match),
+              'cursor-pointer hover:bg-indigo-50/30 hover:border-indigo-200': !eventoAnteriorHoje(match)
+            }"
+            (click)="!eventoAnteriorHoje(match) && definirRetirantes(match)"
+            class="bg-gray-50/50 rounded-xl p-4 border border-gray-100 transition-all flex flex-col w-full h-full justify-center group/area"
           >
             <div
               class="flex items-center justify-between mb-3 border-b border-gray-200/60 group-hover/area:border-indigo-200 pb-2 transition-colors"

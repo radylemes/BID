@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 
 async function gravarAuditoria(
   connection,
@@ -18,7 +19,7 @@ async function gravarAuditoria(
         modulo,
         acao,
         registroId || null,
-        JSON.stringify(detalhes),
+        safeAuditoriaDetalhes(detalhes),
       ],
     );
   } catch (e) {

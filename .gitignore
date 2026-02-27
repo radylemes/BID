@@ -1,11 +1,13 @@
 # Dependências
 node_modules/
-package-lock.json   # Opcional: alguns preferem versionar, outros não. Geralmente versiona-se.
 
 # Build do Angular
 frontend/dist/
 frontend/.angular/
 frontend/.vscode/
+
+# Uploads do backend (avatars, banners, papel timbrado) — não versionar
+backend/uploads/
 
 # Logs e Dados Temporários
 *.log
@@ -13,7 +15,10 @@ npm-debug.log*
 
 # Variáveis de Ambiente e Segredos (SEGURANÇA!)
 .env
+.env.local
+.env.*.local
 backend/.env
+backend/.env.local
 
 # Sistema Operacional
 .DS_Store

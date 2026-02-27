@@ -1,19 +1,31 @@
+const path = require("path");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
-require("dotenv").config();
+
+// Garante que o .env seja carregado da pasta backend (funciona rodando da raiz ou de backend/)
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 async function resetDatabase() {
   console.log("⚠️  INICIANDO LIMPEZA TOTAL DO BANCO DE DADOS...");
+
+  const host = process.env.DB_HOST || "localhost";
+  const port = process.env.DB_PORT || 3306;
+
+  if (!process.env.DB_USER || !process.env.DB_NAME) {
+    console.error("❌ Configure DB_USER e DB_NAME no arquivo backend/.env");
+    process.exit(1);
+  }
 
   let connection;
 
   try {
     connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
+      host,
+      port: Number(port),
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      multipleStatements: true, // Permite rodar vários comandos de uma vez
+      multipleStatements: true,
     });
 
     console.log(`🔌 Conectado ao banco '${process.env.DB_NAME}'.`);
@@ -21,18 +33,20 @@ async function resetDatabase() {
     // 1. Desativar verificação de chaves estrangeiras para permitir o TRUNCATE
     await connection.query("SET FOREIGN_KEY_CHECKS = 0;");
 
-    // 2. Limpar todas as tabelas na nova arquitetura
-    // ATUALIZADO: Incluídas as novas tabelas (ingressos, auditoria, grupos, configuracoes)
+    // 2. Limpar todas as tabelas (ordem: dependentes primeiro; FK checks desligados)
     const tables = [
       "ingressos",
+      "transferencias_ingressos",
       "apostas",
-      "historico_pontos",
       "partidas",
-      "auditoria",
-      "usuarios",
-      "regras_pontuacao",
-      "configuracoes",
+      "historico_pontos",
       "convidados",
+      "regras_pontuacao",
+      "auditoria",
+      "logs_erros",
+      "usuarios",
+      "configuracoes",
+      "setores_evento",
       "setores",
       "empresas",
       "grupos",
@@ -92,7 +106,16 @@ async function resetDatabase() {
     );
     console.log("🏁 Limpeza concluída!");
   } catch (error) {
-    console.error("❌ Erro ao limpar o banco:", error);
+    if (error.code === "ECONNREFUSED") {
+      console.error(
+        `❌ Conexão recusada em ${host}:${port}. Verifique:\n` +
+          "  • O MySQL está rodando?\n" +
+          "  • DB_HOST e DB_PORT no backend/.env estão corretos?",
+      );
+    } else {
+      console.error("❌ Erro ao limpar o banco:", error.message);
+    }
+    process.exit(1);
   } finally {
     if (connection) await connection.end();
   }

@@ -1,12 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const guestController = require("../controllers/guestController");
+const { authMiddleware } = require("../middleware/authMiddleware");
 
-router.get("/user/:userId", guestController.getGuests);
-router.post("/", guestController.createGuest);
-router.put("/:id", guestController.updateGuest);
-router.delete("/:id", guestController.deleteGuest);
+router.get("/user/:userId", authMiddleware, guestController.getGuests);
+router.post("/", authMiddleware, guestController.createGuest);
+router.put("/:id", authMiddleware, guestController.updateGuest);
+router.delete("/:id", authMiddleware, guestController.deleteGuest);
 
-router.put("/assign-ticket/:apostaId", guestController.assignGuestToTicket);
+router.put(
+  "/assign-ticket/:apostaId",
+  authMiddleware,
+  guestController.assignGuestToTicket,
+);
 
 module.exports = router;

@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
 import Swal from 'sweetalert2';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-history',
@@ -40,7 +41,7 @@ import Swal from 'sweetalert2';
           >
             <div class="relative h-48 md:h-auto md:w-1/3 lg:w-1/4 bg-gray-900 shrink-0">
               <img
-                [src]="getFotoUrl(match.banner)"
+                [src]="getBannerUrl(match)"
                 (error)="
                   $any($event.target).src = 'https://placehold.co/800x400?text=Evento+Encerrado'
                 "
@@ -52,7 +53,7 @@ import Swal from 'sweetalert2';
 
               <div class="absolute bottom-4 left-4 right-4">
                 <span
-                  class="bg-gray-800/80 backdrop-blur text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded mb-2 inline-block border border-gray-600"
+                  class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm mb-2 inline-block"
                 >
                   Encerrado em {{ match.data_jogo | date: 'dd/MM/yyyy' }}
                 </span>
@@ -181,13 +182,23 @@ export class HistoryComponent implements OnInit {
   }
 
   getFotoUrl(path: string) {
-    if (!path) return '';
+    if (!path || path === 'db') return '';
     if (path.startsWith('http')) return path;
-    let cleanPath = path.replace(/\\/g, '/');
-    if (cleanPath.startsWith('/')) {
-      cleanPath = cleanPath.substring(1);
-    }
-    return `http://localhost:3005/${cleanPath}`;
+    const base = environment.apiUri.replace(/\/api\/?$/, '');
+    let cleanPath = path.replace(/\\/g, '/').replace(/^\//, '');
+    return `${base}/${cleanPath}`;
+  }
+
+  getBannerUrl(match: { banner?: string; id?: number }): string {
+    if (!match?.banner) return '';
+    if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
+    return this.getFotoUrl(match.banner);
+  }
+
+  getAvatarUrl(user: { foto?: string; id?: number }): string {
+    if (!user?.foto) return '';
+    if (user.foto === 'db' && user.id) return `${environment.apiUri}/users/${user.id}/avatar`;
+    return this.getFotoUrl(user.foto);
   }
 
   abrirModalGanhadores(match: any) {
@@ -204,11 +215,15 @@ export class HistoryComponent implements OnInit {
     const winnersHtml = match.winners
       .map((winner: any, i: number) => {
         const isFirst = i === 0;
-        const initial = winner.nome.charAt(0).toUpperCase();
+        const initial = (winner.nome || '?').charAt(0).toUpperCase();
         const medal = isFirst ? '<span class="text-amber-500 mr-1 text-lg">🥇</span>' : '';
         const avatarBorder = isFirst
           ? 'border-amber-400 bg-amber-50 text-amber-600'
           : 'border-gray-200 bg-gray-100 text-gray-500';
+        const fotoUrl = winner.foto ? (winner.foto === 'db' && winner.id ? `${environment.apiUri}/users/${winner.id}/avatar` : this.getFotoUrl(winner.foto)) : '';
+        const avatarHtml = winner.foto
+          ? `<img src="${fotoUrl}" alt="" class="w-10 h-10 rounded-full object-cover border-2 shrink-0 ${avatarBorder}" />`
+          : `<span class="w-10 h-10 rounded-full shrink-0 border-2 flex items-center justify-center overflow-hidden font-black text-sm ${avatarBorder}">${initial}</span>`;
 
         return `
         <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm mb-2 hover:border-indigo-200 transition-colors">
@@ -216,8 +231,8 @@ export class HistoryComponent implements OnInit {
             <div class="w-6 shrink-0 text-center">
               <span class="text-sm font-black text-gray-300">${i + 1}º</span>
             </div>
-            <div class="w-10 h-10 rounded-full shrink-0 border-2 flex items-center justify-center overflow-hidden font-black text-sm ${avatarBorder}">
-               ${initial}
+            <div class="flex items-center justify-center overflow-hidden">
+              ${avatarHtml}
             </div>
             <div class="text-left truncate">
               <p class="text-sm font-black text-gray-800 truncate flex items-center">

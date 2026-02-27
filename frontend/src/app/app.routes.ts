@@ -15,6 +15,9 @@ import { SettingsComponent } from './pages/settings/settings.component';
 import { HistoryComponent } from './pages/history/history.component';
 import { AuditComponent } from './pages/audit/audit.component';
 import { SystemMonitorComponent } from './pages/system-monitor/system-monitor.component';
+import { EmailTemplateEditorComponent } from './pages/email/email-template-editor.component';
+import { DisparoEmailsComponent } from './pages/email/disparo-emails.component';
+import { TenantsStatusComponent } from './pages/tenants-status/tenants-status.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -50,9 +53,13 @@ export const routes: Routes = [
       { path: 'groups', component: GroupManagerComponent },
       { path: 'matches/manage', component: MatchManagerComponent },
       { path: 'historico', component: HistoryComponent },
+      { path: 'settings/templates-email/edit/:id', component: EmailTemplateEditorComponent, canActivate: [AuthGuard] },
+      { path: 'settings/templates-email/new', component: EmailTemplateEditorComponent, canActivate: [AuthGuard] },
+      { path: 'email/disparo', component: DisparoEmailsComponent, canActivate: [AuthGuard] },
       { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard] },
       { path: 'auditoria', component: AuditComponent },
       { path: 'monitor', component: SystemMonitorComponent },
+      { path: 'tenants-status', component: TenantsStatusComponent, canActivate: [AuthGuard] },
     ],
   },
 

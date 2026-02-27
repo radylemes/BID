@@ -1,10 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const ruleController = require("../controllers/pointsRuleController");
+const { authMiddleware, authorizeRoles } = require("../middleware/authMiddleware");
 
-router.get("/", ruleController.getRules);
-router.post("/", ruleController.createRule);
-router.put("/:id/toggle", ruleController.toggleRule);
-router.delete("/:id", ruleController.deleteRule);
+// Regras de pontuação - somente ADMIN
+router.get("/", authMiddleware, authorizeRoles("ADMIN"), ruleController.getRules);
+router.post("/", authMiddleware, authorizeRoles("ADMIN"), ruleController.createRule);
+router.put(
+  "/:id/toggle",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  ruleController.toggleRule,
+);
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  ruleController.deleteRule,
+);
 
 module.exports = router;

@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
 import Swal from 'sweetalert2';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-my-bets',
@@ -28,14 +29,20 @@ export class MyBetsComponent implements OnInit {
     this.carregarHistorico();
   }
 
+  getBannerUrl(match: { banner?: string; id?: number }): string {
+    if (!match?.banner) return 'assets/placeholder.jpg';
+    if (match.banner.startsWith('http')) return match.banner;
+    if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
+    const base = environment.apiUri.replace(/\/api\/?$/, '');
+    return `${base}/${match.banner.replace(/\\/g, '/').replace(/^\//, '')}`;
+  }
+
   carregarHistorico() {
     this.loading = true;
 
-    this.matchService.getMatches(this.currentUser.id).subscribe({
+    this.matchService.getMyBets(this.currentUser.id).subscribe({
       next: (data) => {
-        const participacoes = data.filter((m: any) => m.raw_lances);
-
-        let processadas = participacoes.map((match) => {
+        let processadas = data.map((match) => {
           let lancesProcessados: any[] = [];
           let ingressosGanhos: any[] = [];
           let totalGasto = 0;
@@ -82,9 +89,13 @@ export class MyBetsComponent implements OnInit {
           };
         });
 
-        processadas.sort(
-          (a, b) => new Date(b.data_evento).getTime() - new Date(a.data_evento).getTime(),
-        );
+        // Ordenar: 1) por status (ABERTA/em andamento primeiro), 2) por data (mais recente primeiro)
+        processadas.sort((a, b) => {
+          const statusA = a.status === 'ABERTA' ? 1 : 0;
+          const statusB = b.status === 'ABERTA' ? 1 : 0;
+          if (statusB !== statusA) return statusB - statusA;
+          return new Date(b.data_evento).getTime() - new Date(a.data_evento).getTime();
+        });
         this.matches = processadas;
         this.loading = false;
         this.cd.detectChanges();
@@ -97,10 +108,29 @@ export class MyBetsComponent implements OnInit {
     });
   }
 
+  /** Retorna true se a data do evento for anterior a hoje (sem hora). */
+  eventoAnteriorHoje(match: any): boolean {
+    if (!match?.data_evento) return false;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const dataEvento = new Date(match.data_evento);
+    dataEvento.setHours(0, 0, 0, 0);
+    return dataEvento.getTime() < hoje.getTime();
+  }
+
   // =========================================================================
   // MODAL EM MASSA ALINHADO COMO TABELA E COM BLOQUEIO DE SEGURANÇA
   // =========================================================================
   async definirRetirantes(match: any) {
+    if (this.eventoAnteriorHoje(match)) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Evento encerrado',
+        text: 'Não é possível alterar retirantes para eventos cuja data já passou.',
+        confirmButtonColor: '#4f46e5',
+      });
+      return;
+    }
     this.guestService.getGuests(this.currentUser.id).subscribe(async (convidados: any[]) => {
       const htmlSelects = match.ingressos_ganhos_detalhes
         .map((ticket: any, index: number) => {

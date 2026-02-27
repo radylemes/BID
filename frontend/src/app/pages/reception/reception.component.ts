@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, interval, Subscription } from 'rxjs';
 import Swal from 'sweetalert2';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-reception',
@@ -386,7 +387,7 @@ import Swal from 'sweetalert2';
   `,
 })
 export class ReceptionComponent implements OnInit, OnDestroy {
-  apiUrl = 'http://localhost:3005/api/reception';
+  apiUrl = `${environment.apiUri}/reception`;
 
   currentUser: any = {};
   loading = false;

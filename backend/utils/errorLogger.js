@@ -2,9 +2,8 @@ const db = require("../config/db");
 
 async function logErro(modulo, erro) {
   try {
-    // Extrai a mensagem principal e o "Caminho do erro" (Stack Trace)
-    const mensagem = erro.message || String(erro);
-    const stackTrace = erro.stack || "Sem stack trace disponível";
+    const mensagem = erro.message != null ? String(erro.message) : String(erro);
+    const stackTrace = erro.stack != null ? String(erro.stack) : "Sem stack trace disponível";
 
     await db.execute(
       `INSERT INTO logs_erros (modulo, mensagem, stack_trace) VALUES (?, ?, ?)`,

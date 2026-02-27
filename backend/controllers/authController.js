@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "secreta_padrao_dev";
@@ -21,7 +22,7 @@ async function registrarLogLogin(usuarioId, metodo, emailOuUsername) {
       [
         usuarioId,
         usuarioId,
-        JSON.stringify({ metodo, identificador: emailOuUsername }),
+        safeAuditoriaDetalhes({ metodo, identificador: emailOuUsername }),
       ],
     );
   } catch (e) {

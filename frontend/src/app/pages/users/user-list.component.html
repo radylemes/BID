@@ -130,7 +130,7 @@
                 >
                   <img
                     *ngIf="user.foto"
-                    [src]="getFotoUrl(user.foto)"
+                    [src]="getAvatarUrl(user)"
                     class="w-full h-full object-cover absolute inset-0"
                   />
                   <span *ngIf="!user.foto">{{ user.nome_completo?.charAt(0).toUpperCase() }}</span>

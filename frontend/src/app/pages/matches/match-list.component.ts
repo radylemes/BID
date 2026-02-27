@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
 import Swal from 'sweetalert2';
 import { FormsModule } from '@angular/forms';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-match-list',
@@ -12,9 +13,15 @@ import { FormsModule } from '@angular/forms';
 })
 export class MatchListComponent implements OnInit {
   matches: any[] = [];
+  displayedMatches: any[] = [];
   currentUser: any = {};
   isAdmin = false;
   loading = false;
+  
+  // Paginação
+  currentPage = 1;
+  pageSize = 6;
+  hasMore = true;
 
   constructor(private matchService: MatchService) {}
 
@@ -29,9 +36,10 @@ export class MatchListComponent implements OnInit {
 
   carregarJogos() {
     this.loading = true;
-    this.matchService.getMatches(this.currentUser.id).subscribe({
+    this.matchService.getMatches(this.currentUser.id, true).subscribe({
       next: (data) => {
         this.matches = data;
+        this.updateDisplayedMatches();
         this.loading = false;
       },
       error: (err) => {
@@ -39,6 +47,26 @@ export class MatchListComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  updateDisplayedMatches() {
+    const startIndex = 0;
+    const endIndex = this.currentPage * this.pageSize;
+    this.displayedMatches = this.matches.slice(startIndex, endIndex);
+    this.hasMore = endIndex < this.matches.length;
+  }
+
+  loadMore() {
+    this.currentPage++;
+    this.updateDisplayedMatches();
+  }
+
+  getBannerUrl(match: { banner?: string; id?: number }): string {
+    if (!match?.banner) return 'assets/banner-placeholder.jpg';
+    if (match.banner.startsWith('http')) return match.banner;
+    if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
+    const base = environment.apiUri.replace(/\/api\/?$/, '');
+    return `${base}/${match.banner.replace(/\\/g, '/').replace(/^\//, '')}`;
   }
 
   // --- LÓGICA ATUALIZADA: COMPRA DE TICKET ---

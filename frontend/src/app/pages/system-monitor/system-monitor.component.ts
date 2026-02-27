@@ -8,7 +8,7 @@ import Swal from 'sweetalert2';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="min-h-screen bg-gray-900 p-4 md:p-8 font-sans text-gray-200">
+    <div class="bg-gray-900 p-4 md:p-8 font-sans text-gray-200 rounded-xl border border-gray-700">
       <div class="max-w-7xl mx-auto">
         <div
           class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6"

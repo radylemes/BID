@@ -1,10 +1,26 @@
 const cron = require("node-cron");
 const db = require("../config/db");
+const { truncateMotivo } = require("../utils/dbHelpers");
+
+function buildCronExpression() {
+  const minutes = parseInt(process.env.POINTS_CRON_INTERVAL_MINUTES || "1", 10);
+  if (!Number.isFinite(minutes) || minutes <= 1) {
+    return "* * * * *"; // a cada minuto (padrão)
+  }
+  if (minutes >= 60) {
+    const hours = Math.max(1, Math.floor(minutes / 60));
+    return `0 */${hours} * * *`; // de X em X horas
+  }
+  return `*/${minutes} * * * *`; // de N em N minutos
+}
 
 function initAutomations() {
-  console.log("⏰ Motor de Regras de Pontuação iniciado.");
+  const cronExpr = buildCronExpression();
+  console.log(
+    `⏰ Motor de Regras de Pontuação iniciado. Agendamento: "${cronExpr}"`,
+  );
 
-  cron.schedule("* * * * *", async () => {
+  cron.schedule(cronExpr, async () => {
     try {
       const [regras] = await db.query(
         `SELECT * FROM regras_pontuacao WHERE ativo = TRUE AND proxima_execucao <= NOW()`,
@@ -12,10 +28,8 @@ function initAutomations() {
       if (regras.length === 0) return;
 
       for (const regra of regras) {
-        console.log(`⚙️ Executando: ${regra.descricao}`);
-
         let userFilter = "WHERE ativo = 1"; // Só pontua ativos
-        let queryParamsHist = [regra.pontos, `Automático: ${regra.descricao}`];
+        let queryParamsHist = [regra.pontos, truncateMotivo(`Automático: ${regra.descricao}`)];
         let queryParamsUpd = [regra.pontos];
 
         // Filtro Mágico Relacional

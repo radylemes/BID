@@ -20,8 +20,6 @@ export class AuthService {
   ) {}
 
   saveSession(response: any) {
-    console.log('💾 [AuthService] Gravando sessão...', response);
-
     if (response && response.token) {
       localStorage.setItem('token', response.token);
     }
