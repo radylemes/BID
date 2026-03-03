@@ -166,11 +166,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       const inicio = new Date(match.data_inicio_apostas).getTime();
       const fim = new Date(match.data_limite_aposta).getTime();
+      const bufferAberturaMs = 60 * 1000;
+      const inicioComBuffer = inicio + bufferAberturaMs;
 
-      if (agora < inicio) {
+      if (agora < inicioComBuffer) {
         match.estado_tempo = 'EM_BREVE';
-        match.timer_texto = this.formatarTempo(inicio - agora);
-      } else if (agora >= inicio && agora < fim) {
+        match.timer_texto = this.formatarTempo(inicioComBuffer - agora);
+      } else if (agora >= inicioComBuffer && agora < fim) {
         match.estado_tempo = 'ABERTO';
         match.timer_texto = this.formatarTempo(fim - agora);
       } else {
@@ -411,6 +413,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Verifica se ainda estamos na janela de lances (evita 400 por diferença de relógio com o servidor). */
+  private estaNaJanelaDeLances(match: any, bufferMs: number = 0): { ok: boolean; msg?: string } {
+    if (!match.data_inicio_apostas || !match.data_limite_aposta) return { ok: true };
+    const agora = Date.now();
+    const inicio = new Date(match.data_inicio_apostas).getTime() + bufferMs;
+    const fim = new Date(match.data_limite_aposta).getTime();
+    if (agora < inicio) return { ok: false, msg: 'O período de lances ainda não iniciou.' };
+    if (agora >= fim) return { ok: false, msg: 'O tempo para lances acabou.' };
+    return { ok: true };
+  }
+
   async apostar(match: any, previousValues: number[] = []) {
     if (match.estado_tempo === 'EM_BREVE') {
       Swal.fire('Aguarde', 'O período de lances ainda não iniciou.', 'warning');
@@ -418,6 +431,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     if (match.estado_tempo === 'ENCERRADO') {
       Swal.fire('Fechado', 'O tempo para lances acabou.', 'error');
+      return;
+    }
+
+    const janela = this.estaNaJanelaDeLances(match, 60 * 1000);
+    if (!janela.ok) {
+      Swal.fire('Aguarde', janela.msg, 'warning');
       return;
     }
 
@@ -582,8 +601,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
       match.tickets_comprados = (match.tickets_comprados || 0) + valores.length;
       this.cd.detectChanges();
 
+      const partidaId = Number(match.id);
+      const usuarioId = Number(this.currentUser.id);
+      const valoresInt = (valores as number[]).map((v) => Math.round(Number(v))).filter((v) => v >= 1);
+
+      if (!Number.isInteger(partidaId) || partidaId < 1) {
+        match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
+        this.cd.detectChanges();
+        Swal.fire('Erro', 'ID do evento inválido. Recarregue a página.', 'error');
+        return;
+      }
+      if (!Number.isInteger(usuarioId) || usuarioId < 1) {
+        match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
+        this.cd.detectChanges();
+        Swal.fire('Erro', 'Sessão inválida. Faça login novamente.', 'error');
+        return;
+      }
+      if (valoresInt.length === 0) {
+        match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
+        this.cd.detectChanges();
+        Swal.fire('Erro', 'Nenhum lance válido para enviar.', 'error');
+        return;
+      }
+
       this.matchService
-        .placeBet({ partidaId: match.id, usuarioId: this.currentUser.id, valores: valores })
+        .placeBet({ partidaId, usuarioId, valores: valoresInt })
         .subscribe({
           next: () => {
             Swal.fire({
@@ -617,7 +659,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
           error: (err) => {
             match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
             this.cd.detectChanges();
-            Swal.fire('Erro', err.error?.error || 'Erro ao processar', 'error');
+            const msg = err.error?.error || err.error?.message || 'Erro ao processar';
+            if (err.error != null) console.error('[placeBet] Resposta do servidor (400):', err.error);
+            Swal.fire('Erro', msg, 'error');
           },
         });
     }

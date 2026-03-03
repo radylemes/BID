@@ -19,59 +19,63 @@ import Swal from 'sweetalert2';
           <p class="mt-2 text-sm text-gray-600">Entre para gerenciar seus palpites</p>
         </div>
 
-        <form class="mt-8 space-y-6" (ngSubmit)="login()">
-          <div class="rounded-md shadow-sm -space-y-px">
-            <input
-              name="username"
-              type="text"
-              required
-              [(ngModel)]="credentials.username"
-              class="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="Usuário"
-              [disabled]="loading"
-            />
-            <input
-              name="password"
-              type="password"
-              required
-              [(ngModel)]="credentials.password"
-              class="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="Senha"
-              [disabled]="loading"
-            />
-          </div>
+        <ng-container *ngIf="showAdminLogin">
+          <form class="space-y-6" (ngSubmit)="login()">
+            <div class="rounded-md shadow-sm -space-y-px">
+              <input
+                name="username"
+                type="text"
+                required
+                [(ngModel)]="credentials.username"
+                class="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Usuário"
+                [disabled]="loading"
+              />
+              <input
+                name="password"
+                type="password"
+                required
+                [(ngModel)]="credentials.password"
+                class="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Senha"
+                [disabled]="loading"
+              />
+            </div>
 
-          <button
-            type="submit"
-            [disabled]="loading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
-          >
-            {{ loading ? 'Processando...' : 'Entrar' }}
-          </button>
-        </form>
-
-        <div class="relative py-4">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-gray-300"></div>
-          </div>
-          <div class="relative flex justify-center text-sm">
-            <span class="px-2 bg-white text-gray-500">Ou entre com</span>
-          </div>
-        </div>
+            <button
+              type="submit"
+              [disabled]="loading"
+              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
+            >
+              {{ loading ? 'Processando...' : 'Entrar' }}
+            </button>
+          </form>
+        </ng-container>
 
         <button
           (click)="loginMicrosoft()"
           [disabled]="loading"
           type="button"
-          class="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors disabled:opacity-50"
+          class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors disabled:opacity-50"
         >
           <img
             src="https://learn.microsoft.com/en-us/azure/active-directory/develop/media/howto-add-branding-in-azure-ad-apps/ms-symbollockup_mssymbol_19.png"
             alt="Microsoft"
             class="h-5 w-5"
           />
-          Microsoft Azure AD
+          Login
         </button>
+
+        <div class="text-center">
+          <button
+            (click)="toggleAdminLogin()"
+            [disabled]="loading"
+            type="button"
+            class="text-sm text-gray-500 hover:text-gray-700 focus:outline-none underline disabled:opacity-50"
+          >
+            {{ showAdminLogin ? 'Ocultar login admin' : 'Login sem Microsoft' }}
+          </button>
+        </div>
       </div>
     </div>
   `,
@@ -79,6 +83,11 @@ import Swal from 'sweetalert2';
 export class LoginComponent implements OnInit {
   credentials = { username: '', password: '' };
   loading = false;
+  showAdminLogin = false;
+
+  toggleAdminLogin() {
+    this.showAdminLogin = !this.showAdminLogin;
+  }
 
   constructor(
     private authService: AuthService,

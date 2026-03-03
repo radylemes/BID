@@ -114,9 +114,9 @@ export class MatchListComponent implements OnInit {
       // 5. Envia para o Serviço com a NOVA estrutura
       this.matchService
         .placeBet({
-          partidaId: match.id,
-          usuarioId: this.currentUser.id,
-          valorApostado: valor, // <--- CORREÇÃO PRINCIPAL AQUI
+          partidaId: Number(match.id),
+          usuarioId: Number(this.currentUser.id),
+          valorApostado: Math.round(Number(valor)),
         })
         .subscribe({
           next: (res) => {

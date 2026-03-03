@@ -16,7 +16,7 @@ const placeBetSchema = Joi.object({
   valores: Joi.array().items(Joi.number().integer().min(1)).max(4).optional().messages({
     'array.max': 'Máximo de 4 lances permitidos.',
     'number.min': 'Os valores dos lances devem ser maiores que zero.',
-  })
+  }),
 }).or('valorApostado', 'valores').messages({
   'object.missing': 'É necessário enviar pelo menos um lance (valorApostado ou valores).',
 });

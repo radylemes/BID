@@ -32,7 +32,7 @@ exports.getGuests = async (req, res) => {
   try {
     const query = `
       SELECT c.*,
-        (SELECT GROUP_CONCAT(DISTINCT p.titulo SEPARATOR ', ') FROM apostas a JOIN partidas p ON a.partida_id = p.id WHERE a.convidado_id = c.id AND a.status = 'GANHOU') as eventos_participados
+        (SELECT GROUP_CONCAT(DISTINCT p.titulo SEPARATOR ', ') FROM ingressos i JOIN apostas a ON i.aposta_id = a.id JOIN partidas p ON a.partida_id = p.id WHERE i.convidado_id = c.id AND a.status = 'GANHOU') as eventos_participados
       FROM convidados c WHERE c.usuario_id = ? ORDER BY c.nome_completo ASC
     `;
     const [rows] = await db.execute(query, [userId]);

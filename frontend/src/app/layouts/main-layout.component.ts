@@ -5,6 +5,7 @@ import { AuthService } from '../services/auth.service';
 import { MatchService } from '../services/match.service';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-main-layout',
@@ -207,7 +208,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   fotoUrlCompleta: string | null = null;
   isAdmin: boolean = false;
   userRole: string = '';
-  apiUrl = 'http://localhost:3005';
+  apiUrl = environment.apiUri.replace(/\/api\/?$/, '');
 
   // Variáveis para a Carteira do Menu
   saldo: number = 0;
@@ -278,7 +279,12 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
       this.isAdmin = u.role === 'ADMIN' || u.role === 'admin';
       this.saldo = u.pontos || 0;
 
-      if (u.foto) this.fotoUrlCompleta = this.getFotoUrl(u.foto);
+      if (u.foto) {
+        this.fotoUrlCompleta =
+          u.foto === 'db' && u.id
+            ? `${environment.apiUri}/users/${u.id}/avatar`
+            : this.getFotoUrl(u.foto);
+      }
 
       // Pequeno delay para garantir que o token já foi gravado após o login
       setTimeout(() => this.carregarEstatisticasGlobais(), 0);

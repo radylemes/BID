@@ -825,12 +825,13 @@ export class MatchManagerComponent implements OnInit {
     const tituloModal = isEdit ? '✏️ Editar BID' : isClone ? '📑 Clonar BID' : 'Novo BID';
     const tituloInput = isClone ? `${match.titulo} (Cópia)` : match?.titulo || '';
 
+    /** Converte ISO (UTC) para "YYYY-MM-DDTHH:mm" em horário local do usuário (valor do datetime-local). */
     const formatData = (iso: string) => {
       if (!iso) return '';
       try {
         const d = new Date(iso);
-        const offset = d.getTimezoneOffset() * 60000;
-        return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
       } catch (e) {
         return '';
       }
@@ -970,6 +971,9 @@ export class MatchManagerComponent implements OnInit {
         }
 
         const getTextarea = (id: string) => (document.getElementById(id) as HTMLTextAreaElement)?.value ?? '';
+        /** Envia data/hora em ISO UTC para o backend gravar em UTC (evita diferença de fuso). */
+        const toIsoUtc = (v: string) => (v ? new Date(v).toISOString() : '');
+
         const formData = new FormData();
         formData.append('titulo', titulo);
         formData.append('grupo_id', getVal('grupoId'));
@@ -982,9 +986,9 @@ export class MatchManagerComponent implements OnInit {
         formData.append('informacoes_extras', getTextarea('informacoesExtras'));
         formData.append('link_extra', getVal('linkExtra'));
         formData.append('local', getVal('local'));
-        formData.append('data_jogo', dataJogo);
-        formData.append('data_inicio_apostas', getVal('dataInicio'));
-        formData.append('data_limite_aposta', getVal('dataLimite'));
+        formData.append('data_jogo', toIsoUtc(dataJogo) || dataJogo);
+        formData.append('data_inicio_apostas', toIsoUtc(getVal('dataInicio')) || getVal('dataInicio'));
+        formData.append('data_limite_aposta', toIsoUtc(getVal('dataLimite')) || getVal('dataLimite'));
         formData.append('quantidade_premios', String(Number(getVal('qtdPremios')) || 1));
         formData.append('motivo', motivo);
         formData.append('adminId', String(this.currentUser.id));

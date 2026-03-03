@@ -35,8 +35,8 @@ export function MSALInstanceFactory(): IPublicClientApplication {
     auth: {
       clientId: environment.msalConfig.auth.clientId,
       authority: environment.msalConfig.auth.authority,
-      redirectUri: 'http://localhost:4200',
-      postLogoutRedirectUri: 'http://localhost:4200',
+      redirectUri: window.location.origin,
+      postLogoutRedirectUri: window.location.origin,
     },
     cache: {
       // CORREÇÃO: Apenas cacheLocation (sem storeAuthStateInCookie)

@@ -11,7 +11,14 @@ import { environment } from '../../../environments/environment';
   selector: 'app-profile',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  styles: [`:host { display: block; height: 100%; }`],
+  styles: [
+    `
+      :host {
+        display: block;
+        height: 100%;
+      }
+    `,
+  ],
   template: `
     <div class="h-full w-full flex flex-col min-h-0 bg-gray-50">
       <div class="flex-1 flex flex-col min-h-0 w-full px-0 space-y-6">
@@ -29,7 +36,7 @@ import { environment } from '../../../environments/environment';
                   >
                     <img
                       *ngIf="user?.foto"
-                      [src]="getAvatarUrl(user)"
+                      [src]="avatarUrlFinal"
                       class="w-full h-full object-cover"
                       alt="Foto de perfil"
                     />
@@ -262,7 +269,9 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
 
-        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div
+          class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0 overflow-hidden"
+        >
           <div
             class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
           >
@@ -297,7 +306,11 @@ import { environment } from '../../../environments/environment';
               <tbody>
                 <tr *ngIf="convidados.length === 0">
                   <td colspan="4" class="text-center py-16 text-gray-400 font-medium">
-                    <img src="assets/allianz_ticket_blue_cartoon.png" alt="" class="w-12 h-12 object-contain block mb-3 opacity-40 grayscale" />
+                    <img
+                      src="assets/allianz_ticket_blue_cartoon.png"
+                      alt=""
+                      class="w-12 h-12 object-contain block mb-3 opacity-40 grayscale"
+                    />
                     Nenhum convidado cadastrado.
                   </td>
                 </tr>
@@ -374,6 +387,9 @@ export class ProfileComponent implements OnInit {
   ngOnInit() {
     this.carregarPerfil();
   }
+  avatarUrlFinal: string = '';
+  /** Timestamp estável para cache-bust da URL do avatar (evita NG0100). */
+  private avatarCacheBust = 0;
 
   carregarPerfil() {
     const savedUser = localStorage.getItem('currentUser');
@@ -382,24 +398,27 @@ export class ProfileComponent implements OnInit {
       this.user.nome_completo = this.user.nome_completo || this.user.nome;
       this.user.username = this.user.username || this.user.login;
       this.user.role = this.user.role || this.user.perfil || 'user';
-
+      this.avatarUrlFinal = this.getAvatarUrlStable(this.user);
       this.carregarConvidados();
       this.carregarEstatisticas();
 
       if (this.user.id) {
         this.userService.getById(this.user.id).subscribe({
           next: (fullUser: any) => {
+            const usuarioAtualizado = {
+              ...fullUser,
+              role: fullUser.perfil || fullUser.role || this.user.role,
+              setor:
+                fullUser.setor || fullUser.setor_nome || this.user.setor || this.user.setor_nome,
+              nome_completo: fullUser.nome_completo || fullUser.nome || this.user.nome_completo,
+            };
+            this.user = usuarioAtualizado;
+            localStorage.setItem('currentUser', JSON.stringify(usuarioAtualizado));
+            // Atualiza o avatar no próximo ciclo para evitar NG0100 (ExpressionChangedAfterItHasBeenCheckedError)
             setTimeout(() => {
-              const usuarioAtualizado = {
-                ...fullUser,
-                role: fullUser.perfil || fullUser.role || this.user.role,
-                setor:
-                  fullUser.setor || fullUser.setor_nome || this.user.setor || this.user.setor_nome,
-                nome_completo: fullUser.nome_completo || fullUser.nome || this.user.nome_completo,
-              };
-              this.user = usuarioAtualizado;
-              localStorage.setItem('currentUser', JSON.stringify(usuarioAtualizado));
-            });
+              this.avatarUrlFinal = this.getAvatarUrlStable(this.user);
+              this.cd.detectChanges();
+            }, 0);
           },
           error: (err) => console.error('Erro ao atualizar perfil:', err),
         });
@@ -572,6 +591,16 @@ export class ProfileComponent implements OnInit {
     if (!user?.foto) return '';
     if (user.foto === 'db' && user.id) return `${environment.apiUri}/users/${user.id}/avatar`;
     return this.getFotoUrl(user.foto);
+  }
+
+  /** Retorna URL do avatar com timestamp estável (evita NG0100 ao atualizar após getById). */
+  getAvatarUrlStable(user: { foto?: string; id?: number }): string {
+    if (!user?.foto) return '';
+    if (user.foto === 'db' && user.id) return `${environment.apiUri}/users/${user.id}/avatar`;
+    if (user.foto.startsWith('http')) return user.foto;
+    if (this.avatarCacheBust === 0) this.avatarCacheBust = Date.now();
+    const cleanPath = user.foto.replace(/\\/g, '/').replace(/^\//, '');
+    return `${this.apiUrl}/${cleanPath}?t=${this.avatarCacheBust}`;
   }
 
   onFileSelected(event: any) {

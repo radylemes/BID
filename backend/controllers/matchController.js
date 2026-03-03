@@ -28,14 +28,23 @@ async function gravarAuditoria(
   }
 }
 
+const pad2 = (n) => String(n).padStart(2, "0");
+
+/** Formata Date em UTC para gravar no banco (YYYY-MM-DD HH:mm:ss) — evita diferença de fuso. */
+const dateToUtcString = (d) =>
+  `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
+
+/**
+ * Grava data no banco sempre em UTC ("YYYY-MM-DD HH:mm:ss").
+ * - String ISO com Z (ex: "2026-03-02T20:00:00.000Z") → extrai UTC e grava.
+ * - String "YYYY-MM-DD HH:mm" ou "YYYY-MM-DDTHH:mm" (sem Z) → trata como local do cliente e converte para UTC (assumindo que o servidor recebeu em local).
+ */
 const formatarDataLocal = (dataString) => {
   if (!dataString) return null;
-  if (dataString instanceof Date) {
-    const offset = dataString.getTimezoneOffset() * 60000;
-    const localDate = new Date(dataString.getTime() - offset);
-    return localDate.toISOString().slice(0, 19).replace("T", " ");
-  }
-  return dataString.slice(0, 19).replace("T", " ");
+  const s = String(dataString).trim();
+  const d = dataString instanceof Date ? dataString : new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return dateToUtcString(d);
 };
 
 exports.getGroups = async (req, res) => {
@@ -90,8 +99,7 @@ exports.getMatches = async (req, res) => {
 
     if (dashboard === 'true') {
       const d = new Date();
-      const offset = d.getTimezoneOffset() * 60000;
-      const todayStr = new Date(d.getTime() - offset).toISOString().split('T')[0];
+      const todayStr = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
       sql += ` AND DATE(p.data_jogo) >= '${todayStr}' `;
       sql += ` ORDER BY CASE WHEN p.status = 'ABERTA' THEN 1 ELSE 2 END ASC, p.data_jogo ASC`;
@@ -100,6 +108,13 @@ exports.getMatches = async (req, res) => {
     }
 
     const [rows] = await db.execute(sql, params);
+
+    /** Datas no banco estão em UTC; interpreta como UTC ao enviar para o cliente. */
+    const dbUtcToISO = (v) => {
+      if (!v) return null;
+      const s = String(v).trim().replace(" ", "T");
+      return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
+    };
 
     const results = rows.map((row) => {
       const qtdPremios = row.quantidade_premios || 1;
@@ -111,7 +126,10 @@ exports.getMatches = async (req, res) => {
       const quantidadePremiosRestante = Math.max(0, qtdPremiosEfetiva - transferidosOut);
       return {
         ...row,
-        data_evento: row.data_jogo,
+        data_jogo: dbUtcToISO(row.data_jogo),
+        data_inicio_apostas: dbUtcToISO(row.data_inicio_apostas),
+        data_limite_aposta: dbUtcToISO(row.data_limite_aposta),
+        data_evento: dbUtcToISO(row.data_jogo),
         titulo: row.titulo || "Evento sem título",
         quantidade_premios: qtdPremios,
         quantidade_premios_efetiva: qtdPremiosEfetiva,
@@ -153,9 +171,18 @@ exports.getMyBets = async (req, res) => {
     const params = [userId, userId, userId];
     const [rows] = await db.execute(sql, params);
 
+    const dbUtcToISO = (v) => {
+      if (!v) return null;
+      const s = String(v).trim().replace(" ", "T");
+      return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
+    };
+
     const results = rows.map((row) => ({
       ...row,
-      data_evento: row.data_jogo,
+      data_jogo: dbUtcToISO(row.data_jogo),
+      data_inicio_apostas: dbUtcToISO(row.data_inicio_apostas),
+      data_limite_aposta: dbUtcToISO(row.data_limite_aposta),
+      data_evento: dbUtcToISO(row.data_jogo),
       titulo: row.titulo || "Evento sem título",
       quantidade_premios: row.quantidade_premios || 1,
       raw_lances: row.meus_lances_detalhados,
@@ -196,7 +223,7 @@ exports.createMatch = async (req, res) => {
 
     const inicioFormatado = data_inicio_apostas
       ? formatarDataLocal(data_inicio_apostas)
-      : formatarDataLocal(new Date().toISOString());
+      : formatarDataLocal(new Date());
     const bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;
 
     const connection = await db.getConnection();
@@ -372,12 +399,27 @@ exports.placeBet = async (req, res) => {
     if (matchData.length === 0) throw new Error("Evento não encontrado.");
     const match = matchData[0];
     const agora = new Date();
+    const parseDbUtc = (v) => {
+      if (!v) return new Date(NaN);
+      const s = String(v).trim().replace(" ", "T");
+      return new Date(s.endsWith("Z") ? s : s + "Z");
+    };
+    const inicioApostas = parseDbUtc(match.data_inicio_apostas);
+    const limiteApostas = parseDbUtc(match.data_limite_aposta);
+    const bufferMs = 60 * 1000;
 
     if (match.status !== "ABERTA")
       throw new Error("Este evento não está aberto para lances.");
-    if (agora < new Date(match.data_inicio_apostas))
-      throw new Error("O período de lances ainda não iniciou.");
-    if (agora > new Date(match.data_limite_aposta))
+    if (agora.getTime() < inicioApostas.getTime() - bufferMs) {
+      const msg =
+        "O período de lances ainda não iniciou. Início: " +
+        inicioApostas.toISOString() +
+        " (servidor: " +
+        agora.toISOString() +
+        ").";
+      throw new Error(msg);
+    }
+    if (agora.getTime() > limiteApostas.getTime() + bufferMs)
       throw new Error("O período de lances já encerrou.");
 
     const totalValor = lancesParaProcessar.reduce((acc, v) => acc + v, 0);

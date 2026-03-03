@@ -6,12 +6,13 @@ import { Observable, tap } from 'rxjs';
 import { MsalService } from '@azure/msal-angular';
 import { AuthenticationResult } from '@azure/msal-browser';
 import Swal from 'sweetalert2';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:3005/api/auth';
+  private apiUrl = `${environment.apiUri}/auth`;
 
   constructor(
     private http: HttpClient,

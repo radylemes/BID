@@ -803,14 +803,14 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  carregarGrupos() {
-    this.http.get<any[]>('http://localhost:3005/api/groups').subscribe({
+carregarGrupos() {
+    this.http.get<any[]>(`${environment.apiUri}/groups`).subscribe({
       next: (res) => (this.grupos = res),
     });
   }
 
   carregarSetores() {
-    this.http.get<any[]>('http://localhost:3005/api/sectors').subscribe({
+    this.http.get<any[]>(`${environment.apiUri}/sectors`).subscribe({
       next: (res) => (this.setores = res),
     });
   }
