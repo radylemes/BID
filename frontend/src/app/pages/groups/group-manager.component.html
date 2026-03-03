@@ -1,0 +1,83 @@
+<div class="container mx-auto p-6 bg-gray-50 h-screen flex flex-col font-sans">
+  <div class="flex-none pb-6">
+    <div
+      class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center"
+    >
+      <div>
+        <h2 class="text-3xl font-black text-gray-800 flex items-center gap-2">
+          🎲 Gerenciar Grupos
+        </h2>
+        <p class="text-gray-500 text-sm font-medium mt-1">
+          Crie e organize os Grupos de Apostas do sistema
+        </p>
+      </div>
+      <button
+        (click)="novoGrupo()"
+        class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center gap-2"
+      >
+        <span>➕</span> Novo Grupo
+      </button>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto custom-scrollbar">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (g of groups; track g.id) {
+        <div
+          class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all hover:-translate-y-1 group"
+        >
+          <div class="flex justify-between items-start mb-4">
+            <div
+              class="h-12 w-12 bg-amber-50 text-amber-500 border border-amber-100 rounded-xl flex items-center justify-center text-2xl shadow-sm"
+            >
+              🎲
+            </div>
+
+            <div class="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+              <button
+                (click)="editarGrupo(g)"
+                class="p-2 hover:bg-amber-50 rounded-xl text-gray-400 hover:text-amber-600 transition-colors"
+                title="Editar Grupo"
+              >
+                ✏️
+              </button>
+              <button
+                (click)="excluirGrupo(g.id)"
+                class="p-2 hover:bg-rose-50 rounded-xl text-gray-400 hover:text-rose-600 transition-colors"
+                title="Excluir Grupo"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+
+          <h3 class="text-xl font-extrabold text-gray-800 mb-1 truncate" [title]="g.nome">
+            {{ g.nome }}
+          </h3>
+          <p class="text-gray-500 text-sm mb-5 h-10 line-clamp-2">
+            {{ g.descricao || 'Nenhuma regra ou descrição definida para este grupo.' }}
+          </p>
+
+          <div class="pt-4 border-t border-gray-100 flex justify-between items-center">
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"
+              >Integrantes</span
+            >
+            <span
+              class="px-3 py-1 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-black shadow-sm flex items-center gap-1.5"
+            >
+              <span>👤</span> {{ g.total_membros || 0 }}
+            </span>
+          </div>
+        </div>
+      } @empty {
+        <div class="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+          <span class="text-6xl mb-4 opacity-50">📭</span>
+          <p class="text-lg font-bold text-gray-600">Nenhum grupo de apostas cadastrado</p>
+          <p class="text-sm">
+            Clique no botão "Novo Grupo" para criar a primeira categoria de apostadores.
+          </p>
+        </div>
+      }
+    </div>
+  </div>
+</div>

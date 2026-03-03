@@ -1,0 +1,82 @@
+# ===========================================
+# BID - Monorepo (backend Node.js + frontend Angular)
+# ===========================================
+
+# --- Dependências ---
+node_modules/
+
+# --- Variáveis de ambiente (NUNCA commitar segredos) ---
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# --- Backend ---
+backend/uploads/
+backend/logs/
+backend/.cache/
+
+# --- Frontend (Angular) ---
+frontend/dist/
+frontend/.angular/
+frontend/.sass-cache/
+
+# --- Builds e cache ---
+dist/
+build/
+.angular/
+.cache/
+*.tsbuildinfo
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Testes e cobertura ---
+coverage/
+.nyc_output/
+*.lcov
+
+# --- IDEs e editores ---
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.project
+.classpath
+.settings/
+*.sublime-workspace
+
+# --- Sistema operacional ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# --- Node/npm/yarn ---
+.npm
+.yarn-integrity
+.pnp.*
+*.pid
+*.seed
+*.pid.lock
+.node_repl_history
+.eslintcache
+
+# --- Temporários e outros ---
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache

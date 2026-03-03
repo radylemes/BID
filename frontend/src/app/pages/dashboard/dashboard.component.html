@@ -1,0 +1,375 @@
+<div class="min-h-screen bg-gray-50 p-4 md:p-6">
+  <div
+    class="bg-white rounded-2xl shadow-sm border border-gray-200 p-2 md:p-3 mb-8 flex flex-col lg:flex-row items-center justify-between gap-4"
+  >
+    <div
+      class="flex flex-col md:flex-row w-full lg:w-auto gap-4 md:gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-100"
+    >
+      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+        <div
+          class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+        >
+          <img src="assets/wtoken_coin.png" alt="W Tokens" class="w-full h-full object-contain" />
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+            >Saldo Disponível</span
+          >
+          <span class="text-xl font-black text-gray-800 leading-none">
+            {{ currentUser.pontos || 0 | number }}
+            <small class="text-xs font-bold text-gray-400">pts</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+        <div
+          class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+        >
+          <img
+            src="assets/wtoken_coin_locked.png"
+            alt="W Tokens"
+            class="w-full h-full object-contain"
+          />
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Em Jogo</span>
+          <span class="text-xl font-black text-gray-800 leading-none">
+            {{ pontosEmJogo || 0 | number }}
+            <small class="text-xs font-bold text-gray-400">pts</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+        <div
+          class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+        >
+          <img src="assets/wtoken_dice.png" alt="W Tokens" class="w-full h-full object-contain" />
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+            >Lances Ativos</span
+          >
+          <span class="text-xl font-black text-indigo-600 leading-none">{{
+            meusLancesCount || 0
+          }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1">
+      <a
+        routerLink="/profile"
+        class="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group shadow-sm"
+      >
+        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">👤</span> Meu Perfil
+      </a>
+      <a
+        routerLink="/minhas-apostas"
+        class="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
+      >
+        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">📜</span> Minhas
+        apostas
+      </a>
+      <a
+        routerLink="/historico"
+        class="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
+      >
+        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">📜</span> Histórico
+      </a>
+    </div>
+  </div>
+
+  <div
+    *ngIf="loading && matches.length === 0"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"
+  >
+    <div
+      *ngFor="let i of [1, 2, 3]"
+      class="bg-white rounded-2xl h-80 animate-pulse shadow-sm border border-gray-100"
+    ></div>
+  </div>
+
+  <div *ngIf="!loading && matches.length === 0" class="text-center py-20">
+    <div class="text-5xl mb-2 grayscale opacity-30">😴</div>
+    <p class="text-gray-400 text-sm font-medium">Nenhum evento disponível no momento.</p>
+  </div>
+
+  <div
+    *ngIf="matches.length > 0"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 pb-10"
+  >
+    <div
+      *ngFor="let match of matches; trackBy: trackByFn"
+      class="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 border border-gray-100 overflow-hidden transition-all duration-300 flex flex-col relative group h-full"
+    >
+      <div class="h-40 w-full bg-gray-200 relative overflow-hidden shrink-0">
+        <img
+          [src]="getBannerUrl(match)"
+          (error)="$any($event.target).src = 'https://placehold.co/600x400?text=BID'"
+          class="w-full h-full object-cover"
+        />
+        <div class="absolute inset-0 bg-black/20"></div>
+
+        <div class="absolute top-3 right-3">
+          <span
+            *ngIf="match.estado_tempo === 'EM_BREVE'"
+            class="bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >⏳ Em Breve</span
+          >
+          <span
+            *ngIf="match.estado_tempo === 'ABERTO'"
+            class="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm animate-pulse"
+            >● Aberto</span
+          >
+          <span
+            *ngIf="match.estado_tempo === 'ENCERRADO'"
+            class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >Encerrado</span
+          >
+        </div>
+      </div>
+
+      <div class="p-4 flex-1 flex flex-col">
+        <div class="flex justify-between items-start mb-4">
+          <h3 class="text-xl font-black text-indigo-950 leading-tight line-clamp-2 pr-2">
+            {{ match.titulo }}
+          </h3>
+          <span
+            class="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap shrink-0 border border-gray-200"
+            ><img src="assets/allianz_ticket_blue_cartoon.png" alt="" class="w-4 h-4 object-contain inline-block align-middle" /> {{ match.quantidade_premios_efetiva ?? match.quantidade_premios }} Ingresso(s)</span
+          >
+        </div>
+
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 mb-4 text-xs pb-4 border-b border-gray-100"
+        >
+          <div class="flex items-center gap-2">
+            <span
+              class="bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded text-[10px] uppercase"
+              >{{ match.nome_grupo || 'Geral' }}</span
+            >
+            <div class="flex items-center gap-1.5 text-gray-600 flex-wrap">
+              <span class="text-rose-500 text-sm">📍</span>
+              <span class="font-medium truncate max-w-[100px]">{{ match.local }}</span>
+              <span *ngIf="match.setor_evento_nome" class="text-gray-400 text-[10px] font-bold">·</span>
+              <span *ngIf="match.setor_evento_nome" class="inline-flex items-center gap-1 font-bold text-indigo-600 truncate max-w-[80px]">
+                <span class="text-sm opacity-90" aria-hidden="true">🪑</span>
+                {{ match.setor_evento_nome }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-col items-end">
+            <span class="text-[9px] font-bold uppercase text-gray-400">Data do Evento</span>
+            <div class="flex items-center gap-1 text-indigo-950">
+              <span class="text-indigo-400">📅</span>
+              <span class="font-bold">{{ match.data_evento | date: 'dd/MM/yyyy' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] text-gray-500"
+        >
+          <div class="flex items-center gap-1.5 font-bold uppercase tracking-wide">
+            <span class="text-sm">⏱️</span> Período de Lances
+          </div>
+          <div class="flex items-center gap-2 font-medium">
+            <span class="text-emerald-600 font-bold">{{
+              match.data_inicio_apostas | date: 'dd/MM HH:mm'
+            }}</span>
+            <span class="text-gray-300">até</span>
+            <span class="text-rose-600 font-bold">{{
+              match.data_limite_aposta | date: 'dd/MM HH:mm'
+            }}</span>
+          </div>
+        </div>
+
+        <div class="mt-auto pt-4 flex flex-col gap-3">
+          <div class="min-h-[88px] flex flex-col justify-center">
+            <div
+              *ngIf="match.estado_tempo === 'EM_BREVE'"
+              class="bg-blue-50/50 border border-blue-100 rounded-xl p-3 flex flex-col items-center justify-center h-full"
+            >
+              <span class="text-[10px] font-bold uppercase text-blue-400 mb-1 tracking-wider"
+                >O evento inicia em</span
+              >
+              <span class="font-mono font-black text-xl text-blue-600">{{
+                match.timer_texto
+              }}</span>
+            </div>
+
+            <div
+              *ngIf="match.estado_tempo === 'ABERTO'"
+              class="rounded-xl p-3 flex flex-col items-center justify-center h-full"
+            >
+              <span class="text-[10px] font-bold uppercase mb-1 tracking-wider text-gray-500"
+                >O leilão encerra em</span
+              >
+              <span class="font-mono font-black text-2xl tracking-tight text-gray-900">{{
+                match.timer_texto
+              }}</span>
+            </div>
+
+            <div
+              *ngIf="match.estado_tempo === 'ENCERRADO'"
+              class="flex flex-col items-center justify-center h-full w-full"
+            >
+              <ng-container *ngIf="match.tickets_ganhos > 0">
+                <div
+                  (click)="definirRetirantes(match)"
+                  class="bg-gray-50/50 hover:bg-indigo-50/30 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 cursor-pointer transition-all flex flex-col w-full h-full justify-center group/area"
+                >
+                  <div
+                    class="flex items-center justify-between mb-3 border-b border-gray-200/60 group-hover/area:border-indigo-200 pb-2 transition-colors"
+                  >
+                    <div class="flex items-center gap-2">
+                      <h4
+                        class="text-[10px] font-black text-gray-500 uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors"
+                      >
+                        Responsáveis pela Retirada
+                      </h4>
+                      <div
+                        class="flex items-center justify-center w-6 h-6 bg-white border border-gray-200 group-hover/area:bg-indigo-100 group-hover/area:text-indigo-700 group-hover/area:border-indigo-300 rounded text-[11px] transition-all shadow-sm"
+                      >
+                        <span class="group-hover/area:rotate-12 transition-transform">✏️</span>
+                      </div>
+                    </div>
+                    <span
+                      class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md"
+                      >{{ match.tickets_ganhos }} Ingresso(s)</span
+                    >
+                  </div>
+
+                  <div
+                    class="bg-white rounded-lg border border-gray-200 p-3 shadow-sm max-h-[140px] overflow-y-auto custom-scrollbar"
+                  >
+                    <div class="flex flex-col">
+                      <div
+                        *ngFor="let ticket of match.ingressos_ganhos_detalhes; let i = index"
+                        class="flex items-center text-[11px] border-b border-gray-50 py-1.5 last:border-0 last:pb-0"
+                      >
+                        <div
+                          class="w-16 shrink-0 text-gray-400 font-bold uppercase tracking-wider text-[9px]"
+                        >
+                          Ingresso {{ i + 1 }}
+                        </div>
+                        <div class="flex-1 min-w-0 px-3">
+                          <span
+                            *ngIf="ticket.nome"
+                            class="font-black text-gray-800 truncate block"
+                            title="{{ ticket.nome }}"
+                            >{{ ticket.nome }}</span
+                          >
+                          <span
+                            *ngIf="!ticket.nome"
+                            class="font-bold text-gray-400 uppercase text-[9px] italic block"
+                            >Não indicado</span
+                          >
+                        </div>
+                        <div class="w-24 shrink-0 text-right">
+                          <span
+                            *ngIf="ticket.checkin"
+                            class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider inline-block"
+                            >Entregue ✓</span
+                          >
+                          <span
+                            *ngIf="!ticket.checkin"
+                            class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider inline-block"
+                            >Pendente ⏳</span
+                          >
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+
+              <ng-container *ngIf="match.tickets_ganhos === 0 && match.tickets_comprados * 1 > 0">
+                <div
+                  class="rounded-xl border p-4 bg-gray-50 border-gray-200 text-gray-600 text-center w-full"
+                >
+                  <span class="text-2xl mb-1 leading-none">💸</span>
+                  <span class="font-black text-xs uppercase block">Reembolsado</span>
+                  <a
+                    routerLink="/minhas-apostas"
+                    class="text-[10px] text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer mt-1 font-bold"
+                    >Ver detalhes do reembolso</a
+                  >
+                </div>
+              </ng-container>
+
+              <ng-container *ngIf="match.tickets_ganhos === 0 && match.tickets_comprados * 1 === 0">
+                <div
+                  class="rounded-xl border p-4 bg-transparent border-transparent text-gray-400 text-center w-full"
+                >
+                  <span class="text-3xl mb-1 leading-none opacity-40 grayscale block">👁️</span>
+                  <span class="font-bold text-[10px] uppercase">Você não participou.</span>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+
+          <div>
+            <button
+              *ngIf="match.estado_tempo === 'EM_BREVE'"
+              disabled
+              class="w-full bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+            >
+              <span>⏳</span> Aguarde o Início
+            </button>
+
+            <button
+              *ngIf="match.estado_tempo === 'ABERTO'"
+              (click)="apostar(match)"
+              [disabled]="match.tickets_comprados * 1 > 0"
+              [ngClass]="{
+                'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 border-transparent':
+                  match.tickets_comprados * 1 === 0,
+                'bg-white border-2 border-emerald-500 text-emerald-600 cursor-not-allowed':
+                  match.tickets_comprados * 1 > 0,
+              }"
+              class="w-full rounded-xl py-2 border transition-all active:scale-95 flex flex-col items-center justify-center font-bold min-h-[50px]"
+            >
+              <ng-container *ngIf="match.tickets_comprados * 1 === 0">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg leading-none">🤞</span>
+                  <span class="text-sm">Dar Lance</span>
+                </div>
+              </ng-container>
+              <ng-container *ngIf="match.tickets_comprados * 1 > 0">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg leading-none">☑️</span>
+                  <span class="text-sm">Participação Confirmada</span>
+                </div>
+                <span class="text-[9px] font-black uppercase tracking-wider opacity-70 mt-0.5">
+                  {{ match.tickets_comprados }} lance(s) realizado(s)
+                </span>
+              </ng-container>
+            </button>
+
+            <ng-container *ngIf="match.estado_tempo === 'ENCERRADO'">
+              <button
+                *ngIf="match.tickets_ganhos > 0"
+                (click)="definirRetirantes(match)"
+                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md shadow-emerald-200 flex items-center justify-center gap-2 cursor-pointer mt-2"
+              >
+                <span>🎟️</span> Informar Convidados
+              </button>
+
+              <button
+                *ngIf="match.tickets_ganhos === 0"
+                disabled
+                class="w-full bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+              >
+                <span>🏁</span> Leilão Encerrado
+              </button>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

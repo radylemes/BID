@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Autenticação...</title>
+  </head>
+  <body>
+    <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+    <script>
+      const msalInstance = new msal.PublicClientApplication({
+        auth: {
+          clientId: 'f6fa3224-071f-48a2-bfa3-6ed6a14168e9', // Seu Client ID
+          authority: 'https://login.microsoftonline.com/10b2f91e-5387-4767-920b-d3643b3c6306', // Seu Tenant ID
+        },
+      });
+      msalInstance.initialize().then(() => {
+        msalInstance
+          .handleRedirectPromise()
+          .then(() => {
+            window.close(); // Fecha o popup assim que terminar
+          })
+          .catch((err) => {
+            console.error(err);
+            window.close();
+          });
+      });
+    </script>
+  </body>
+</html>
