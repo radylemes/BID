@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../services/auth.service';
@@ -21,27 +21,27 @@ import { environment } from '../../environments/environment';
         </div>
         <div class="bg-white p-3.5 border border-gray-200 shadow-sm">
           <div class="space-y-2">
-            <div class="flex justify-between items-center text-xs">
-              <span class="text-gray-500 font-medium flex items-center gap-1.5"
-                ><span class="opacity-80">💰</span> Saldo</span
+            <div class="flex justify-between items-center text-xs gap-2">
+              <span class="text-gray-500 font-medium flex items-center gap-1.5 shrink-0">
+                <img src="assets/wtoken_coin.png" alt="" class="w-6 h-6 object-contain" /> Saldo</span
               >
               <span class="font-black text-emerald-600"
                 >{{ saldo | number }}
                 <span class="text-[9px] text-gray-400 font-bold">pts</span></span
               >
             </div>
-            <div class="flex justify-between items-center text-xs">
-              <span class="text-gray-500 font-medium flex items-center gap-1.5"
-                ><span class="opacity-80">🔒</span> Em Jogo</span
+            <div class="flex justify-between items-center text-xs gap-2">
+              <span class="text-gray-500 font-medium flex items-center gap-1.5 shrink-0">
+                <img src="assets/wtoken_coin_locked.png" alt="" class="w-6 h-6 object-contain" /> Em Jogo</span
               >
               <span class="font-black text-amber-500"
                 >{{ pontosEmJogo | number }}
                 <span class="text-[9px] text-gray-400 font-bold">pts</span></span
               >
             </div>
-            <div class="flex justify-between items-center text-xs">
-              <span class="text-gray-500 font-medium flex items-center gap-1.5"
-                ><span class="opacity-80">🎫</span> Lances</span
+            <div class="flex justify-between items-center text-xs gap-2">
+              <span class="text-gray-500 font-medium flex items-center gap-1.5 shrink-0">
+                <img src="assets/wtoken_dice.png" alt="" class="w-6 h-6 object-contain" /> Lances</span
               >
               <span class="font-black text-indigo-600">{{ meusLancesCount }}</span>
             </div>
@@ -240,6 +240,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     private router: Router,
     private authService: AuthService,
     private matchService: MatchService,
+    private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
@@ -309,32 +310,43 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
           u.pontos = this.saldo;
           localStorage.setItem('currentUser', JSON.stringify(u));
         }
+        this.cd.detectChanges();
       },
       error: () => {},
     });
 
-    // 2. Calcula Pontos Bloqueados e Lances Ativos
-    this.matchService.getMatches(this.userId).subscribe({
+    // 2. Calcula Pontos Bloqueados e Lances Ativos (mesmo critério do dashboard)
+    this.matchService.getMatches(this.userId, true).subscribe({
       next: (matches: any[]) => {
         this.pontosEmJogo = 0;
         this.meusLancesCount = 0;
 
-        matches.forEach((match) => {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const dadosFiltrados = matches.filter((m: any) => {
+          if (!m.data_jogo) return true;
+          const dataJogo = new Date(m.data_jogo);
+          dataJogo.setHours(0, 0, 0, 0);
+          return dataJogo.getTime() >= hoje.getTime();
+        });
+
+        dadosFiltrados.forEach((match) => {
           const comprados = Number(match.tickets_comprados) || 0;
 
           if (match.status === 'ABERTA' && comprados > 0) {
             this.meusLancesCount += comprados;
 
             if (match.raw_lances) {
-              const lancesArray = match.raw_lances.split(',');
+              const lancesArray = match.raw_lances.toString().split(',');
               const totalNoEvento = lancesArray.reduce((acc: number, lanceStr: string) => {
-                const valor = Number(lanceStr.split(':')[0]) || 0;
+                const valor = Number(lanceStr.split(':')[1]) || 0;
                 return acc + valor;
               }, 0);
               this.pontosEmJogo += totalNoEvento;
             }
           }
         });
+        this.cd.detectChanges();
       },
       error: () => {},
     });
