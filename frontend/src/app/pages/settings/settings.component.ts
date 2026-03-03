@@ -254,8 +254,8 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             <p class="text-sm text-gray-500">Configure o envio de e-mails (disparos e testes).</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Host SMTP</label>
-                <input [(ngModel)]="smtpHost" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="smtp.exemplo.com" />
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Host SMTP (servidor, ex: smtp.office365.com)</label>
+                <input [(ngModel)]="smtpHost" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="smtp.office365.com" />
               </div>
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Porta</label>
@@ -282,9 +282,14 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                 <input [(ngModel)]="appBaseUrl" type="url" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="https://app.seudominio.com" />
               </div>
             </div>
-            <button (click)="salvarSmtp()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow">
-              Guardar configurações SMTP
-            </button>
+            <div class="flex flex-wrap gap-3">
+              <button (click)="salvarSmtp()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow">
+                Guardar configurações SMTP
+              </button>
+              <button (click)="testarEnvioSmtp()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl shadow" title="Enviar e-mail de teste para validar a configuração">
+                ✉ Testar envio de e-mail
+              </button>
+            </div>
           </div>
 
           <!-- Aba: Listas de e-mail -->
@@ -433,6 +438,15 @@ export class SettingsComponent implements OnInit {
   }
 
   salvarSmtp() {
+    const host = (this.smtpHost || '').trim();
+    if (host && host.includes('@')) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Host SMTP inválido',
+        text: 'O campo "Host SMTP" deve ser o endereço do servidor (ex: smtp.office365.com), não um e-mail. O e-mail do remetente vai no campo "E-mail remetente (From)".',
+      });
+      return;
+    }
     const payload: Record<string, string> = {
       smtp_host: this.smtpHost,
       smtp_port: String(this.smtpPort),
@@ -445,6 +459,25 @@ export class SettingsComponent implements OnInit {
     this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
       next: () => Swal.fire({ icon: 'success', title: 'Configurações SMTP guardadas.', timer: 1500, showConfirmButton: false }),
       error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao guardar.', 'error'),
+    });
+  }
+
+  testarEnvioSmtp() {
+    Swal.fire({
+      title: 'Testar envio de e-mail',
+      text: 'Digite o endereço que receberá o e-mail de teste.',
+      input: 'email',
+      inputPlaceholder: 'email@exemplo.com',
+      inputValidator: (value) => (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Indique um e-mail válido.' : null),
+      showCancelButton: true,
+      confirmButtonText: 'Enviar teste',
+    }).then((result) => {
+      if (result.isConfirmed && result.value) {
+        this.emailService.testSmtp(result.value).subscribe({
+          next: (res) => Swal.fire({ icon: 'success', title: 'E-mail de teste enviado!', text: res?.message || `Enviado para ${result.value}` }),
+          error: (err) => Swal.fire('Erro', err.error?.error || err.error?.message || 'Falha ao enviar o e-mail de teste.', 'error'),
+        });
+      }
     });
   }
 

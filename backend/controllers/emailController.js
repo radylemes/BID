@@ -18,6 +18,12 @@ async function getSmtpTransporter() {
   }, {});
   const host = cfg.smtp_host && String(cfg.smtp_host).trim();
   if (!host) return null;
+  // Host deve ser um hostname (ex: smtp.dominio.com), não um e-mail
+  if (host.includes("@")) {
+    throw new Error(
+      "Host SMTP não pode ser um e-mail. Use o endereço do servidor (ex: smtp.office365.com ou smtp.dominio.com)."
+    );
+  }
   const port = parseInt(cfg.smtp_port, 10) || 587;
   const secure = cfg.smtp_secure === "1" || cfg.smtp_secure === "true";
   return nodemailer.createTransport({
