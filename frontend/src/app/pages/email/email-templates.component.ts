@@ -17,6 +17,7 @@ const TAGS_DISPONIVEIS = [
   { tag: '{{evento.setor_evento_nome}}', desc: 'Setor do evento' },
   { tag: '{{usuario.nome}}', desc: 'Nome do destinatário' },
   { tag: '{{usuario.email}}', desc: 'E-mail do destinatário' },
+  { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
 ];
 
 @Component({

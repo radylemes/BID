@@ -534,6 +534,7 @@ const DEFAULT_EVENTO = {
 const DEFAULT_USUARIO = {
   nome: "João Silva",
   email: "joao.silva@exemplo.com",
+  ingressos_ganhos: "0",
 };
 
 exports.previewTemplate = async (req, res) => {
@@ -887,14 +888,26 @@ exports.sendEmails = async (req, res) => {
       if (!email) continue;
 
       let nome = item.nome_opcional && String(item.nome_opcional).trim();
-      if (!nome) {
-        const [users] = await db.query(
-          "SELECT nome_completo FROM usuarios WHERE email = ? LIMIT 1",
-          [email]
-        );
-        nome = users[0]?.nome_completo || email;
+      let usuarioId = null;
+      const [users] = await db.query(
+        "SELECT id, nome_completo FROM usuarios WHERE email = ? LIMIT 1",
+        [email]
+      );
+      if (users.length > 0) {
+        usuarioId = users[0].id;
+        if (!nome) nome = users[0].nome_completo || email;
       }
-      const usuario = { nome, email };
+      if (!nome) nome = email;
+
+      let ingressosGanhos = 0;
+      if (usuarioId) {
+        const [countRows] = await db.query(
+          "SELECT COUNT(*) as total FROM apostas WHERE partida_id = ? AND usuario_id = ? AND status = 'GANHOU'",
+          [partidaId, usuarioId]
+        );
+        ingressosGanhos = Number(countRows[0]?.total ?? 0);
+      }
+      const usuario = { nome, email, ingressos_ganhos: ingressosGanhos };
 
       const context = { evento, usuario };
       const assunto = replaceTemplateTags(template.assunto, context);

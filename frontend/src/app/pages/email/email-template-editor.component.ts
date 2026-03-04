@@ -40,6 +40,7 @@ const TAGS_TEMPLATE_EMAIL = [
   { tag: '{{evento.link_extra}}', desc: 'Link extra do evento' },
   { tag: '{{usuario.nome}}', desc: 'Nome do destinatário' },
   { tag: '{{usuario.email}}', desc: 'E-mail do destinatário' },
+  { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
 ];
 
 const TINYMCE_EDITOR_ID = 'email-template-tinymce';
