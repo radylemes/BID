@@ -234,7 +234,7 @@ exports.syncUsers = async (req, res) => {
           continue;
         }
         const graphResponse = await axios.get(
-          "https://graph.microsoft.com/v1.0/users?$top=999&$select=id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName",
+          "https://graph.microsoft.com/v1.0/users?$top=999&$filter=accountEnabled eq true&$select=id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName",
           {
             headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
             validateStatus: () => true,
@@ -265,6 +265,9 @@ exports.syncUsers = async (req, res) => {
     let criados = 0;
     let atualizados = 0;
     let ignorados = 0;
+    let ocultados = 0;
+    let apagados = 0;
+    const activeAdOids = new Set();
     const connection = await db.getConnection();
 
     try {
@@ -281,7 +284,6 @@ exports.syncUsers = async (req, res) => {
         const empresaTxt = adUser.companyName || "Geral";
         const nome = adUser.displayName;
         const oid = adUser.id;
-        const ativo = adUser.accountEnabled !== false ? 1 : 0;
         let username = email.split("@")[0];
 
         const { empId, setId } = await getOrCreateEmpresaSetor(
@@ -303,16 +305,37 @@ exports.syncUsers = async (req, res) => {
             username = `${username}.${Math.floor(Math.random() * 1000)}`;
 
           await connection.execute(
-            `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, microsoft_id) VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', ?, ?)`,
-            [username, nome, email, empId, setId, ativo, oid],
+            `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, microsoft_id) VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', 1, ?)`,
+            [username, nome, email, empId, setId, oid],
           );
           criados++;
         } else {
           await connection.execute(
-            "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = ? WHERE id = ?",
-            [empId, setId, nome, oid, ativo, existing[0].id],
+            "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = 1 WHERE id = ?",
+            [empId, setId, nome, oid, existing[0].id],
           );
           atualizados++;
+        }
+        activeAdOids.add(oid);
+      }
+
+      // Utilizadores locais do AD que não estão na lista de ativos: ocultar (se tiverem histórico) ou apagar
+      const [localAdUsers] = await connection.execute(
+        "SELECT id, microsoft_id FROM usuarios WHERE microsoft_id IS NOT NULL AND microsoft_id != ''"
+      );
+      for (const row of localAdUsers) {
+        if (activeAdOids.has(row.microsoft_id)) continue;
+        const userId = row.id;
+        const [apostasRows] = await connection.execute("SELECT 1 FROM apostas WHERE usuario_id = ? LIMIT 1", [userId]);
+        const [histRows] = await connection.execute("SELECT 1 FROM historico_pontos WHERE usuario_id = ? LIMIT 1", [userId]);
+        const [convRows] = await connection.execute("SELECT 1 FROM convidados WHERE usuario_id = ? LIMIT 1", [userId]);
+        const temHistorico = apostasRows.length > 0 || histRows.length > 0 || convRows.length > 0;
+        if (temHistorico) {
+          await connection.execute("UPDATE usuarios SET ativo = 0 WHERE id = ?", [userId]);
+          ocultados++;
+        } else {
+          await connection.execute("DELETE FROM usuarios WHERE id = ?", [userId]);
+          apagados++;
         }
       }
 
@@ -320,6 +343,8 @@ exports.syncUsers = async (req, res) => {
         criados,
         atualizados,
         ignorados,
+        ocultados,
+        apagados,
       });
       await connection.commit();
     } catch (e) {
@@ -329,7 +354,10 @@ exports.syncUsers = async (req, res) => {
       connection.release();
     }
 
-    const details = `Criados: ${criados}, Atualizados: ${atualizados}, Ignorados: ${ignorados}.`;
+    const parts = [`Criados: ${criados}`, `Atualizados: ${atualizados}`, `Ignorados: ${ignorados}`];
+    if (ocultados > 0) parts.push(`Ocultados (inativos com histórico): ${ocultados}`);
+    if (apagados > 0) parts.push(`Apagados (inativos sem histórico): ${apagados}`);
+    const details = parts.join(", ") + ".";
     res.json({
       message: "Sincronização concluída com sucesso!",
       details: tenantErrors.length > 0 ? `${details} Avisos: ${tenantErrors.join("; ")}` : details,

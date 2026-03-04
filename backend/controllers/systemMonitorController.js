@@ -25,3 +25,13 @@ exports.resolveError = async (req, res) => {
     res.status(500).json({ error: "Erro ao atualizar o status do erro." });
   }
 };
+
+exports.clearErrorHistory = async (req, res) => {
+  try {
+    await db.execute(`DELETE FROM logs_erros`);
+    res.json({ message: "Histórico de erros limpo com sucesso." });
+  } catch (error) {
+    console.error("Erro ao limpar histórico de erros:", error);
+    res.status(500).json({ error: "Erro ao limpar o histórico de erros." });
+  }
+};

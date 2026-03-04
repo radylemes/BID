@@ -357,6 +357,7 @@ async function initializeDatabase() {
       { nome: "subtitulo", tipo: "VARCHAR(255) NULL" },
       { nome: "informacoes_extras", tipo: "TEXT NULL" },
       { nome: "link_extra", tipo: "VARCHAR(500) NULL" },
+      { nome: "data_apuracao", tipo: "DATETIME NULL" },
     ]);
     await ensureColumns("regras_pontuacao", [
       { nome: "grupo_id", tipo: "INT NULL" },

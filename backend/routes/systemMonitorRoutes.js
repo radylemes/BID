@@ -15,5 +15,11 @@ router.put(
   authorizeRoles("ADMIN"),
   systemMonitorController.resolveError,
 );
+router.delete(
+  "/",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  systemMonitorController.clearErrorHistory,
+);
 
 module.exports = router;

@@ -860,10 +860,12 @@ export class MatchManagerComponent implements OnInit {
           const subtituloEl = document.getElementById('subtitulo') as HTMLInputElement;
           const informacoesEl = document.getElementById('informacoesExtras') as HTMLTextAreaElement;
           const linkExtraEl = document.getElementById('linkExtra') as HTMLInputElement;
+          const dataApuracaoEl = document.getElementById('dataApuracao') as HTMLInputElement;
           if (bannerEl && match.banner) bannerEl.value = match.banner.startsWith('http') ? match.banner : '';
           if (subtituloEl && match.subtitulo) subtituloEl.value = match.subtitulo;
           if (informacoesEl && match.informacoes_extras) informacoesEl.value = match.informacoes_extras;
           if (linkExtraEl && match.link_extra) linkExtraEl.value = match.link_extra;
+          if (dataApuracaoEl && match.data_apuracao) dataApuracaoEl.value = formatData(match.data_apuracao);
         }
         if (!isEdit && !isClone) {
           const titleEl = document.querySelector('.swal2-title') as HTMLElement | null;
@@ -880,11 +882,17 @@ export class MatchManagerComponent implements OnInit {
       },
       html: `
         <div class="text-left space-y-4 px-2">
-          <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do BID</label>
-            <input id="titulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 focus:ring-indigo-500 rounded-lg" value="${tituloInput}">
-          </div>
           <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do BID</label>
+              <input id="titulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 focus:ring-indigo-500 rounded-lg" value="${tituloInput}">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Subtítulo</label>
+              <input id="subtitulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="Opcional">
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4">
             <div>
               <label class="block text-[10px] font-extrabold text-amber-600 uppercase mb-1">Grupo de Apostas</label>
               <select id="grupoId" class="swal2-select w-full m-0 h-10 text-sm border-amber-200 bg-amber-50 text-amber-700 rounded-lg">
@@ -899,29 +907,25 @@ export class MatchManagerComponent implements OnInit {
                   ${setoresOptions}
               </select>
             </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Local</label>
+              <input id="local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="${match?.local || ''}">
+            </div>
           </div>
 
-          <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Subtítulo</label>
-            <input id="subtitulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="Opcional">
-          </div>
           <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Banner (URL da imagem)</label>
                 <input id="banner" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://...">
               </div>
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Local</label>
-                <input id="local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="${match?.local || ''}">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link extra</label>
+                <input id="linkExtra" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... (opcional)">
               </div>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Informações extras</label>
             <textarea id="informacoesExtras" class="swal2-textarea w-full m-0 text-sm border-gray-300 rounded-lg" rows="3" placeholder="Texto livre (opcional)"></textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link extra</label>
-            <input id="linkExtra" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... (opcional)">
           </div>
           <div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
               <div>
@@ -934,7 +938,7 @@ export class MatchManagerComponent implements OnInit {
               </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-3 gap-4">
             <div>
                 <label class="block text-xs font-bold text-emerald-600 uppercase mb-1">Início das Apostas</label>
                 <input id="dataInicio" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-emerald-200 rounded-lg" value="${match ? formatData(match.data_inicio_apostas) : ''}">
@@ -942,6 +946,10 @@ export class MatchManagerComponent implements OnInit {
             <div>
                 <label class="block text-xs font-bold text-rose-500 uppercase mb-1">Fim das Apostas</label>
                 <input id="dataLimite" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-rose-200 rounded-lg" value="${match ? formatData(match.data_limite_aposta) : ''}">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dia de apuração</label>
+                <input id="dataApuracao" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="${match && match.data_apuracao ? formatData(match.data_apuracao) : ''}" placeholder="Opcional">
             </div>
           </div>
         </div>
@@ -989,6 +997,7 @@ export class MatchManagerComponent implements OnInit {
         formData.append('data_jogo', toIsoUtc(dataJogo) || dataJogo);
         formData.append('data_inicio_apostas', toIsoUtc(getVal('dataInicio')) || getVal('dataInicio'));
         formData.append('data_limite_aposta', toIsoUtc(getVal('dataLimite')) || getVal('dataLimite'));
+        formData.append('data_apuracao', toIsoUtc(getVal('dataApuracao')) || '');
         formData.append('quantidade_premios', String(Number(getVal('qtdPremios')) || 1));
         formData.append('motivo', motivo);
         formData.append('adminId', String(this.currentUser.id));

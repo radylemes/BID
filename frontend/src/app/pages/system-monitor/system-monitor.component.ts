@@ -22,7 +22,7 @@ import Swal from 'sweetalert2';
             </p>
           </div>
 
-          <div class="flex gap-4">
+          <div class="flex flex-wrap gap-3 items-center">
             <div
               class="bg-gray-800 px-4 py-2 rounded-xl border border-gray-700 flex flex-col items-center"
             >
@@ -37,6 +37,13 @@ import Swal from 'sweetalert2';
               title="Atualizar"
             >
               🔄
+            </button>
+            <button
+              (click)="limparHistorico()"
+              class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-3 rounded-xl transition-colors shadow-lg active:scale-95 text-sm font-bold"
+              title="Apagar todo o histórico de erros"
+            >
+              🗑️ Limpar histórico
             </button>
           </div>
         </div>
@@ -166,6 +173,39 @@ export class SystemMonitorComponent implements OnInit {
           timer: 2000,
         });
       },
+    });
+  }
+
+  limparHistorico() {
+    Swal.fire({
+      title: 'Limpar histórico de erros?',
+      text: 'Todos os registos de erro serão apagados permanentemente. Esta ação não pode ser desfeita.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, limpar tudo',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.monitorService.clearErrorHistory().subscribe({
+          next: (res) => {
+            this.erros = [];
+            this.pendentesCount = 0;
+            this.cd.detectChanges();
+            Swal.fire({
+              icon: 'success',
+              title: 'Histórico limpo',
+              text: res?.message || 'Todos os erros foram removidos.',
+              timer: 2000,
+              showConfirmButton: false,
+            });
+          },
+          error: (err) => {
+            Swal.fire('Erro', err.error?.error || 'Não foi possível limpar o histórico.', 'error');
+          },
+        });
+      }
     });
   }
 

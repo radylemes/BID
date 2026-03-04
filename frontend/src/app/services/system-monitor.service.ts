@@ -18,4 +18,8 @@ export class SystemMonitorService {
   resolveError(id: number): Observable<any> {
     return this.http.put(`${this.apiUrl}/${id}/resolve`, {});
   }
+
+  clearErrorHistory(): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(this.apiUrl);
+  }
 }

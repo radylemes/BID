@@ -176,7 +176,7 @@
           <div class="flex items-center gap-1.5 font-bold uppercase tracking-wide">
             <span class="text-sm">⏱️</span> Período de Lances
           </div>
-          <div class="flex items-center gap-2 font-medium">
+          <div class="flex items-center gap-2 font-medium flex-wrap justify-end">
             <span class="text-emerald-600 font-bold">{{
               match.data_inicio_apostas | date: 'dd/MM HH:mm'
             }}</span>
@@ -184,6 +184,10 @@
             <span class="text-rose-600 font-bold">{{
               match.data_limite_aposta | date: 'dd/MM HH:mm'
             }}</span>
+            <span *ngIf="match.data_apuracao" class="text-gray-400">·</span>
+            <span *ngIf="match.data_apuracao">
+              <span class="text-gray-900 font-bold">Apuração: </span><span class="text-indigo-600 font-bold">{{ match.data_apuracao | date: 'dd/MM HH:mm' }}</span>
+            </span>
           </div>
         </div>
 

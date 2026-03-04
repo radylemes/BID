@@ -347,6 +347,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                       <button (click)="visualizarTemplate(t)" class="mr-2 px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-bold hover:bg-sky-100" title="Visualizar">👁 Visualizar</button>
                       <button (click)="testeEnvioTemplate(t)" class="mr-2 px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold hover:bg-amber-100" title="Enviar e-mail de teste">✉ Teste</button>
                       <button (click)="editarTemplate(t)" class="mr-2 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-100">Editar</button>
+                      <button (click)="clonarTemplate(t)" class="mr-2 px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-bold hover:bg-sky-100" title="Clonar template">Clonar</button>
                       <button (click)="excluirTemplate(t)" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100" title="Excluir">🗑️</button>
                     </td>
                   </tr>
@@ -799,6 +800,16 @@ export class SettingsComponent implements OnInit {
         });
       },
       error: () => Swal.fire('Erro', 'Não foi possível carregar a lista de eventos.', 'error'),
+    });
+  }
+
+  clonarTemplate(t: TemplateEmail) {
+    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '').subscribe({
+      next: () => {
+        this.loadTemplates();
+        Swal.fire({ icon: 'success', title: 'Template clonado.', timer: 1500, showConfirmButton: false });
+      },
+      error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao clonar.', 'error'),
     });
   }
 

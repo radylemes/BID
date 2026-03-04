@@ -129,6 +129,7 @@ exports.getMatches = async (req, res) => {
         data_jogo: dbUtcToISO(row.data_jogo),
         data_inicio_apostas: dbUtcToISO(row.data_inicio_apostas),
         data_limite_aposta: dbUtcToISO(row.data_limite_aposta),
+        data_apuracao: dbUtcToISO(row.data_apuracao),
         data_evento: dbUtcToISO(row.data_jogo),
         titulo: row.titulo || "Evento sem título",
         quantidade_premios: qtdPremios,
@@ -182,6 +183,7 @@ exports.getMyBets = async (req, res) => {
       data_jogo: dbUtcToISO(row.data_jogo),
       data_inicio_apostas: dbUtcToISO(row.data_inicio_apostas),
       data_limite_aposta: dbUtcToISO(row.data_limite_aposta),
+      data_apuracao: dbUtcToISO(row.data_apuracao),
       data_evento: dbUtcToISO(row.data_jogo),
       titulo: row.titulo || "Evento sem título",
       quantidade_premios: row.quantidade_premios || 1,
@@ -208,6 +210,7 @@ exports.createMatch = async (req, res) => {
       data_jogo,
       data_inicio_apostas,
       data_limite_aposta,
+      data_apuracao,
       quantidade_premios,
       grupo_id,
       setor_evento_id,
@@ -230,7 +233,7 @@ exports.createMatch = async (req, res) => {
     try {
       await connection.beginTransaction();
       const [result] = await connection.execute(
-        `INSERT INTO partidas (titulo, banner, subtitulo, informacoes_extras, link_extra, local, data_jogo, data_inicio_apostas, data_limite_aposta, quantidade_premios, grupo_id, setor_evento_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
+        `INSERT INTO partidas (titulo, banner, subtitulo, informacoes_extras, link_extra, local, data_jogo, data_inicio_apostas, data_limite_aposta, data_apuracao, quantidade_premios, grupo_id, setor_evento_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
         [
           titulo,
           bannerUrl,
@@ -241,6 +244,7 @@ exports.createMatch = async (req, res) => {
           formatarDataLocal(data_jogo),
           inicioFormatado,
           formatarDataLocal(data_limite_aposta),
+          data_apuracao ? formatarDataLocal(data_apuracao) : null,
           quantidade_premios || 1,
           grupoIdFinal,
           setorEventoIdFinal,
@@ -293,6 +297,7 @@ exports.updateMatch = async (req, res) => {
     data_jogo,
     data_inicio_apostas,
     data_limite_aposta,
+    data_apuracao,
     quantidade_premios,
     grupo_id,
     setor_evento_id,
@@ -326,7 +331,7 @@ exports.updateMatch = async (req, res) => {
 
     await connection.beginTransaction();
     const [result] = await connection.execute(
-      `UPDATE partidas SET titulo = ?, banner = ?, subtitulo = ?, informacoes_extras = ?, link_extra = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, quantidade_premios = ?, grupo_id = ?, setor_evento_id = ? WHERE id = ?`,
+      `UPDATE partidas SET titulo = ?, banner = ?, subtitulo = ?, informacoes_extras = ?, link_extra = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, data_apuracao = ?, quantidade_premios = ?, grupo_id = ?, setor_evento_id = ? WHERE id = ?`,
       [
         titulo,
         bannerUrl,
@@ -337,6 +342,7 @@ exports.updateMatch = async (req, res) => {
         formatarDataLocal(data_jogo),
         formatarDataLocal(data_inicio_apostas),
         formatarDataLocal(data_limite_aposta),
+        data_apuracao ? formatarDataLocal(data_apuracao) : null,
         quantidade_premios || 1,
         grupoIdFinal,
         setorEventoIdFinal,

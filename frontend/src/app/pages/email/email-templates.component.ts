@@ -11,6 +11,7 @@ const TAGS_DISPONIVEIS = [
   { tag: '{{evento.local}}', desc: 'Local' },
   { tag: '{{evento.data_jogo}}', desc: 'Data do jogo' },
   { tag: '{{evento.data_limite_aposta}}', desc: 'Data limite apostas' },
+  { tag: '{{evento.data_apuracao}}', desc: 'Data de apuração' },
   { tag: '{{evento.quantidade_premios}}', desc: 'Quantidade de prêmios' },
   { tag: '{{evento.nome_grupo}}', desc: 'Nome do grupo' },
   { tag: '{{evento.setor_evento_nome}}', desc: 'Setor do evento' },
@@ -67,6 +68,12 @@ const TAGS_DISPONIVEIS = [
                   class="mr-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200"
                 >
                   Pré-visualizar
+                </button>
+                <button
+                  (click)="clonarTemplate(t)"
+                  class="mr-2 px-3 py-1.5 bg-sky-50 text-sky-700 rounded-lg text-xs font-bold hover:bg-sky-100"
+                >
+                  Clonar
                 </button>
                 <button
                   (click)="excluirTemplate(t)"
@@ -261,6 +268,16 @@ export class EmailTemplatesComponent implements OnInit {
         const el = document.getElementById('preview-body');
         if (el) el.innerHTML = html;
       },
+    });
+  }
+
+  clonarTemplate(t: TemplateEmail) {
+    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '').subscribe({
+      next: () => {
+        this.carregar();
+        Swal.fire({ icon: 'success', title: 'Template clonado.', timer: 1500, showConfirmButton: false });
+      },
+      error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao clonar.', 'error'),
     });
   }
 

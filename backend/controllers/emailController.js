@@ -74,6 +74,51 @@ function replaceTemplateTags(text, context = {}) {
   return result;
 }
 
+/** Datas no banco estão em UTC; interpreta como UTC e formata no fuso do Brasil. */
+const TZ_BR = "America/Sao_Paulo";
+
+function parseDbUtc(dataVal) {
+  if (dataVal == null) return null;
+  if (dataVal instanceof Date) return new Date(dataVal.toISOString());
+  const s = String(dataVal).trim().replace(" ", "T");
+  return new Date(s.endsWith("Z") ? s : s + "Z");
+}
+
+/**
+ * Extrai dia (DD), mês (MM) e hora (HH:mm) em horário do Brasil para uso em tags de template.
+ * O valor vindo do banco é interpretado como UTC.
+ * @param {Date|string|null} dataVal
+ * @returns {{ dia: string, mes: string, hora: string }}
+ */
+function extrairPartesData(dataVal) {
+  if (dataVal == null) return { dia: "", mes: "", hora: "" };
+  const d = parseDbUtc(dataVal);
+  if (!d || isNaN(d.getTime())) return { dia: "", mes: "", hora: "" };
+  const formatter = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ_BR,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  return {
+    dia: get("day"),
+    mes: get("month"),
+    hora: `${get("hour")}:${get("minute")}`,
+  };
+}
+
+/** Formata data do banco (UTC) em string pt-BR no fuso do Brasil. */
+function formatarDataPtBr(dataVal) {
+  if (dataVal == null) return "";
+  const d = parseDbUtc(dataVal);
+  if (!d || isNaN(d.getTime())) return "";
+  return d.toLocaleString("pt-BR", { timeZone: TZ_BR });
+}
+
 async function gravarAuditoria(connection, adminId, modulo, acao, registroId, detalhes) {
   try {
     const executor = connection || db;
@@ -461,8 +506,22 @@ exports.deleteTemplate = async (req, res) => {
 const DEFAULT_EVENTO = {
   titulo: "Exemplo de Evento",
   local: "Estádio Exemplo",
-  data_jogo: "2025-03-15 20:00",
+  data: "2025-03-15 20:00",
+  data_dia: "15",
+  data_mes: "03",
+  data_hora: "20:00",
+  data_inicio_apostas: "2025-03-10 08:00",
+  data_inicio_apostas_dia: "10",
+  data_inicio_apostas_mes: "03",
+  data_inicio_apostas_hora: "08:00",
   data_limite_aposta: "2025-03-14 18:00",
+  data_limite_aposta_dia: "14",
+  data_limite_aposta_mes: "03",
+  data_limite_aposta_hora: "18:00",
+  data_apuracao: "",
+  data_apuracao_dia: "",
+  data_apuracao_mes: "",
+  data_apuracao_hora: "",
   quantidade_premios: 10,
   nome_grupo: "Geral",
   setor_evento_nome: "Cadeira Inferior",
@@ -494,7 +553,7 @@ exports.previewTemplate = async (req, res) => {
     let evento = { ...DEFAULT_EVENTO };
     if (partidaId) {
       const [partidas] = await db.query(
-        `SELECT p.titulo, p.local, p.data_jogo, p.data_limite_aposta, p.quantidade_premios,
+        `SELECT p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
                 p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
                 g.nome as nome_grupo, se.nome as setor_evento_nome
          FROM partidas p
@@ -508,13 +567,29 @@ exports.previewTemplate = async (req, res) => {
       if (partidas.length > 0) {
         const p = partidas[0];
         if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+        const partesJogo = extrairPartesData(p.data_jogo);
+        const partesInicio = extrairPartesData(p.data_inicio_apostas);
+        const partesLimite = extrairPartesData(p.data_limite_aposta);
+        const partesApuracao = extrairPartesData(p.data_apuracao);
         evento = {
           titulo: p.titulo || DEFAULT_EVENTO.titulo,
           local: p.local || DEFAULT_EVENTO.local,
-          data_jogo: p.data_jogo ? new Date(p.data_jogo).toLocaleString("pt-BR") : DEFAULT_EVENTO.data_jogo,
-          data_limite_aposta: p.data_limite_aposta
-            ? new Date(p.data_limite_aposta).toLocaleString("pt-BR")
-            : DEFAULT_EVENTO.data_limite_aposta,
+          data: formatarDataPtBr(p.data_jogo) || DEFAULT_EVENTO.data,
+          data_dia: partesJogo.dia,
+          data_mes: partesJogo.mes,
+          data_hora: partesJogo.hora,
+          data_inicio_apostas: formatarDataPtBr(p.data_inicio_apostas) || DEFAULT_EVENTO.data_inicio_apostas,
+          data_inicio_apostas_dia: partesInicio.dia,
+          data_inicio_apostas_mes: partesInicio.mes,
+          data_inicio_apostas_hora: partesInicio.hora,
+          data_limite_aposta: formatarDataPtBr(p.data_limite_aposta) || DEFAULT_EVENTO.data_limite_aposta,
+          data_limite_aposta_dia: partesLimite.dia,
+          data_limite_aposta_mes: partesLimite.mes,
+          data_limite_aposta_hora: partesLimite.hora,
+          data_apuracao: formatarDataPtBr(p.data_apuracao) || "",
+          data_apuracao_dia: partesApuracao.dia,
+          data_apuracao_mes: partesApuracao.mes,
+          data_apuracao_hora: partesApuracao.hora,
           quantidade_premios: p.quantidade_premios ?? DEFAULT_EVENTO.quantidade_premios,
           nome_grupo: p.nome_grupo || DEFAULT_EVENTO.nome_grupo,
           setor_evento_nome: p.setor_evento_nome || DEFAULT_EVENTO.setor_evento_nome,
@@ -549,7 +624,7 @@ exports.previewDraft = async (req, res) => {
     let evento = { ...DEFAULT_EVENTO };
     if (partidaId) {
       const [partidas] = await db.query(
-        `SELECT p.titulo, p.local, p.data_jogo, p.data_limite_aposta, p.quantidade_premios,
+        `SELECT p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
                 p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
                 g.nome as nome_grupo, se.nome as setor_evento_nome
          FROM partidas p
@@ -563,11 +638,29 @@ exports.previewDraft = async (req, res) => {
       if (partidas.length > 0) {
         const p = partidas[0];
         if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+        const partesJogo = extrairPartesData(p.data_jogo);
+        const partesInicio = extrairPartesData(p.data_inicio_apostas);
+        const partesLimite = extrairPartesData(p.data_limite_aposta);
+        const partesApuracao = extrairPartesData(p.data_apuracao);
         evento = {
           titulo: p.titulo || DEFAULT_EVENTO.titulo,
           local: p.local || DEFAULT_EVENTO.local,
-          data_jogo: p.data_jogo ? new Date(p.data_jogo).toLocaleString("pt-BR") : DEFAULT_EVENTO.data_jogo,
-          data_limite_aposta: p.data_limite_aposta ? new Date(p.data_limite_aposta).toLocaleString("pt-BR") : DEFAULT_EVENTO.data_limite_aposta,
+          data: formatarDataPtBr(p.data_jogo) || DEFAULT_EVENTO.data,
+          data_dia: partesJogo.dia,
+          data_mes: partesJogo.mes,
+          data_hora: partesJogo.hora,
+          data_inicio_apostas: formatarDataPtBr(p.data_inicio_apostas) || DEFAULT_EVENTO.data_inicio_apostas,
+          data_inicio_apostas_dia: partesInicio.dia,
+          data_inicio_apostas_mes: partesInicio.mes,
+          data_inicio_apostas_hora: partesInicio.hora,
+          data_limite_aposta: formatarDataPtBr(p.data_limite_aposta) || DEFAULT_EVENTO.data_limite_aposta,
+          data_limite_aposta_dia: partesLimite.dia,
+          data_limite_aposta_mes: partesLimite.mes,
+          data_limite_aposta_hora: partesLimite.hora,
+          data_apuracao: formatarDataPtBr(p.data_apuracao) || "",
+          data_apuracao_dia: partesApuracao.dia,
+          data_apuracao_mes: partesApuracao.mes,
+          data_apuracao_hora: partesApuracao.hora,
           quantidade_premios: p.quantidade_premios ?? DEFAULT_EVENTO.quantidade_premios,
           nome_grupo: p.nome_grupo || DEFAULT_EVENTO.nome_grupo,
           setor_evento_nome: p.setor_evento_nome || DEFAULT_EVENTO.setor_evento_nome,
@@ -624,7 +717,7 @@ exports.testTemplate = async (req, res) => {
     let evento = { ...DEFAULT_EVENTO };
     if (partidaId) {
       const [partidas] = await db.query(
-        `SELECT p.titulo, p.local, p.data_jogo, p.data_limite_aposta, p.quantidade_premios,
+        `SELECT p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
                 p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
                 g.nome as nome_grupo, se.nome as setor_evento_nome
          FROM partidas p
@@ -638,13 +731,29 @@ exports.testTemplate = async (req, res) => {
       if (partidas.length > 0) {
         const p = partidas[0];
         if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+        const partesJogo = extrairPartesData(p.data_jogo);
+        const partesInicio = extrairPartesData(p.data_inicio_apostas);
+        const partesLimite = extrairPartesData(p.data_limite_aposta);
+        const partesApuracao = extrairPartesData(p.data_apuracao);
         evento = {
           titulo: p.titulo || DEFAULT_EVENTO.titulo,
           local: p.local || DEFAULT_EVENTO.local,
-          data_jogo: p.data_jogo ? new Date(p.data_jogo).toLocaleString("pt-BR") : DEFAULT_EVENTO.data_jogo,
-          data_limite_aposta: p.data_limite_aposta
-            ? new Date(p.data_limite_aposta).toLocaleString("pt-BR")
-            : DEFAULT_EVENTO.data_limite_aposta,
+          data: formatarDataPtBr(p.data_jogo) || DEFAULT_EVENTO.data,
+          data_dia: partesJogo.dia,
+          data_mes: partesJogo.mes,
+          data_hora: partesJogo.hora,
+          data_inicio_apostas: formatarDataPtBr(p.data_inicio_apostas) || DEFAULT_EVENTO.data_inicio_apostas,
+          data_inicio_apostas_dia: partesInicio.dia,
+          data_inicio_apostas_mes: partesInicio.mes,
+          data_inicio_apostas_hora: partesInicio.hora,
+          data_limite_aposta: formatarDataPtBr(p.data_limite_aposta) || DEFAULT_EVENTO.data_limite_aposta,
+          data_limite_aposta_dia: partesLimite.dia,
+          data_limite_aposta_mes: partesLimite.mes,
+          data_limite_aposta_hora: partesLimite.hora,
+          data_apuracao: formatarDataPtBr(p.data_apuracao) || "",
+          data_apuracao_dia: partesApuracao.dia,
+          data_apuracao_mes: partesApuracao.mes,
+          data_apuracao_hora: partesApuracao.hora,
           quantidade_premios: p.quantidade_premios ?? DEFAULT_EVENTO.quantidade_premios,
           nome_grupo: p.nome_grupo || DEFAULT_EVENTO.nome_grupo,
           setor_evento_nome: p.setor_evento_nome || DEFAULT_EVENTO.setor_evento_nome,
@@ -705,7 +814,7 @@ exports.sendEmails = async (req, res) => {
     }
 
     const [partidas] = await db.query(
-      `SELECT p.id, p.titulo, p.local, p.data_jogo, p.data_limite_aposta, p.quantidade_premios,
+      `SELECT p.id, p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
               p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
               g.nome as nome_grupo, se.nome as setor_evento_nome
        FROM partidas p
@@ -721,13 +830,29 @@ exports.sendEmails = async (req, res) => {
     const baseUrl = await getBaseUrl();
     let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
     if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+    const partesJogo = extrairPartesData(p.data_jogo);
+    const partesInicio = extrairPartesData(p.data_inicio_apostas);
+    const partesLimite = extrairPartesData(p.data_limite_aposta);
+    const partesApuracao = extrairPartesData(p.data_apuracao);
     const evento = {
       titulo: p.titulo || "Evento",
       local: p.local || "",
-      data_jogo: p.data_jogo ? new Date(p.data_jogo).toLocaleString("pt-BR") : "",
-      data_limite_aposta: p.data_limite_aposta
-        ? new Date(p.data_limite_aposta).toLocaleString("pt-BR")
-        : "",
+      data: formatarDataPtBr(p.data_jogo) || "",
+      data_dia: partesJogo.dia,
+      data_mes: partesJogo.mes,
+      data_hora: partesJogo.hora,
+      data_inicio_apostas: formatarDataPtBr(p.data_inicio_apostas) || "",
+      data_inicio_apostas_dia: partesInicio.dia,
+      data_inicio_apostas_mes: partesInicio.mes,
+      data_inicio_apostas_hora: partesInicio.hora,
+      data_limite_aposta: formatarDataPtBr(p.data_limite_aposta) || "",
+      data_limite_aposta_dia: partesLimite.dia,
+      data_limite_aposta_mes: partesLimite.mes,
+      data_limite_aposta_hora: partesLimite.hora,
+      data_apuracao: formatarDataPtBr(p.data_apuracao) || "",
+      data_apuracao_dia: partesApuracao.dia,
+      data_apuracao_mes: partesApuracao.mes,
+      data_apuracao_hora: partesApuracao.hora,
       quantidade_premios: p.quantidade_premios ?? 0,
       nome_grupo: p.nome_grupo || "",
       setor_evento_nome: p.setor_evento_nome || "",
