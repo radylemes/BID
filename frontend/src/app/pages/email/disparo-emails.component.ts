@@ -5,7 +5,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
-import { EmailService, SendEmailsResponse, DisparoLogEntry, TemplateEmail } from '../../services/email.service';
+import { EmailService, SendEmailsResponse, DisparoLogEntry, TemplateEmail, ListaEmail, ListaEmailItem } from '../../services/email.service';
+import { UserService } from '../../services/user.service';
 import Swal from 'sweetalert2';
 
 type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
@@ -19,7 +20,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
       <div class="mb-6">
         <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Disparo de E-mails</h2>
         <p class="text-sm text-gray-500 font-medium mt-1">
-          Selecione o tipo de disparo e o BID para enviar e-mails ou gerencie os templates.
+          Selecione o tipo de disparo e o BID para enviar e-mails, gerencie templates ou listas de destinatários.
         </p>
       </div>
 
@@ -45,6 +46,17 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
           class="px-4 py-2.5 rounded-lg text-sm font-semibold transition"
         >
           Templates de e-mail
+        </button>
+        <button
+          type="button"
+          (click)="irAbaListas()"
+          [class.bg-indigo-600]="abaAtual === 'listas'"
+          [class.text-white]="abaAtual === 'listas'"
+          [class.bg-white]="abaAtual !== 'listas'"
+          [class.text-gray-600]="abaAtual !== 'listas'"
+          class="px-4 py-2.5 rounded-lg text-sm font-semibold transition"
+        >
+          Listas de e-mail
         </button>
       </div>
 
@@ -168,6 +180,18 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                         Ver log
                       </button>
                       <button
+                        *ngIf="tipoAtivo === 'BID_ENCERRADO'"
+                        type="button"
+                        (click)="visualizarPdfGanhadores(m)"
+                        [disabled]="pdfLoadingPartidaId === m.id"
+                        [class.opacity-50]="pdfLoadingPartidaId === m.id"
+                        [class.cursor-not-allowed]="pdfLoadingPartidaId === m.id"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition disabled:hover:bg-sky-50 disabled:hover:border-sky-300"
+                        title="Visualizar PDF da lista de ganhadores antes do envio"
+                      >
+                        {{ pdfLoadingPartidaId === m.id ? 'Gerando PDF...' : 'Visualizar PDF' }}
+                      </button>
+                      <button
                         (click)="abrirModalDisparo(m)"
                         [disabled]="podeDisparar(m) === false"
                         [class.opacity-50]="podeDisparar(m) === false"
@@ -220,11 +244,48 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
           </div>
         </div>
       </div>
+
+      <!-- Aba Listas de e-mail -->
+      <div *ngIf="abaAtual === 'listas'" class="bg-white rounded-2xl border border-gray-100 shadow-md overflow-hidden">
+        <div class="p-4 space-y-4">
+          <div class="flex justify-between items-center">
+            <div>
+              <h3 class="text-xl font-bold text-gray-800">Listas de e-mail</h3>
+              <p class="text-sm text-gray-500">Crie listas de destinatários para disparos.</p>
+            </div>
+            <button (click)="novaLista()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Nova lista</button>
+          </div>
+          <div class="rounded-xl border border-gray-200 overflow-hidden">
+            <div *ngIf="listasEmailLoading" class="p-6 text-center text-gray-500">A carregar...</div>
+            <div *ngIf="!listasEmailLoading && listasEmail.length === 0" class="p-6 text-center text-gray-400">Nenhuma lista. Crie uma nova lista.</div>
+            <table *ngIf="!listasEmailLoading && listasEmail.length > 0" class="min-w-full text-sm">
+              <thead class="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
+                <tr>
+                  <th class="px-4 py-3 text-left">Nome</th>
+                  <th class="px-4 py-3 text-left">Descrição</th>
+                  <th class="px-4 py-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr *ngFor="let lista of listasEmail" class="hover:bg-gray-50">
+                  <td class="px-4 py-3 font-medium text-gray-900">{{ lista.nome }}</td>
+                  <td class="px-4 py-3 text-gray-600">{{ lista.descricao || '—' }}</td>
+                  <td class="px-4 py-3 text-right">
+                    <button (click)="abrirItensLista(lista)" class="mr-2 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-100">E-mails</button>
+                    <button (click)="editarLista(lista)" class="mr-2 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200" title="Editar">Editar</button>
+                    <button (click)="excluirLista(lista)" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100" title="Excluir">Excluir</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   `,
 })
 export class DisparoEmailsComponent implements OnInit {
-  abaAtual: 'disparo' | 'templates' = 'disparo';
+  abaAtual: 'disparo' | 'templates' | 'listas' = 'disparo';
   matches: any[] = [];
   loading = false;
   tipoAtivo: TipoDisparo = 'BID_ABERTO';
@@ -233,6 +294,9 @@ export class DisparoEmailsComponent implements OnInit {
   templates: any[] = [];
   templatesList: TemplateEmail[] = [];
   templatesLoading = false;
+  listasEmail: ListaEmail[] = [];
+  listasEmailLoading = false;
+  pdfLoadingPartidaId: number | null = null;
 
   get descricaoTipo(): string {
     switch (this.tipoAtivo) {
@@ -254,6 +318,7 @@ export class DisparoEmailsComponent implements OnInit {
   constructor(
     private matchService: MatchService,
     private emailService: EmailService,
+    private userService: UserService,
     private cdr: ChangeDetectorRef,
     private router: Router,
     private route: ActivatedRoute
@@ -267,8 +332,17 @@ export class DisparoEmailsComponent implements OnInit {
       if (aba === 'templates') {
         this.abaAtual = 'templates';
         this.loadTemplates();
+      } else if (aba === 'listas') {
+        this.abaAtual = 'listas';
+        this.loadListasEmail();
       }
     });
+  }
+
+  irAbaListas(): void {
+    this.abaAtual = 'listas';
+    this.loadListasEmail();
+    this.router.navigate([], { relativeTo: this.route, queryParams: { aba: 'listas' }, queryParamsHandling: 'merge' });
   }
 
   irAbaTemplates(): void {
@@ -288,6 +362,384 @@ export class DisparoEmailsComponent implements OnInit {
       error: () => {
         this.templatesLoading = false;
         this.cdr.markForCheck();
+      },
+    });
+  }
+
+  loadListasEmail(): void {
+    this.listasEmailLoading = true;
+    this.emailService.getLists().subscribe({
+      next: (data) => {
+        this.listasEmail = data;
+        this.listasEmailLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.listasEmailLoading = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  async novaLista(): Promise<void> {
+    const { value } = await Swal.fire({
+      title: 'Nova lista de e-mail',
+      html: `
+        <div class="text-left">
+          <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label>
+          <input id="swal-nome" class="swal2-input w-full m-0 mb-3" placeholder="Ex: Colaboradores Geral">
+          <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição (opcional)</label>
+          <input id="swal-desc" class="swal2-input w-full m-0" placeholder="Descrição da lista">
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Criar',
+      confirmButtonColor: '#059669',
+      preConfirm: () => {
+        const nome = (document.getElementById('swal-nome') as HTMLInputElement)?.value?.trim();
+        if (!nome) {
+          Swal.showValidationMessage('Nome é obrigatório.');
+          return null;
+        }
+        return {
+          nome,
+          descricao: (document.getElementById('swal-desc') as HTMLInputElement)?.value?.trim() || undefined,
+        };
+      },
+    });
+    if (value) {
+      this.emailService.createList(value.nome, value.descricao).subscribe({
+        next: () => {
+          this.loadListasEmail();
+          Swal.fire({ icon: 'success', title: 'Lista criada.', timer: 1500, showConfirmButton: false });
+        },
+        error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao criar.', 'error'),
+      });
+    }
+  }
+
+  async editarLista(lista: ListaEmail): Promise<void> {
+    const nomeSafe = (lista.nome || '').replace(/"/g, '&quot;');
+    const descSafe = (lista.descricao || '').replace(/"/g, '&quot;');
+    const { value } = await Swal.fire({
+      title: 'Editar lista',
+      html: `
+        <div class="text-left">
+          <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label>
+          <input id="edit-nome" class="swal2-input w-full m-0 mb-3" value="${nomeSafe}">
+          <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição (opcional)</label>
+          <input id="edit-desc" class="swal2-input w-full m-0" value="${descSafe}">
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Salvar',
+      confirmButtonColor: '#2563eb',
+      preConfirm: () => {
+        const nome = (document.getElementById('edit-nome') as HTMLInputElement)?.value?.trim();
+        if (!nome) {
+          Swal.showValidationMessage('Nome é obrigatório.');
+          return null;
+        }
+        return {
+          nome,
+          descricao: (document.getElementById('edit-desc') as HTMLInputElement)?.value?.trim() || undefined,
+        };
+      },
+    });
+    if (value) {
+      this.emailService.updateList(lista.id, value.nome, value.descricao).subscribe({
+        next: () => {
+          this.loadListasEmail();
+          Swal.fire({ icon: 'success', title: 'Lista atualizada.', timer: 1500, showConfirmButton: false });
+        },
+        error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao atualizar.', 'error'),
+      });
+    }
+  }
+
+  async excluirLista(lista: ListaEmail): Promise<void> {
+    const { isConfirmed } = await Swal.fire({
+      title: 'Excluir lista?',
+      text: `"${lista.nome}" será excluída permanentemente.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+    });
+    if (isConfirmed) {
+      this.emailService.deleteList(lista.id).subscribe({
+        next: () => {
+          this.loadListasEmail();
+          Swal.fire({ icon: 'success', title: 'Lista excluída.', timer: 1500, showConfirmButton: false });
+        },
+        error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao excluir.', 'error'),
+      });
+    }
+  }
+
+  abrirItensLista(lista: ListaEmail): void {
+    this.emailService.getListItens(lista.id).subscribe({
+      next: (itens) => this.mostrarModalItensLista(lista, itens),
+      error: () => Swal.fire('Erro', 'Falha ao carregar e-mails.', 'error'),
+    });
+  }
+
+  private mostrarModalItensLista(lista: ListaEmail, itens: ListaEmailItem[]): void {
+    const listHtml = itens.length
+      ? itens
+          .map(
+            (i) => `
+          <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+            <span class="text-sm text-gray-800">${i.email}</span>
+            <span class="text-xs text-gray-500">${i.nome_opcional || '—'}</span>
+            <button type="button" data-remove-id="${i.id}" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs">Remover</button>
+          </div>
+        `
+          )
+          .join('')
+      : '<p class="text-gray-400 text-sm py-2">Nenhum e-mail na lista.</p>';
+
+    Swal.fire({
+      title: `E-mails: ${lista.nome}`,
+      html: `
+        <div class="text-left max-h-80 overflow-y-auto mb-4">
+          <div class="flex gap-2 mb-3">
+            <input id="item-email" type="email" class="swal2-input flex-1 m-0 text-sm" placeholder="E-mail">
+            <input id="item-nome" type="text" class="swal2-input flex-1 m-0 text-sm" placeholder="Nome (opcional)">
+            <button type="button" id="btn-add-item" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium">Adicionar</button>
+          </div>
+          <div class="mb-3">
+            <button type="button" id="btn-importar-banco" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200">Importar do banco</button>
+          </div>
+          <div id="itens-list" class="rounded-lg border border-gray-100 bg-gray-50/50 p-2">${listHtml}</div>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Fechar',
+      width: '560px',
+      didOpen: () => {
+        const container = Swal.getHtmlContainer();
+        if (!container) return;
+        const btnAdd = container.querySelector('#btn-add-item');
+        const inputEmail = container.querySelector('#item-email') as HTMLInputElement;
+        const inputNome = container.querySelector('#item-nome') as HTMLInputElement;
+        const listEl = container.querySelector('#itens-list');
+
+        const addItem = () => {
+          const email = inputEmail?.value?.trim();
+          if (!email) {
+            Swal.fire('Atenção', 'Informe o e-mail.', 'warning');
+            return;
+          }
+          this.emailService.addListItem(lista.id, email, inputNome?.value?.trim()).subscribe({
+            next: (novo) => {
+              itens.push(novo);
+              const div = document.createElement('div');
+              div.className = 'flex items-center justify-between py-2 border-b border-gray-100 last:border-0';
+              div.innerHTML = `
+                <span class="text-sm text-gray-800">${novo.email}</span>
+                <span class="text-xs text-gray-500">${novo.nome_opcional || '—'}</span>
+                <button type="button" data-remove-id="${novo.id}" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs">Remover</button>
+              `;
+              div.querySelector('[data-remove-id]')?.addEventListener('click', () => removeItem(novo.id));
+              listEl?.appendChild(div);
+              inputEmail!.value = '';
+              if (inputNome) inputNome.value = '';
+            },
+            error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao adicionar.', 'error'),
+          });
+        };
+
+        const removeItem = (itemId: number) => {
+          this.emailService.removeListItem(lista.id, itemId).subscribe({
+            next: () => {
+              itens.splice(itens.findIndex((i) => i.id === itemId), 1);
+              container.querySelectorAll(`[data-remove-id="${itemId}"]`).forEach((btn) => btn.closest('div')?.remove());
+            },
+            error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao remover.', 'error'),
+          });
+        };
+
+        const renderItensList = () => {
+          if (!listEl) return;
+          listEl.innerHTML = itens.length
+            ? itens
+                .map(
+                  (i) => `
+          <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+            <span class="text-sm text-gray-800">${(i.email || '').replace(/</g, '&lt;')}</span>
+            <span class="text-xs text-gray-500">${(i.nome_opcional || '—').replace(/</g, '&lt;')}</span>
+            <button type="button" data-remove-id="${i.id}" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs">Remover</button>
+          </div>
+        `
+                )
+                .join('')
+            : '<p class="text-gray-400 text-sm py-2">Nenhum e-mail na lista.</p>';
+          listEl.querySelectorAll('[data-remove-id]').forEach((btn) => {
+            btn.addEventListener('click', () => removeItem(Number((btn as HTMLElement).getAttribute('data-remove-id'))));
+          });
+        };
+
+        const importarDoBanco = () => {
+          this.matchService.getGroups().subscribe({
+            next: (grupos) => {
+              const grupoOptions = grupos
+                .map((g: { id: number; nome: string }) => `<option value="${g.id}">${(g.nome || '').replace(/"/g, '&quot;')}</option>`)
+                .join('');
+              const htmlContent = `
+                <style>
+                  .dual-list-import option { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+                  .dual-list-import option:hover { background-color: #f8fafc; }
+                  .dual-list-import option:checked { background-color: #e0e7ff; color: #4338ca; font-weight: bold; }
+                </style>
+                <div class="text-left font-sans mt-2">
+                  <label class="block text-xs font-extrabold text-gray-500 uppercase tracking-wider mb-2">1. Tipo de importação</label>
+                  <select id="import-tipo" class="swal2-select w-full m-0 mb-4 text-sm border-gray-300 rounded-xl bg-gray-50">
+                    <option value="grupo">Por grupo (importar todos do grupo)</option>
+                    <option value="nome">Selecionar usuários por nome</option>
+                  </select>
+                  <div id="import-grupo-wrap" class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Grupo</label>
+                    <select id="import-grupo" class="swal2-input w-full m-0"><option value="">Todos os grupos</option>${grupoOptions}</select>
+                  </div>
+                  <div id="import-dual-wrap" class="hidden flex-col gap-2 mb-4">
+                    <label class="block text-xs font-extrabold text-indigo-600 uppercase mb-1">2. Filtre e transfira os usuários</label>
+                    <div class="flex gap-3 items-stretch h-56 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <div class="flex-1 flex flex-col h-full">
+                        <span class="text-[10px] font-bold text-gray-500 uppercase mb-1 text-center">Disponíveis</span>
+                        <input type="text" id="import-filter-av" placeholder="🔍 Pesquisar por nome..." class="w-full mb-2 p-1.5 text-[11px] border border-gray-200 rounded-md">
+                        <select id="import-list-av" multiple class="dual-list-import flex-1 w-full border border-gray-300 rounded-lg text-xs bg-white" style="min-height:120px"></select>
+                      </div>
+                      <div class="flex flex-col gap-2 justify-center px-1">
+                        <button type="button" id="import-btn-add" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-sm">&gt;</button>
+                        <button type="button" id="import-btn-add-all" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-xs">&gt;&gt;</button>
+                        <button type="button" id="import-btn-rem" class="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-sm mt-2">&lt;</button>
+                        <button type="button" id="import-btn-rem-all" class="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-xs">&lt;&lt;</button>
+                      </div>
+                      <div class="flex-1 flex flex-col h-full">
+                        <span class="text-[10px] font-bold text-emerald-600 uppercase mb-1 text-center">Selecionados</span>
+                        <input type="text" id="import-filter-sel" placeholder="🔍 Pesquisar selecionados..." class="w-full mb-2 p-1.5 text-[11px] border border-gray-200 rounded-md">
+                        <select id="import-list-sel" multiple class="dual-list-import flex-1 w-full border border-emerald-300 rounded-lg text-xs bg-white" style="min-height:120px"></select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+              Swal.fire({
+                title: 'Importar do banco',
+                html: htmlContent,
+                width: '720px',
+                showCancelButton: true,
+                confirmButtonText: 'Importar',
+                confirmButtonColor: '#4f46e5',
+                focusConfirm: false,
+                didOpen: () => {
+                  const popup = Swal.getPopup();
+                  const tipoEl = popup?.querySelector('#import-tipo') as HTMLSelectElement;
+                  const grupoWrap = popup?.querySelector('#import-grupo-wrap');
+                  const dualWrap = popup?.querySelector('#import-dual-wrap');
+                  const listAv = popup?.querySelector('#import-list-av') as HTMLSelectElement;
+                  const listSel = popup?.querySelector('#import-list-sel') as HTMLSelectElement;
+                  const filterAv = popup?.querySelector('#import-filter-av') as HTMLInputElement;
+                  const filterSel = popup?.querySelector('#import-filter-sel') as HTMLInputElement;
+                  const applyFilter = (input: HTMLInputElement | null, select: HTMLSelectElement | null) => {
+                    if (!input || !select) return;
+                    const term = input.value.toLowerCase();
+                    Array.from(select.options).forEach((opt) => {
+                      (opt as HTMLElement).style.display = opt.text.toLowerCase().includes(term) ? '' : 'none';
+                    });
+                  };
+                  const moveOptions = (src: HTMLSelectElement, tgt: HTMLSelectElement, all: boolean) => {
+                    const opts = all ? Array.from(src.options).filter((o) => (o as HTMLElement).style.display !== 'none') : Array.from(src.selectedOptions);
+                    opts.forEach((opt) => {
+                      opt.selected = false;
+                      (opt as HTMLElement).style.display = '';
+                      tgt.appendChild(opt);
+                    });
+                    const sorted = Array.from(tgt.options).sort((a, b) => a.text.localeCompare(b.text));
+                    tgt.innerHTML = '';
+                    sorted.forEach((opt) => tgt.appendChild(opt));
+                    applyFilter(filterAv, listAv);
+                    applyFilter(filterSel, listSel);
+                  };
+                  tipoEl?.addEventListener('change', () => {
+                    const isNome = tipoEl.value === 'nome';
+                    if (grupoWrap) (grupoWrap as HTMLElement).classList.toggle('hidden', isNome);
+                    if (dualWrap) (dualWrap as HTMLElement).classList.toggle('hidden', !isNome);
+                    if (isNome && listAv && listAv.options.length === 0) {
+                      listAv.innerHTML = '';
+                      listSel!.innerHTML = '';
+                      this.userService.getUsers().subscribe({
+                        next: (users) => {
+                          const comEmail = users.filter((u: any) => u.email && String(u.email).trim());
+                          comEmail.forEach((u: any) => {
+                            const opt = document.createElement('option');
+                            opt.value = String(u.id);
+                            opt.text = `${(u.nome_completo || u.email || '').replace(/</g, '')} (${(u.email || '').trim()})`;
+                            listAv!.appendChild(opt);
+                          });
+                        },
+                        error: () => Swal.fire('Erro', 'Falha ao carregar usuários.', 'error'),
+                      });
+                    }
+                  });
+                  popup?.querySelector('#import-btn-add')?.addEventListener('click', () => moveOptions(listAv!, listSel!, false));
+                  popup?.querySelector('#import-btn-add-all')?.addEventListener('click', () => moveOptions(listAv!, listSel!, true));
+                  popup?.querySelector('#import-btn-rem')?.addEventListener('click', () => moveOptions(listSel!, listAv!, false));
+                  popup?.querySelector('#import-btn-rem-all')?.addEventListener('click', () => moveOptions(listSel!, listAv!, true));
+                  listAv?.addEventListener('dblclick', () => { if (listAv.selectedOptions.length) moveOptions(listAv, listSel!, false); });
+                  listSel?.addEventListener('dblclick', () => { if (listSel.selectedOptions.length) moveOptions(listSel, listAv!, false); });
+                  filterAv?.addEventListener('input', () => applyFilter(filterAv, listAv));
+                  filterSel?.addEventListener('input', () => applyFilter(filterSel, listSel));
+                },
+                preConfirm: () => {
+                  const popup = Swal.getPopup();
+                  const tipoEl = popup?.querySelector('#import-tipo') as HTMLSelectElement;
+                  const tipo = tipoEl?.value || 'grupo';
+                  if (tipo === 'grupo') {
+                    const grupoEl = popup?.querySelector('#import-grupo') as HTMLSelectElement;
+                    const v = grupoEl?.value;
+                    return { tipo: 'grupo' as const, grupoId: v === '' ? null : Number(v) };
+                  }
+                  const listSel = popup?.querySelector('#import-list-sel') as HTMLSelectElement;
+                  const userIds = listSel ? Array.from(listSel.options).map((o) => Number(o.value)) : [];
+                  if (userIds.length === 0) {
+                    Swal.showValidationMessage('Transfira ao menos um usuário para "Selecionados".');
+                    return null;
+                  }
+                  return { tipo: 'nome' as const, userIds };
+                },
+              }).then((result) => {
+                if (!result.isConfirmed || !result.value) return;
+                const v = result.value as { tipo: 'grupo'; grupoId: number | null } | { tipo: 'nome'; userIds: number[] };
+                const opts = v.tipo === 'grupo'
+                  ? { somente_ativos: true, grupo_id: v.grupoId }
+                  : { user_ids: v.userIds };
+                this.emailService.importUsers(lista.id, opts).subscribe({
+                  next: (res) => {
+                    Swal.fire('Sucesso', res.mensagem || `${res.adicionados} adicionado(s).`, 'success');
+                    this.emailService.getListItens(lista.id).subscribe({
+                      next: (newItens) => {
+                        itens.length = 0;
+                        itens.push(...newItens);
+                        renderItensList();
+                      },
+                      error: () => Swal.fire('Erro', 'Falha ao atualizar lista.', 'error'),
+                    });
+                  },
+                  error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao importar.', 'error'),
+                });
+              });
+            },
+            error: () => Swal.fire('Erro', 'Falha ao carregar grupos.', 'error'),
+          });
+        };
+
+        btnAdd?.addEventListener('click', addItem);
+        container.querySelector('#btn-importar-banco')?.addEventListener('click', importarDoBanco);
+        container.querySelectorAll('[data-remove-id]').forEach((btn) => {
+          btn.addEventListener('click', () => removeItem(Number((btn as HTMLElement).getAttribute('data-remove-id'))));
+        });
       },
     });
   }
@@ -522,6 +974,40 @@ export class DisparoEmailsComponent implements OnInit {
     });
   }
 
+  visualizarPdfGanhadores(match: any): void {
+    if (this.pdfLoadingPartidaId != null) return;
+    this.pdfLoadingPartidaId = match.id;
+    this.cdr.markForCheck();
+    this.emailService.getPdfGanhadores(match.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      },
+      error: (err) => {
+        let msg = 'Não foi possível gerar o PDF.';
+        if (err.error instanceof Blob) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const body = JSON.parse(reader.result as string);
+              msg = body?.error || msg;
+            } catch (_) {}
+            Swal.fire('Erro', msg, 'error');
+          };
+          reader.readAsText(err.error);
+        } else {
+          msg = err.error?.error || msg;
+          Swal.fire('Erro', msg, 'error');
+        }
+      },
+      complete: () => {
+        this.pdfLoadingPartidaId = null;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
   abrirModalDisparo(match: any): void {
     if (this.tipoAtivo !== 'BID_ABERTO' && (match.status || '').toUpperCase() !== 'ENCERRADA' && (match.status || '').toUpperCase() !== 'FINALIZADA') {
       Swal.fire('Atenção', 'Este disparo só é permitido para BID já encerrado ou finalizado.', 'warning');
@@ -565,10 +1051,15 @@ export class DisparoEmailsComponent implements OnInit {
         <select id="swal-dest" class="swal2-input w-full m-0 mb-2">
           <option value="grupo" selected>Participantes do grupo</option>
           <option value="lista">Lista de e-mails</option>
+          <option value="personalizado">Envio personalizado</option>
         </select>
         <div id="swal-lista-wrap" class="hidden">
           <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Lista</label>
           <select id="swal-lista" class="swal2-input w-full m-0">${listasOptions}</select>
+        </div>
+        <div id="swal-personalizado-wrap" class="hidden mt-2">
+          <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">E-mails (um por linha ou separados por vírgula)</label>
+          <textarea id="swal-emails-personalizado" class="swal2-textarea w-full m-0 text-sm" rows="4" placeholder="email1@exemplo.com&#10;email2@exemplo.com"></textarea>
         </div>
       `;
     }
@@ -582,14 +1073,16 @@ export class DisparoEmailsComponent implements OnInit {
       didOpen: () => {
         const popup = Swal.getPopup();
         const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
-        const wrap = popup?.querySelector('#swal-lista-wrap');
+        const wrapLista = popup?.querySelector('#swal-lista-wrap');
+        const wrapPersonalizado = popup?.querySelector('#swal-personalizado-wrap');
         if (dest) {
           dest.value = 'grupo';
-          if (wrap) {
-            dest.addEventListener('change', () => {
-              (wrap as HTMLElement).classList.toggle('hidden', dest.value !== 'lista');
-            });
-          }
+          const updateVisibility = () => {
+            if (wrapLista) (wrapLista as HTMLElement).classList.toggle('hidden', dest.value !== 'lista');
+            if (wrapPersonalizado) (wrapPersonalizado as HTMLElement).classList.toggle('hidden', dest.value !== 'personalizado');
+          };
+          dest.addEventListener('change', updateVisibility);
+          updateVisibility();
         }
       },
       preConfirm: () => {
@@ -602,6 +1095,7 @@ export class DisparoEmailsComponent implements OnInit {
         }
         let listaId: number | undefined;
         let usarGrupo = false;
+        let emailsPersonalizados: string[] | undefined;
         if (usaLista) {
           const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
           const destValue = (dest?.value ?? 'grupo').trim() || 'grupo';
@@ -613,12 +1107,25 @@ export class DisparoEmailsComponent implements OnInit {
               Swal.showValidationMessage('Selecione a lista de e-mails.');
               return null;
             }
+          } else if (destValue === 'personalizado') {
+            const textarea = popup?.querySelector('#swal-emails-personalizado') as HTMLTextAreaElement | null;
+            const raw = (textarea?.value ?? '').trim();
+            const list = raw
+              .split(/[\n,;]+/)
+              .map((e) => e.trim().toLowerCase())
+              .filter((e) => e.length > 0);
+            const valid = list.filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+            if (valid.length === 0) {
+              Swal.showValidationMessage('Informe ao menos um e-mail válido no envio personalizado.');
+              return null;
+            }
+            emailsPersonalizados = valid;
           } else {
             usarGrupo = true;
           }
         }
-        console.log('[Disparo] preConfirm resultado:', { templateId, listaId, usarGrupo });
-        return { templateId, listaId, usarGrupo };
+        console.log('[Disparo] preConfirm resultado:', { templateId, listaId, usarGrupo, emailsPersonalizados });
+        return { templateId, listaId, usarGrupo, emailsPersonalizados };
       },
     }).then((result) => {
       if (result.isConfirmed && result.value) {
@@ -629,10 +1136,10 @@ export class DisparoEmailsComponent implements OnInit {
             Swal.showLoading();
           },
         });
-        const { templateId, listaId, usarGrupo } = result.value!;
-        console.log('[Disparo] Enviando:', { partidaId: match.id, templateId, listaId, usarGrupo });
+        const { templateId, listaId, usarGrupo, emailsPersonalizados } = result.value!;
+        console.log('[Disparo] Enviando:', { partidaId: match.id, templateId, listaId, usarGrupo, emailsPersonalizados });
         this.emailService
-          .send(match.id, templateId, this.currentUser?.id, { listaId, usarGrupo, tipoDisparo: this.tipoAtivo })
+          .send(match.id, templateId, this.currentUser?.id, { listaId, usarGrupo, emailsPersonalizados, tipoDisparo: this.tipoAtivo })
           .subscribe({
             next: (res: SendEmailsResponse) => {
               const msg =

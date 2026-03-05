@@ -3,7 +3,7 @@ import { ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, EMPTY } from 'rxjs';
 import { filter, switchMap } from 'rxjs/operators';
 import { EditorComponent } from '@tinymce/tinymce-angular';
@@ -48,7 +48,7 @@ const TINYMCE_EDITOR_ID = 'email-template-tinymce';
 @Component({
   selector: 'app-email-template-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, EditorComponent],
+  imports: [CommonModule, FormsModule, EditorComponent],
   templateUrl: './email-template-editor.component.html',
   styles: [
     ':host { display: block; height: 100%; min-height: 0; }',

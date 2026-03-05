@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import { SettingsService } from '../../services/settings.service';
 import { EmailService, ListaEmail, ListaEmailItem, TemplateEmail } from '../../services/email.service';
 import { MatchService } from '../../services/match.service';
+import { UserService } from '../../services/user.service';
 import { environment } from '../../../environments/environment';
 import { TenantsStatusComponent } from '../tenants-status/tenants-status.component';
 import { SystemMonitorComponent } from '../system-monitor/system-monitor.component';
@@ -56,28 +57,6 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
             <span class="text-lg">📧</span> Servidor SMTP
-          </button>
-          <button
-            (click)="irAbaListasEmail()"
-            [ngClass]="
-              abaAtual === 'listas-email'
-                ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600 hover:bg-gray-100'
-            "
-            class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
-          >
-            <span class="text-lg">📋</span> Listas de e-mail
-          </button>
-          <button
-            (click)="irAbaTemplatesEmail()"
-            [ngClass]="
-              abaAtual === 'templates-email'
-                ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600 hover:bg-gray-100'
-            "
-            class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
-          >
-            <span class="text-lg">✉️</span> Templates de e-mail
           </button>
           <button
             (click)="abaAtual = 'tenants-status'"
@@ -292,70 +271,6 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             </div>
           </div>
 
-          <!-- Aba: Listas de e-mail -->
-          <div *ngIf="abaAtual === 'listas-email' && !loading" class="space-y-4">
-            <div class="flex justify-between items-center">
-              <div>
-                <h3 class="text-xl font-black text-gray-800">Listas de e-mail</h3>
-                <p class="text-sm text-gray-500">Crie listas de destinatários para disparos.</p>
-              </div>
-              <button (click)="novaLista()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Nova lista</button>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div *ngIf="listasLoading" class="p-6 text-center text-gray-500">A carregar...</div>
-              <div *ngIf="!listasLoading && listas.length === 0" class="p-6 text-center text-gray-400">Nenhuma lista. Crie uma nova lista.</div>
-              <table *ngIf="!listasLoading && listas.length > 0" class="min-w-full text-sm">
-                <thead class="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
-                  <tr><th class="px-4 py-3 text-left">Nome</th><th class="px-4 py-3 text-left">Descrição</th><th class="px-4 py-3 text-right">Ações</th></tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                  <tr *ngFor="let lista of listas" class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-medium text-gray-900">{{ lista.nome }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ lista.descricao || '—' }}</td>
-                    <td class="px-4 py-3 text-right">
-                      <button (click)="abrirItens(lista)" class="mr-2 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-100">E-mails</button>
-                      <button (click)="editarLista(lista)" class="mr-2 p-1.5 bg-gray-100 rounded hover:bg-gray-200" title="Editar">✏️</button>
-                      <button (click)="excluirLista(lista)" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100" title="Excluir">🗑️</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Aba: Templates de e-mail -->
-          <div *ngIf="abaAtual === 'templates-email' && !loading" class="space-y-4">
-            <div class="flex justify-between items-center">
-              <div>
-                <h3 class="text-xl font-black text-gray-800">Templates de e-mail</h3>
-                <p class="text-sm text-gray-500">Modelos HTML para disparos com tags de evento e usuário.</p>
-              </div>
-              <button (click)="novoTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Novo template</button>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div *ngIf="templatesLoading" class="p-6 text-center text-gray-500">A carregar...</div>
-              <div *ngIf="!templatesLoading && templates.length === 0" class="p-6 text-center text-gray-400">Nenhum template. Crie um novo template.</div>
-              <table *ngIf="!templatesLoading && templates.length > 0" class="min-w-full text-sm">
-                <thead class="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
-                  <tr><th class="px-4 py-3 text-left">Nome</th><th class="px-4 py-3 text-left">Assunto</th><th class="px-4 py-3 text-right">Ações</th></tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                  <tr *ngFor="let t of templates" class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-medium text-gray-900">{{ t.nome }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ t.assunto }}</td>
-                    <td class="px-4 py-3 text-right">
-                      <button (click)="visualizarTemplate(t)" class="mr-2 px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-bold hover:bg-sky-100" title="Visualizar">👁 Visualizar</button>
-                      <button (click)="testeEnvioTemplate(t)" class="mr-2 px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold hover:bg-amber-100" title="Enviar e-mail de teste">✉ Teste</button>
-                      <button (click)="editarTemplate(t)" class="mr-2 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-100">Editar</button>
-                      <button (click)="clonarTemplate(t)" class="mr-2 px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-bold hover:bg-sky-100" title="Clonar template">Clonar</button>
-                      <button (click)="excluirTemplate(t)" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100" title="Excluir">🗑️</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
           <div *ngIf="abaAtual === 'tenants-status'">
             <app-tenants-status></app-tenants-status>
           </div>
@@ -398,6 +313,7 @@ export class SettingsComponent implements OnInit {
     private settingsService: SettingsService,
     private emailService: EmailService,
     private matchService: MatchService,
+    private userService: UserService,
   ) {}
 
   ngOnInit() {
@@ -409,16 +325,12 @@ export class SettingsComponent implements OnInit {
       const aba = params['aba'];
       if (
         aba === 'email' ||
-        aba === 'listas-email' ||
-        aba === 'templates-email' ||
         aba === 'pontos' ||
         aba === 'tenants-status' ||
         aba === 'monitor'
       ) {
         this.abaAtual = aba;
         if (aba === 'email') this.carregarSettings();
-        if (aba === 'listas-email') this.loadListas();
-        if (aba === 'templates-email') this.loadTemplates();
       }
     });
   }
@@ -480,16 +392,6 @@ export class SettingsComponent implements OnInit {
         });
       }
     });
-  }
-
-  irAbaListasEmail() {
-    this.abaAtual = 'listas-email';
-    this.loadListas();
-  }
-
-  irAbaTemplatesEmail() {
-    this.abaAtual = 'templates-email';
-    this.loadTemplates();
   }
 
   loadListas() {
@@ -650,6 +552,9 @@ export class SettingsComponent implements OnInit {
             <input id="item-nome" type="text" class="swal2-input flex-1 m-0 text-sm" placeholder="Nome (opcional)">
             <button type="button" id="btn-add-item" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium">Adicionar</button>
           </div>
+          <div class="mb-3">
+            <button type="button" id="btn-importar-banco" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200">Importar do banco</button>
+          </div>
           <div id="itens-list" class="rounded-lg border border-gray-100 bg-gray-50/50 p-2">${listHtml}</div>
         </div>
       `,
@@ -677,8 +582,8 @@ export class SettingsComponent implements OnInit {
               const div = document.createElement('div');
               div.className = 'flex items-center justify-between py-2 border-b border-gray-100 last:border-0';
               div.innerHTML = `
-                <span class="text-sm text-gray-800">${novo.email}</span>
-                <span class="text-xs text-gray-500">${novo.nome_opcional || '—'}</span>
+                <span class="text-sm text-gray-800">${(novo.email || '').replace(/</g, '&lt;')}</span>
+                <span class="text-xs text-gray-500">${(novo.nome_opcional || '—').replace(/</g, '&lt;')}</span>
                 <button type="button" data-remove-id="${novo.id}" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs">Remover</button>
               `;
               div.querySelector('[data-remove-id]')?.addEventListener('click', () => removeItem(novo.id));
@@ -700,7 +605,183 @@ export class SettingsComponent implements OnInit {
           });
         };
 
+        const renderItensList = () => {
+          if (!listEl) return;
+          listEl.innerHTML = itens.length
+            ? itens
+                .map(
+                  (i) => `
+          <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+            <span class="text-sm text-gray-800">${(i.email || '').replace(/</g, '&lt;')}</span>
+            <span class="text-xs text-gray-500">${(i.nome_opcional || '—').replace(/</g, '&lt;')}</span>
+            <button type="button" data-remove-id="${i.id}" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs">Remover</button>
+          </div>
+        `
+                )
+                .join('')
+            : '<p class="text-gray-400 text-sm py-2">Nenhum e-mail na lista.</p>';
+          listEl.querySelectorAll('[data-remove-id]').forEach((btn) => {
+            btn.addEventListener('click', () => removeItem(Number((btn as HTMLElement).getAttribute('data-remove-id'))));
+          });
+        };
+
+        const importarDoBanco = () => {
+          this.http.get<any[]>(`${environment.apiUri}/groups`).subscribe({
+            next: (grupos) => {
+              const grupoOptions = grupos
+                .map((g: { id: number; nome: string }) => `<option value="${g.id}">${(g.nome || '').replace(/"/g, '&quot;')}</option>`)
+                .join('');
+              const htmlContent = `
+                <style>
+                  .dual-list-import option { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+                  .dual-list-import option:hover { background-color: #f8fafc; }
+                  .dual-list-import option:checked { background-color: #e0e7ff; color: #4338ca; font-weight: bold; }
+                </style>
+                <div class="text-left font-sans mt-2">
+                  <label class="block text-xs font-extrabold text-gray-500 uppercase tracking-wider mb-2">1. Tipo de importação</label>
+                  <select id="import-tipo" class="swal2-select w-full m-0 mb-4 text-sm border-gray-300 rounded-xl bg-gray-50">
+                    <option value="grupo">Por grupo (importar todos do grupo)</option>
+                    <option value="nome">Selecionar usuários por nome</option>
+                  </select>
+                  <div id="import-grupo-wrap" class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Grupo</label>
+                    <select id="import-grupo" class="swal2-input w-full m-0"><option value="">Todos os grupos</option>${grupoOptions}</select>
+                  </div>
+                  <div id="import-dual-wrap" class="hidden flex-col gap-2 mb-4">
+                    <label class="block text-xs font-extrabold text-indigo-600 uppercase mb-1">2. Filtre e transfira os usuários</label>
+                    <div class="flex gap-3 items-stretch h-56 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <div class="flex-1 flex flex-col h-full">
+                        <span class="text-[10px] font-bold text-gray-500 uppercase mb-1 text-center">Disponíveis</span>
+                        <input type="text" id="import-filter-av" placeholder="🔍 Pesquisar por nome..." class="w-full mb-2 p-1.5 text-[11px] border border-gray-200 rounded-md">
+                        <select id="import-list-av" multiple class="dual-list-import flex-1 w-full border border-gray-300 rounded-lg text-xs bg-white" style="min-height:120px"></select>
+                      </div>
+                      <div class="flex flex-col gap-2 justify-center px-1">
+                        <button type="button" id="import-btn-add" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-sm">&gt;</button>
+                        <button type="button" id="import-btn-add-all" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-xs">&gt;&gt;</button>
+                        <button type="button" id="import-btn-rem" class="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-sm mt-2">&lt;</button>
+                        <button type="button" id="import-btn-rem-all" class="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white h-8 w-10 flex items-center justify-center rounded-lg font-bold text-xs">&lt;&lt;</button>
+                      </div>
+                      <div class="flex-1 flex flex-col h-full">
+                        <span class="text-[10px] font-bold text-emerald-600 uppercase mb-1 text-center">Selecionados</span>
+                        <input type="text" id="import-filter-sel" placeholder="🔍 Pesquisar selecionados..." class="w-full mb-2 p-1.5 text-[11px] border border-gray-200 rounded-md">
+                        <select id="import-list-sel" multiple class="dual-list-import flex-1 w-full border border-emerald-300 rounded-lg text-xs bg-white" style="min-height:120px"></select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+              Swal.fire({
+                title: 'Importar do banco',
+                html: htmlContent,
+                width: '720px',
+                showCancelButton: true,
+                confirmButtonText: 'Importar',
+                confirmButtonColor: '#4f46e5',
+                focusConfirm: false,
+                didOpen: () => {
+                  const popup = Swal.getPopup();
+                  const tipoEl = popup?.querySelector('#import-tipo') as HTMLSelectElement;
+                  const grupoWrap = popup?.querySelector('#import-grupo-wrap');
+                  const dualWrap = popup?.querySelector('#import-dual-wrap');
+                  const listAv = popup?.querySelector('#import-list-av') as HTMLSelectElement;
+                  const listSel = popup?.querySelector('#import-list-sel') as HTMLSelectElement;
+                  const filterAv = popup?.querySelector('#import-filter-av') as HTMLInputElement;
+                  const filterSel = popup?.querySelector('#import-filter-sel') as HTMLInputElement;
+                  const applyFilter = (input: HTMLInputElement | null, select: HTMLSelectElement | null) => {
+                    if (!input || !select) return;
+                    const term = input.value.toLowerCase();
+                    Array.from(select.options).forEach((opt) => {
+                      (opt as HTMLElement).style.display = opt.text.toLowerCase().includes(term) ? '' : 'none';
+                    });
+                  };
+                  const moveOptions = (src: HTMLSelectElement, tgt: HTMLSelectElement, all: boolean) => {
+                    const opts = all ? Array.from(src.options).filter((o) => (o as HTMLElement).style.display !== 'none') : Array.from(src.selectedOptions);
+                    opts.forEach((opt) => {
+                      opt.selected = false;
+                      (opt as HTMLElement).style.display = '';
+                      tgt.appendChild(opt);
+                    });
+                    const sorted = Array.from(tgt.options).sort((a, b) => a.text.localeCompare(b.text));
+                    tgt.innerHTML = '';
+                    sorted.forEach((opt) => tgt.appendChild(opt));
+                    applyFilter(filterAv, listAv);
+                    applyFilter(filterSel, listSel);
+                  };
+                  tipoEl?.addEventListener('change', () => {
+                    const isNome = tipoEl.value === 'nome';
+                    if (grupoWrap) (grupoWrap as HTMLElement).classList.toggle('hidden', isNome);
+                    if (dualWrap) (dualWrap as HTMLElement).classList.toggle('hidden', !isNome);
+                    if (isNome && listAv && listAv.options.length === 0) {
+                      listAv.innerHTML = '';
+                      listSel!.innerHTML = '';
+                      this.userService.getUsers().subscribe({
+                        next: (users) => {
+                          const comEmail = users.filter((u: any) => u.email && String(u.email).trim());
+                          comEmail.forEach((u: any) => {
+                            const opt = document.createElement('option');
+                            opt.value = String(u.id);
+                            opt.text = `${(u.nome_completo || u.email || '').replace(/</g, '')} (${(u.email || '').trim()})`;
+                            listAv!.appendChild(opt);
+                          });
+                        },
+                        error: () => Swal.fire('Erro', 'Falha ao carregar usuários.', 'error'),
+                      });
+                    }
+                  });
+                  popup?.querySelector('#import-btn-add')?.addEventListener('click', () => moveOptions(listAv!, listSel!, false));
+                  popup?.querySelector('#import-btn-add-all')?.addEventListener('click', () => moveOptions(listAv!, listSel!, true));
+                  popup?.querySelector('#import-btn-rem')?.addEventListener('click', () => moveOptions(listSel!, listAv!, false));
+                  popup?.querySelector('#import-btn-rem-all')?.addEventListener('click', () => moveOptions(listSel!, listAv!, true));
+                  listAv?.addEventListener('dblclick', () => { if (listAv.selectedOptions.length) moveOptions(listAv, listSel!, false); });
+                  listSel?.addEventListener('dblclick', () => { if (listSel.selectedOptions.length) moveOptions(listSel, listAv!, false); });
+                  filterAv?.addEventListener('input', () => applyFilter(filterAv, listAv));
+                  filterSel?.addEventListener('input', () => applyFilter(filterSel, listSel));
+                },
+                preConfirm: () => {
+                  const popup = Swal.getPopup();
+                  const tipoEl = popup?.querySelector('#import-tipo') as HTMLSelectElement;
+                  const tipo = tipoEl?.value || 'grupo';
+                  if (tipo === 'grupo') {
+                    const grupoEl = popup?.querySelector('#import-grupo') as HTMLSelectElement;
+                    const v = grupoEl?.value;
+                    return { tipo: 'grupo' as const, grupoId: v === '' ? null : Number(v) };
+                  }
+                  const listSel = popup?.querySelector('#import-list-sel') as HTMLSelectElement;
+                  const userIds = listSel ? Array.from(listSel.options).map((o) => Number(o.value)) : [];
+                  if (userIds.length === 0) {
+                    Swal.showValidationMessage('Transfira ao menos um usuário para "Selecionados".');
+                    return null;
+                  }
+                  return { tipo: 'nome' as const, userIds };
+                },
+              }).then((result) => {
+                if (!result.isConfirmed || !result.value) return;
+                const v = result.value as { tipo: 'grupo'; grupoId: number | null } | { tipo: 'nome'; userIds: number[] };
+                const opts = v.tipo === 'grupo'
+                  ? { somente_ativos: true, grupo_id: v.grupoId }
+                  : { user_ids: v.userIds };
+                this.emailService.importUsers(lista.id, opts).subscribe({
+                  next: (res) => {
+                    Swal.fire('Sucesso', res.mensagem || `${res.adicionados} adicionado(s).`, 'success');
+                    this.emailService.getListItens(lista.id).subscribe({
+                      next: (newItens) => {
+                        itens.length = 0;
+                        itens.push(...newItens);
+                        renderItensList();
+                      },
+                      error: () => Swal.fire('Erro', 'Falha ao atualizar lista.', 'error'),
+                    });
+                  },
+                  error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao importar.', 'error'),
+                });
+              });
+            },
+            error: () => Swal.fire('Erro', 'Falha ao carregar grupos.', 'error'),
+          });
+        };
+
         btnAdd?.addEventListener('click', addItem);
+        container.querySelector('#btn-importar-banco')?.addEventListener('click', importarDoBanco);
         container.querySelectorAll('[data-remove-id]').forEach((btn) => {
           btn.addEventListener('click', () => removeItem(Number((btn as HTMLElement).getAttribute('data-remove-id'))));
         });

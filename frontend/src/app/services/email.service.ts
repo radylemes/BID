@@ -108,7 +108,7 @@ export class EmailService {
 
   importUsers(
     listaId: number,
-    options?: { somente_ativos?: boolean; grupo_id?: number | null }
+    options?: { somente_ativos?: boolean; grupo_id?: number | null; user_ids?: number[] }
   ): Observable<{
     adicionados: number;
     ignorados_duplicados: number;
@@ -194,7 +194,14 @@ export class EmailService {
     return this.http.get<DisparoLogEntry[]>(`${this.apiUrl}/partida/${partidaId}/disparos-log`);
   }
 
-  // Disparo: listaId opcional quando usarGrupo = true; tipoDisparo para anexar PDF em BID_ENCERRADO
+  // PDF lista de ganhadores (preview antes do envio em BID_ENCERRADO)
+  getPdfGanhadores(partidaId: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/partida/${partidaId}/pdf-ganhadores`, {
+      responseType: 'blob',
+    });
+  }
+
+  // Disparo: listaId opcional quando usarGrupo = true; emailsPersonalizados para envio personalizado; tipoDisparo para anexar PDF em BID_ENCERRADO
   send(
     partidaId: number,
     templateId: number,
@@ -202,6 +209,7 @@ export class EmailService {
     options?: {
       listaId?: number | null;
       usarGrupo?: boolean;
+      emailsPersonalizados?: string[];
       tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
     }
   ): Observable<SendEmailsResponse> {
@@ -214,6 +222,9 @@ export class EmailService {
       body['usarGrupo'] = true;
     } else if (options?.listaId != null) {
       body['listaId'] = options.listaId;
+    }
+    if (options?.emailsPersonalizados?.length) {
+      body['emailsPersonalizados'] = options.emailsPersonalizados;
     }
     if (options?.tipoDisparo) {
       body['tipoDisparo'] = options.tipoDisparo;

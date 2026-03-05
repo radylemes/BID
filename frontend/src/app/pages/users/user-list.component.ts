@@ -554,6 +554,13 @@ export class UserListComponent implements OnInit {
           .getElementById('btn-remove-all')
           ?.addEventListener('click', () => moveOptions(listSel, listAv, true));
 
+        listAv.addEventListener('dblclick', () => {
+          if (listAv.selectedOptions.length) moveOptions(listAv, listSel, false);
+        });
+        listSel.addEventListener('dblclick', () => {
+          if (listSel.selectedOptions.length) moveOptions(listSel, listAv, false);
+        });
+
         typeSelect.addEventListener('change', () => {
           const type = typeSelect.value;
           listAv.innerHTML = '';
@@ -995,6 +1002,13 @@ export class UserListComponent implements OnInit {
         document
           .getElementById('btn-remove-all')
           ?.addEventListener('click', () => moveOptions(listSel, listAv, true));
+
+        listAv.addEventListener('dblclick', () => {
+          if (listAv.selectedOptions.length) moveOptions(listAv, listSel, false);
+        });
+        listSel.addEventListener('dblclick', () => {
+          if (listSel.selectedOptions.length) moveOptions(listSel, listAv, false);
+        });
 
         typeSelect.addEventListener('change', () => {
           const type = typeSelect.value;
