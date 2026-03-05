@@ -38,6 +38,23 @@ export interface SendEmailsResponse {
   erros?: string[];
 }
 
+export interface DisparoDestinatario {
+  email: string;
+  status: 'enviado' | 'erro';
+  mensagem?: string;
+}
+
+export interface DisparoLogEntry {
+  id: number;
+  data_hora: string;
+  admin_nome?: string;
+  tipoDisparo?: string;
+  totalDestinatarios?: number;
+  enviados?: number;
+  erros?: number;
+  destinatarios?: DisparoDestinatario[];
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -172,13 +189,35 @@ export class EmailService {
     return this.http.post<{ message: string }>(`${this.apiUrl}/test`, { to });
   }
 
-  // Disparo
-  send(partidaId: number, listaId: number, templateId: number, adminId?: number): Observable<SendEmailsResponse> {
-    return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, {
+  // Log de disparos por partida (para quem foi enviado e status)
+  getDisparosLog(partidaId: number): Observable<DisparoLogEntry[]> {
+    return this.http.get<DisparoLogEntry[]>(`${this.apiUrl}/partida/${partidaId}/disparos-log`);
+  }
+
+  // Disparo: listaId opcional quando usarGrupo = true; tipoDisparo para anexar PDF em BID_ENCERRADO
+  send(
+    partidaId: number,
+    templateId: number,
+    adminId?: number,
+    options?: {
+      listaId?: number | null;
+      usarGrupo?: boolean;
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+    }
+  ): Observable<SendEmailsResponse> {
+    const body: Record<string, unknown> = {
       partidaId,
-      listaId,
       templateId,
       adminId,
-    });
+    };
+    if (options?.usarGrupo === true) {
+      body['usarGrupo'] = true;
+    } else if (options?.listaId != null) {
+      body['listaId'] = options.listaId;
+    }
+    if (options?.tipoDisparo) {
+      body['tipoDisparo'] = options.tipoDisparo;
+    }
+    return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, body);
   }
 }

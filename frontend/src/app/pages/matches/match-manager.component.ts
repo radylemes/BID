@@ -426,7 +426,7 @@ export class MatchManagerComponent implements OnInit {
           if (result.isConfirmed && result.value) {
             Swal.fire({ title: 'Enviando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
             this.emailService
-              .send(match.id, result.value!.listaId, result.value!.templateId, this.currentUser?.id)
+              .send(match.id, result.value!.templateId, this.currentUser?.id, { listaId: result.value!.listaId })
               .subscribe({
                 next: (res) => {
                   const msg = res.erros?.length

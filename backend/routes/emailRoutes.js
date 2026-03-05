@@ -28,6 +28,7 @@ router.post("/templates/preview-draft", authMiddleware, emailController.previewD
 router.post("/templates/:templateId/test", authMiddleware, authorizeRoles("ADMIN"), emailController.testTemplate);
 
 // Disparo (ADMIN)
+router.get("/partida/:partidaId/disparos-log", authMiddleware, authorizeRoles("ADMIN"), emailController.getDisparosLog);
 router.post("/send", authMiddleware, authorizeRoles("ADMIN"), emailController.sendEmails);
 
 // Teste SMTP (ADMIN)

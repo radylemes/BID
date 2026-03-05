@@ -255,7 +255,12 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
   }
 
   voltar() {
-    this.router.navigate(['/settings'], { queryParams: { aba: 'templates-email' } });
+    const returnTo = this.route.snapshot.queryParams['returnTo'];
+    if (returnTo === 'disparo') {
+      this.router.navigate(['/email/disparo'], { queryParams: { aba: 'templates' } });
+    } else {
+      this.router.navigate(['/settings'], { queryParams: { aba: 'templates-email' } });
+    }
   }
 
   fecharModalPreview() {

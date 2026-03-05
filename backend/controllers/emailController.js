@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const nodemailer = require("nodemailer");
+const PDFDocument = require("pdfkit");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 
@@ -788,12 +789,123 @@ exports.testTemplate = async (req, res) => {
 
 // ==================== DISPARO ====================
 
+/**
+ * Retorna o log de disparos de e-mail para uma partida (auditoria EMAIL/DISPARO).
+ */
+exports.getDisparosLog = async (req, res) => {
+  try {
+    const partidaId = req.params.partidaId;
+    if (!partidaId) {
+      return res.status(400).json({ error: "partidaId é obrigatório." });
+    }
+    const [rows] = await db.query(
+      `SELECT a.id, a.modulo, a.acao, a.registro_id, a.detalhes, a.criado_em as data_hora,
+              u.nome_completo as admin_nome
+       FROM auditoria a
+       LEFT JOIN usuarios u ON a.admin_id = u.id
+       WHERE a.modulo = 'EMAIL' AND a.acao = 'DISPARO' AND a.registro_id = ?
+       ORDER BY a.criado_em DESC
+       LIMIT 50`,
+      [partidaId]
+    );
+    const logs = rows.map((row) => {
+      let detalhes = {};
+      try {
+        detalhes = row.detalhes ? JSON.parse(row.detalhes) : {};
+      } catch (e) {
+        detalhes = { raw: row.detalhes };
+      }
+      const dataHora = row.data_hora;
+      const dataHoraIso =
+        dataHora instanceof Date
+          ? dataHora.toISOString()
+          : dataHora
+            ? new Date(dataHora).toISOString()
+            : null;
+      return {
+        id: row.id,
+        data_hora: dataHoraIso || dataHora,
+        admin_nome: row.admin_nome,
+        ...detalhes,
+      };
+    });
+    res.json(logs);
+  } catch (error) {
+    await logErro("EMAIL_CONTROLLER_GET_DISPAROS_LOG", error);
+    res.status(500).json({ error: "Erro ao carregar log de disparos." });
+  }
+};
+
+/**
+ * Gera PDF com a lista de ganhadores da partida (nome e aposta). Retorna null se não houver ganhadores.
+ */
+function buildListaGanhadoresPdf(partidaTitulo, partidaId) {
+  return new Promise((resolve, reject) => {
+    db.execute(
+      `SELECT u.nome_completo AS titular_nome, s.nome AS titular_setor, a.valor_pago AS lance_pago
+       FROM apostas a
+       JOIN usuarios u ON a.usuario_id = u.id
+       LEFT JOIN setores s ON u.setor_id = s.id
+       WHERE a.partida_id = ? AND a.status = 'GANHOU'
+       ORDER BY a.valor_pago DESC`,
+      [partidaId]
+    )
+      .then(([rows]) => {
+        if (!rows || rows.length === 0) {
+          resolve(null);
+          return;
+        }
+        const doc = new PDFDocument({ size: "A4", margin: 50 });
+        const chunks = [];
+        doc.on("data", (chunk) => chunks.push(chunk));
+        doc.on("end", () => resolve(Buffer.concat(chunks)));
+        doc.on("error", reject);
+
+        doc.fontSize(14).text(`Lista de ganhadores - ${partidaTitulo || "Evento"}`, { align: "left" });
+        doc.moveDown();
+        doc.fontSize(10);
+        const col1 = 50;
+        const col2 = 250;
+        const col3 = 350;
+        doc.text("Nome", col1, doc.y);
+        doc.text("Setor", col2, doc.y);
+        doc.text("Lance (pts)", col3, doc.y);
+        doc.moveDown(0.5);
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown(0.5);
+
+        rows.forEach((r) => {
+          const nome = String(r.titular_nome || "").trim() || "—";
+          const setor = String(r.titular_setor || "").trim() || "—";
+          const lance = Number(r.lance_pago) ?? 0;
+          doc.text(nome.substring(0, 45), col1, doc.y);
+          doc.text(setor.substring(0, 25), col2, doc.y);
+          doc.text(String(lance), col3, doc.y);
+          doc.moveDown(0.4);
+        });
+
+        doc.end();
+      })
+      .catch(reject);
+  });
+}
+
 exports.sendEmails = async (req, res) => {
   try {
-    const { partidaId, listaId, templateId, adminId } = req.body;
-    if (!partidaId || !listaId || !templateId) {
+    const { partidaId, listaId, templateId, adminId, usarGrupo: usarGrupoRaw, tipoDisparo } = req.body;
+    const usarGrupo = usarGrupoRaw === true || usarGrupoRaw === "true";
+    console.log("[EMAIL DISPARO] body:", { partidaId, listaId, templateId, usarGrupoRaw, usarGrupo, tipoDisparo });
+    if (!partidaId || !templateId) {
+      console.log("[EMAIL DISPARO] Validação falhou: partidaId ou templateId ausente");
       return res.status(400).json({
-        error: "partidaId, listaId e templateId são obrigatórios.",
+        error: "partidaId e templateId são obrigatórios.",
+      });
+    }
+    const ehGanhadores = tipoDisparo === "GANHADORES";
+    if (!ehGanhadores && !usarGrupo && !listaId) {
+      console.log("[EMAIL DISPARO] Validação falhou: nem usarGrupo nem listaId");
+      return res.status(400).json({
+        error: "Informe a lista de e-mails ou selecione 'Participantes do grupo'.",
       });
     }
 
@@ -815,7 +927,7 @@ exports.sendEmails = async (req, res) => {
     }
 
     const [partidas] = await db.query(
-      `SELECT p.id, p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
+      `SELECT p.id, p.grupo_id, p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
               p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
               g.nome as nome_grupo, se.nome as setor_evento_nome
        FROM partidas p
@@ -872,16 +984,73 @@ exports.sendEmails = async (req, res) => {
     }
     const template = templates[0];
 
-    const [itens] = await db.query(
-      "SELECT id, email, nome_opcional FROM listas_email_itens WHERE lista_id = ?",
-      [listaId]
-    );
-    if (itens.length === 0) {
-      return res.status(400).json({ error: "A lista não possui destinatários." });
+    let itens;
+    if (ehGanhadores) {
+      const [ganhadores] = await db.query(
+        `SELECT u.id, u.email, u.nome_completo
+         FROM apostas a
+         JOIN usuarios u ON a.usuario_id = u.id
+         WHERE a.partida_id = ? AND a.status = 'GANHOU'
+           AND u.email IS NOT NULL AND TRIM(u.email) != ''
+         GROUP BY u.id, u.email, u.nome_completo
+         ORDER BY MAX(a.valor_pago) DESC`,
+        [partidaId]
+      );
+      itens = ganhadores.map((u) => ({
+        id: u.id,
+        email: (u.email || "").trim(),
+        nome_opcional: (u.nome_completo || "").trim() || null,
+      }));
+      if (itens.length === 0) {
+        return res.status(400).json({
+          error: "Não há ganhadores com e-mail cadastrado para esta partida.",
+        });
+      }
+    } else if (usarGrupo) {
+      const grupoId = p.grupo_id;
+      if (grupoId == null || grupoId === undefined) {
+        return res.status(400).json({
+          error: "Esta partida não possui grupo vinculado.",
+        });
+      }
+      const [usuarios] = await db.query(
+        "SELECT id, email, nome_completo FROM usuarios WHERE grupo_id = ? AND email IS NOT NULL AND TRIM(email) != '' AND ativo = 1",
+        [grupoId]
+      );
+      itens = usuarios.map((u) => ({
+        id: u.id,
+        email: (u.email || "").trim(),
+        nome_opcional: (u.nome_completo || "").trim() || null,
+      }));
+      if (itens.length === 0) {
+        return res.status(400).json({
+          error: "O grupo não possui participantes com e-mail cadastrado.",
+        });
+      }
+    } else {
+      const [itensRows] = await db.query(
+        "SELECT id, email, nome_opcional FROM listas_email_itens WHERE lista_id = ?",
+        [listaId]
+      );
+      itens = itensRows;
+      if (itens.length === 0) {
+        return res.status(400).json({ error: "A lista não possui destinatários." });
+      }
+    }
+
+    let pdfAttachment = null;
+    let pdfFilename = null;
+    if (tipoDisparo === "BID_ENCERRADO") {
+      pdfAttachment = await buildListaGanhadoresPdf(p.titulo, partidaId);
+      if (pdfAttachment) {
+        const safeTitulo = (p.titulo || "Evento").replace(/[^\w\s-]/g, "").replace(/\s+/g, "_").substring(0, 60);
+        pdfFilename = `Lista_ganhadores_${safeTitulo}.pdf`;
+      }
     }
 
     let enviados = 0;
     const erros = [];
+    const destinatarios = [];
 
     for (const item of itens) {
       const email = String(item.email).trim();
@@ -914,27 +1083,53 @@ exports.sendEmails = async (req, res) => {
       const html = replaceTemplateTags(template.corpo_html, context);
 
       try {
-        await transporter.sendMail({
+        const mailOptions = {
           from: smtpFrom,
           to: email,
           subject: assunto,
           html,
-        });
+        };
+        if (pdfAttachment && pdfFilename) {
+          mailOptions.attachments = [{ filename: pdfFilename, content: pdfAttachment }];
+        }
+        await transporter.sendMail(mailOptions);
         enviados++;
+        destinatarios.push({ email, status: "enviado" });
       } catch (err) {
         await logErro("EMAIL_SEND_ONE", err);
-        erros.push(`${email}: ${err.message || "Erro ao enviar"}`);
+        const msg = err.message || "Erro ao enviar";
+        erros.push(`${email}: ${msg}`);
+        destinatarios.push({ email, status: "erro", mensagem: msg });
       }
     }
 
     await gravarAuditoria(db, adminId || req.user?.id, "EMAIL", "DISPARO", partidaId, {
       partidaId,
-      listaId,
+      listaId: usarGrupo ? null : listaId,
       templateId,
+      tipoDisparo: tipoDisparo || null,
+      usarGrupo: !!usarGrupo,
       totalDestinatarios: itens.length,
       enviados,
       erros: erros.length,
+      errosLista: erros,
+      destinatarios,
     });
+
+    const colunaDisparo =
+      tipoDisparo === "BID_ABERTO"
+        ? "email_bid_aberto_em"
+        : tipoDisparo === "BID_ENCERRADO"
+          ? "email_bid_encerrado_em"
+          : tipoDisparo === "GANHADORES"
+            ? "email_ganhadores_em"
+            : null;
+    if (colunaDisparo) {
+      await db.query(
+        `UPDATE partidas SET ${colunaDisparo} = NOW() WHERE id = ?`,
+        [partidaId]
+      );
+    }
 
     res.json({
       enviados,
