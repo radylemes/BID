@@ -35,6 +35,7 @@ router.get("/tenants-status", authMiddleware, authorizeRoles("ADMIN"), userContr
 // Sincronização e Importação (ADMIN)
 router.post("/sync", authMiddleware, authorizeRoles("ADMIN"), userController.syncUsers);
 router.post("/import", authMiddleware, authorizeRoles("ADMIN"), userController.bulkUpdate);
+router.post("/bulk-update", authMiddleware, authorizeRoles("ADMIN"), userController.bulkUpdate);
 
 // Ações em Lote (Pontos e Grupos)
 router.post("/batch-points", userController.addBatchPoints);

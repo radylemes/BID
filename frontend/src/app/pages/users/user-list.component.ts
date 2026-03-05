@@ -424,6 +424,7 @@ export class UserListComponent implements OnInit {
     }));
     const empresasList = this.gruposDisponiveis.map((e) => ({ id: e.id, label: e.nome }));
     const setoresList: any[] = [];
+    const gruposList = this.gruposApostas.map((g) => ({ id: g.id, label: g.nome }));
 
     this.gruposDisponiveis.forEach((emp) => {
       if (emp.setores) {
@@ -448,6 +449,7 @@ export class UserListComponent implements OnInit {
            <option value="users">👤 Selecionar Usuários Específicos</option>
            <option value="empresas">🏢 Selecionar por Empresa</option>
            <option value="setores">📍 Selecionar por Departamento</option>
+           <option value="grupos">🎲 Selecionar por Grupos</option>
         </select>
 
         <div id="dual-list-container" class="hidden flex-col gap-2 mb-6 animate-fade-in">
@@ -579,6 +581,7 @@ export class UserListComponent implements OnInit {
             if (type === 'users') dataToLoad = usersList;
             if (type === 'empresas') dataToLoad = empresasList;
             if (type === 'setores') dataToLoad = setoresList;
+            if (type === 'grupos') dataToLoad = gruposList;
 
             dataToLoad.forEach((item) => {
               const opt = document.createElement('option');
@@ -869,6 +872,7 @@ export class UserListComponent implements OnInit {
     }));
     const empresasList = this.gruposDisponiveis.map((e) => ({ id: e.id, label: e.nome }));
     const setoresList: any[] = [];
+    const gruposList = this.gruposApostas.map((g) => ({ id: g.id, label: g.nome }));
 
     this.gruposDisponiveis.forEach((emp) => {
       if (emp.setores) {
@@ -898,6 +902,7 @@ export class UserListComponent implements OnInit {
            <option value="users">👤 Selecionar Usuários Específicos</option>
            <option value="empresas">🏢 Selecionar por Empresa</option>
            <option value="setores">📍 Selecionar por Departamento</option>
+           <option value="grupos">🎲 Selecionar por Grupos</option>
         </select>
 
         <div id="dual-list-container" class="hidden flex-col gap-2 mb-6 animate-fade-in">
@@ -1027,6 +1032,7 @@ export class UserListComponent implements OnInit {
             if (type === 'users') dataToLoad = usersList;
             if (type === 'empresas') dataToLoad = empresasList;
             if (type === 'setores') dataToLoad = setoresList;
+            if (type === 'grupos') dataToLoad = gruposList;
 
             dataToLoad.forEach((item) => {
               const opt = document.createElement('option');

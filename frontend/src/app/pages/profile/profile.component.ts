@@ -306,11 +306,6 @@ import { environment } from '../../../environments/environment';
               <tbody>
                 <tr *ngIf="convidados.length === 0">
                   <td colspan="4" class="text-center py-16 text-gray-400 font-medium">
-                    <img
-                      src="assets/allianz_ticket_blue_cartoon.png"
-                      alt=""
-                      class="w-12 h-12 object-contain block mb-3 opacity-40 grayscale"
-                    />
                     Nenhum convidado cadastrado.
                   </td>
                 </tr>

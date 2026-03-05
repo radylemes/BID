@@ -927,6 +927,8 @@ exports.addBatchPoints = async (req, res) => {
         whereClause += ` AND setor_id IN (${placeholders})`;
       else if (targetType === "users")
         whereClause += ` AND id IN (${placeholders})`;
+      else if (targetType === "grupos")
+        whereClause += ` AND grupo_id IN (${placeholders})`;
 
       whereParams = [...targetIds];
       updateParams.push(...targetIds);
@@ -1007,6 +1009,8 @@ exports.updateBatchGroup = async (req, res) => {
         whereClause += ` AND setor_id IN (${placeholders})`;
       else if (targetType === "users")
         whereClause += ` AND id IN (${placeholders})`;
+      else if (targetType === "grupos")
+        whereClause += ` AND grupo_id IN (${placeholders})`;
 
       whereParams = [...targetIds];
       updateParams.push(...targetIds);
