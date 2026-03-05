@@ -47,7 +47,7 @@ exports.getEventGuests = async (req, res) => {
   try {
     const query = `
       SELECT i.id as ingresso_id, i.aposta_id, i.checkin, i.assinatura, i.recebedor_nome as aposta_recebedor_nome, i.recebedor_cpf as aposta_recebedor_cpf,
-        u.nome_completo as titular_nome, e.nome as empresa, c.nome_completo as retirante_nome, c.cpf as retirante_cpf
+        u.id as titular_id, u.nome_completo as titular_nome, e.nome as empresa, c.nome_completo as retirante_nome, c.cpf as retirante_cpf
       FROM ingressos i
       JOIN apostas a ON i.aposta_id = a.id
       JOIN usuarios u ON i.usuario_id = u.id
@@ -62,6 +62,7 @@ exports.getEventGuests = async (req, res) => {
       aposta_id: r.aposta_id,
       checkin: r.checkin === 1,
       assinatura: r.assinatura,
+      titular_id: r.titular_id,
       titular_nome: r.titular_nome,
       empresa: r.empresa || "Geral",
       recebedor_nome: r.aposta_recebedor_nome || r.retirante_nome || "Pendente",

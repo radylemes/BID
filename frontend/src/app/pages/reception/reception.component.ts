@@ -523,7 +523,8 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       if (guest.checkin) stat.liberados++;
       else stat.pendentes++;
 
-      const key = `${guest.retirante_cpf}-${guest.evento_titulo}`;
+      // Agrupa por titular (ganhador) + retirante + evento, para não juntar ingressos de ganhadores diferentes
+      const key = `${guest.titular_id ?? guest.titular_nome}-${guest.retirante_cpf}-${guest.evento_titulo}`;
 
       const infoIngresso = {
         ingresso_id: guest.ingresso_id,
