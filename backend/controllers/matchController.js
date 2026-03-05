@@ -1041,10 +1041,12 @@ exports.getMatchWinnersReport = async (req, res) => {
 exports.getPublicHistory = async (req, res) => {
   try {
     const [matches] = await db.execute(
-      `SELECT id, titulo, banner, data_jogo, quantidade_premios 
-       FROM partidas 
-       WHERE status = 'FINALIZADA' 
-       ORDER BY data_jogo DESC 
+      `SELECT p.id, p.titulo, p.banner, p.data_jogo, p.quantidade_premios, p.local,
+              se.nome AS setor_evento_nome
+       FROM partidas p
+       LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+       WHERE p.status = 'FINALIZADA' 
+       ORDER BY p.data_jogo DESC 
        LIMIT 20`,
     );
 
@@ -1075,6 +1077,7 @@ exports.getPublicHistory = async (req, res) => {
       `
         SELECT 
           a.partida_id,
+          u.id as usuario_id,
           u.nome_completo,
           u.foto,
           a.valor_pago
@@ -1083,6 +1086,24 @@ exports.getPublicHistory = async (req, res) => {
         WHERE a.partida_id IN (${matchIds.map(() => "?").join(",")})
           AND a.status = 'GANHOU'
         ORDER BY a.partida_id ASC, a.valor_pago DESC
+      `,
+      matchIds,
+    );
+
+    // Todas as apostas de cada partida (para exibir no histórico), ordenadas por valor
+    const [allBetsRows] = await db.execute(
+      `
+        SELECT 
+          a.partida_id,
+          u.id as usuario_id,
+          u.nome_completo,
+          u.foto,
+          a.valor_pago,
+          a.status
+        FROM apostas a
+        JOIN usuarios u ON a.usuario_id = u.id
+        WHERE a.partida_id IN (${matchIds.map(() => "?").join(",")})
+        ORDER BY a.partida_id ASC, a.valor_pago DESC, a.id ASC
       `,
       matchIds,
     );
@@ -1103,9 +1124,24 @@ exports.getPublicHistory = async (req, res) => {
         winnersMap.set(row.partida_id, []);
       }
       winnersMap.get(row.partida_id).push({
+        id: row.usuario_id,
         nome: row.nome_completo,
         valor: row.valor_pago,
         foto: row.foto || null,
+      });
+    }
+
+    const apostasMap = new Map();
+    for (const row of allBetsRows) {
+      if (!apostasMap.has(row.partida_id)) {
+        apostasMap.set(row.partida_id, []);
+      }
+      apostasMap.get(row.partida_id).push({
+        id: row.usuario_id,
+        nome: row.nome_completo,
+        valor: row.valor_pago,
+        foto: row.foto || null,
+        status: row.status || "PENDENTE",
       });
     }
 
@@ -1118,6 +1154,7 @@ exports.getPublicHistory = async (req, res) => {
         media_pontos: 0,
       },
       winners: winnersMap.get(match.id) || [],
+      apostas: apostasMap.get(match.id) || [],
     }));
 
     res.json(history);

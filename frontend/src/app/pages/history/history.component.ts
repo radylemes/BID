@@ -129,7 +129,7 @@ import { environment } from '../../../environments/environment';
                 (click)="abrirModalGanhadores(match)"
                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 px-4 rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 uppercase tracking-wide"
               >
-                Ver Ganhadores
+                Ver apostas
               </button>
             </div>
           </div>
@@ -202,31 +202,39 @@ export class HistoryComponent implements OnInit {
   }
 
   abrirModalGanhadores(match: any) {
-    if (!match.winners || match.winners.length === 0) {
+    const apostas = match.apostas && match.apostas.length > 0 ? match.apostas : (match.winners || []);
+    if (!apostas || apostas.length === 0) {
       Swal.fire({
         icon: 'info',
-        title: 'Sem ganhadores',
-        text: 'Ninguém ganhou ingressos neste evento.',
+        title: 'Sem apostas',
+        text: 'Não há apostas registradas para este evento.',
         confirmButtonColor: '#4f46e5',
       });
       return;
     }
 
-    const winnersHtml = match.winners
-      .map((winner: any, i: number) => {
-        const isFirst = i === 0;
-        const initial = (winner.nome || '?').charAt(0).toUpperCase();
+    let posGanhador = 0;
+    const apostasHtml = apostas
+      .map((item: any, i: number) => {
+        const isGanhou = item.status === 'GANHOU' || !item.status; // sem status = lista antiga só de ganhadores
+        if (isGanhou) posGanhador += 1;
+        const isFirst = isGanhou && posGanhador === 1;
+        const initial = (item.nome || '?').charAt(0).toUpperCase();
         const medal = isFirst ? '<span class="text-amber-500 mr-1 text-lg">🥇</span>' : '';
-        const avatarBorder = isFirst
-          ? 'border-amber-400 bg-amber-50 text-amber-600'
+        const avatarBorder = isGanhou
+          ? (isFirst ? 'border-amber-400 bg-amber-50 text-amber-600' : 'border-emerald-300 bg-emerald-50 text-emerald-600')
           : 'border-gray-200 bg-gray-100 text-gray-500';
-        const fotoUrl = winner.foto ? (winner.foto === 'db' && winner.id ? `${environment.apiUri}/users/${winner.id}/avatar` : this.getFotoUrl(winner.foto)) : '';
-        const avatarHtml = winner.foto
+        const id = item.id;
+        const fotoUrl = item.foto ? (item.foto === 'db' && id ? `${environment.apiUri}/users/${id}/avatar` : this.getFotoUrl(item.foto)) : '';
+        const avatarHtml = item.foto
           ? `<img src="${fotoUrl}" alt="" class="w-10 h-10 rounded-full object-cover border-2 shrink-0 ${avatarBorder}" />`
           : `<span class="w-10 h-10 rounded-full shrink-0 border-2 flex items-center justify-center overflow-hidden font-black text-sm ${avatarBorder}">${initial}</span>`;
+        const badgeGanhou = isGanhou
+          ? '<span class="bg-emerald-100 text-emerald-700 font-black text-[10px] px-2 py-0.5 rounded-md border border-emerald-200 ml-1">Ganhou</span>'
+          : '';
 
         return `
-        <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm mb-2 hover:border-indigo-200 transition-colors">
+        <div class="flex items-center justify-between bg-white p-3 rounded-xl border mb-2 transition-colors ${isGanhou ? 'border-emerald-200 bg-emerald-50/30 hover:border-emerald-300' : 'border-gray-100 hover:border-gray-200'}">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-6 shrink-0 text-center">
               <span class="text-sm font-black text-gray-300">${i + 1}º</span>
@@ -235,14 +243,14 @@ export class HistoryComponent implements OnInit {
               ${avatarHtml}
             </div>
             <div class="text-left truncate">
-              <p class="text-sm font-black text-gray-800 truncate flex items-center">
-                ${medal} ${winner.nome}
+              <p class="text-sm font-black text-gray-800 truncate flex items-center flex-wrap gap-1">
+                ${medal} ${item.nome} ${badgeGanhou}
               </p>
             </div>
           </div>
-          <div class="shrink-0 pl-3">
-            <span class="bg-emerald-50 text-emerald-700 font-black text-[11px] px-2.5 py-1.5 rounded-lg border border-emerald-100">
-              ${winner.valor} pts
+          <div class="shrink-0 pl-3 flex items-center gap-2">
+            <span class="${isGanhou ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-gray-100 text-gray-600 border-gray-200'} font-black text-[11px] px-2.5 py-1.5 rounded-lg border">
+              ${item.valor} pts
             </span>
           </div>
         </div>
@@ -250,15 +258,70 @@ export class HistoryComponent implements OnInit {
       })
       .join('');
 
+    const dataEncerrado = match.data_jogo
+      ? new Date(match.data_jogo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '';
+    const stats = match.stats || {};
+    const totalPontos = stats.total_pontos ?? 0;
+    const mediaPontos = stats.media_pontos ?? 0;
+    const totalParticipantes = stats.total_participantes ?? 0;
+    const notaCorte = match.nota_corte ?? 0;
+
+    const bannerUrl = this.getBannerUrl(match);
+    const placeholderImg = 'https://placehold.co/800x200?text=Evento+Encerrado';
+    const localEvento = match.local ? String(match.local).trim() : '';
+    const setorEvento = match.setor_evento_nome ? String(match.setor_evento_nome).trim() : '';
+    const qtdIngressos = match.quantidade_premios ?? 0;
+
+    const eventoInfoHtml = `
+      <div class="flex gap-6 mb-5 pb-5 border-b border-gray-100">
+        <div class="shrink-0 w-36 h-28 rounded-2xl overflow-hidden bg-gray-100 border-2 border-amber-200/60 shadow-md">
+          <img src="${bannerUrl || placeholderImg}" alt="" class="w-full h-full object-cover" onerror="this.src='${placeholderImg}'" />
+        </div>
+        <div class="min-w-0 flex-1 flex flex-col justify-center">
+          <h4 class="text-lg font-black text-gray-800 mb-3 break-words">${match.titulo || 'Evento'}</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+            ${dataEncerrado ? `<p class="text-gray-600 font-medium">📅 ${dataEncerrado}</p>` : ''}
+            ${localEvento ? `<p class="text-gray-600">📍 ${localEvento}</p>` : ''}
+            ${setorEvento ? `<p class="text-gray-600">🏷️ ${setorEvento}</p>` : ''}
+            <p class="text-indigo-600 font-semibold">🎫 ${qtdIngressos} ingresso${qtdIngressos !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const statsCardsHtml = `
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div class="bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Apostado</span>
+          <span class="text-xl font-black text-indigo-700 leading-none mt-1">${totalPontos}<span class="text-[10px] text-indigo-400"> pts</span></span>
+        </div>
+        <div class="bg-amber-50/80 border border-amber-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Média / Lance</span>
+          <span class="text-xl font-black text-amber-600 leading-none mt-1">${mediaPontos}<span class="text-[10px] text-amber-400"> pts</span></span>
+        </div>
+        <div class="bg-emerald-50/80 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Participantes</span>
+          <span class="text-xl font-black text-emerald-600 leading-none mt-1">${totalParticipantes}<span class="text-[10px] text-emerald-400"> pessoas</span></span>
+        </div>
+        <div class="bg-rose-50/80 border border-rose-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest">Nota de Corte</span>
+          <span class="text-xl font-black text-rose-600 leading-none mt-1">${notaCorte}<span class="text-[10px] text-rose-400"> pts</span></span>
+        </div>
+      </div>
+    `;
+
     Swal.fire({
-      title: `<h3 class="text-2xl font-black text-gray-800 tracking-tight">Ganhadores</h3>`,
+      title: `<h3 class="text-2xl font-black text-gray-800 tracking-tight">Apostas e ganhadores</h3>`,
       html: `
-        <p class="text-xs text-gray-500 font-medium mb-4 uppercase tracking-widest">${match.titulo}</p>
+        ${eventoInfoHtml}
+        ${statsCardsHtml}
+        <p class="text-[10px] text-gray-500 font-medium mb-2 uppercase tracking-widest">Lista de apostas</p>
         <div class="max-h-80 overflow-y-auto custom-scrollbar p-1 bg-gray-50 rounded-xl border border-gray-100">
-          ${winnersHtml}
+          ${apostasHtml}
         </div>
       `,
-      width: '500px',
+      width: '720px',
       showCloseButton: true,
       showConfirmButton: false,
       customClass: {
