@@ -18,77 +18,77 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="min-h-screen bg-gray-100 pb-10 font-sans">
+    <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
-        class="bg-indigo-900 text-white p-4 shadow-md sticky top-0 z-30 flex items-center justify-between"
+        class="bg-indigo-900 text-white p-3 sm:p-4 shadow-md sticky top-0 z-30 flex items-center justify-between gap-2"
       >
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">📱</span>
-          <div>
-            <h1 class="text-xl font-black tracking-tight leading-none">Concierge BID</h1>
-            <p class="text-[10px] text-indigo-200 uppercase tracking-widest mt-0.5">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span class="text-2xl sm:text-3xl shrink-0">📱</span>
+          <div class="min-w-0">
+            <h1 class="text-base sm:text-xl font-black tracking-tight leading-none truncate">Concierge BID</h1>
+            <p class="text-[9px] sm:text-[10px] text-indigo-200 uppercase tracking-widest mt-0.5">
               Gestão de Portaria e Acessos
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 sm:gap-4 shrink-0">
           <button
             (click)="carregarTudoUnificado()"
-            class="text-indigo-200 hover:text-white flex items-center gap-1.5 text-xs font-bold transition-colors bg-indigo-800 hover:bg-indigo-700 px-3 py-1.5 rounded-lg border border-indigo-600 active:scale-95"
+            class="text-indigo-200 hover:text-white flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold transition-colors bg-indigo-800 hover:bg-indigo-700 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-600 active:scale-95"
             title="Sincronizar dados agora"
           >
-            <span class="text-base leading-none">↻</span>
+            <span class="text-sm sm:text-base leading-none">↻</span>
             <span class="hidden md:inline">Sincronizar</span>
           </button>
 
           <span
-            class="text-xs font-bold text-indigo-200 hidden md:block border-l border-indigo-700 pl-4"
+            class="text-[10px] sm:text-xs font-bold text-indigo-200 hidden sm:block border-l border-indigo-700 pl-2 sm:pl-4"
           >
-            {{ events.length }} Evento(s) Ativos
+            {{ events.length }} Evento(s)
           </span>
           <div
-            class="w-10 h-10 bg-indigo-700 rounded-full flex items-center justify-center font-bold border border-indigo-500 shadow-inner"
+            class="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-700 rounded-full flex items-center justify-center font-bold text-xs sm:text-base border border-indigo-500 shadow-inner shrink-0"
           >
             PT
           </div>
         </div>
       </header>
 
-      <main class="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+      <main class="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-4 lg:space-y-6">
         <div
           *ngIf="!loading && allGuests.length > 0"
-          class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200"
+          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200"
         >
           <h3
-            class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2"
+            class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-2"
           >
             <span>🏢</span> Resumo por Empresa
           </h3>
 
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             <div
               *ngFor="let emp of estatisticasEmpresas"
-              class="bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow"
+              class="bg-gray-50 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow min-w-0"
             >
               <div
-                class="font-black text-indigo-900 text-xs uppercase mb-1 truncate"
+                class="font-black text-indigo-900 text-[10px] sm:text-xs uppercase mb-0.5 sm:mb-1 truncate"
                 title="{{ emp.nome }}"
               >
                 {{ emp.nome }}
               </div>
-              <div class="text-[10px] font-bold text-gray-500 mb-2">
+              <div class="text-[9px] sm:text-[10px] font-bold text-gray-500 mb-1.5 sm:mb-2">
                 🎟️ {{ emp.total }} Ingressos
               </div>
               <div
-                class="flex items-center justify-between text-[10px] font-bold border-t border-gray-200/60 pt-2"
+                class="flex items-center justify-between gap-1 text-[9px] sm:text-[10px] font-bold border-t border-gray-200/60 pt-1.5 sm:pt-2 flex-wrap"
               >
                 <span
-                  class="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shadow-sm border border-emerald-100"
-                  >✅ {{ emp.liberados }} Retirou</span
+                  class="text-emerald-600 bg-emerald-50 px-1 sm:px-1.5 py-0.5 rounded shadow-sm border border-emerald-100"
+                  >✅ {{ emp.liberados }}</span
                 >
                 <span
-                  class="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded shadow-sm border border-amber-100"
-                  >⏳ {{ emp.pendentes }} Aguardando</span
+                  class="text-amber-600 bg-amber-50 px-1 sm:px-1.5 py-0.5 rounded shadow-sm border border-amber-100"
+                  >⏳ {{ emp.pendentes }}</span
                 >
               </div>
             </div>
@@ -96,90 +96,125 @@ import { environment } from '../../../environments/environment';
         </div>
 
         <div
-          class="bg-white p-3 md:p-4 rounded-2xl shadow-md border border-gray-200 flex flex-col lg:flex-row gap-4 items-center justify-between sticky top-[72px] z-20"
+          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-md border border-gray-200 flex flex-col lg:flex-row gap-3 sm:gap-4 items-stretch lg:items-center justify-between sticky top-14 sm:top-[72px] z-20"
         >
-          <div class="relative w-full lg:w-1/3">
-            <span class="absolute left-4 top-3.5 text-gray-400 text-lg">🔍</span>
+          <div class="relative w-full lg:w-1/3 min-w-0">
+            <span class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base sm:text-lg">🔍</span>
             <input
               type="text"
               [(ngModel)]="searchTerm"
               placeholder="Buscar Nome, CPF, Empresa..."
-              class="w-full bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold outline-none transition-all shadow-inner"
+              class="w-full bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl py-2.5 sm:py-3 pl-10 sm:pl-12 pr-3 sm:pr-4 text-xs sm:text-sm font-bold outline-none transition-all shadow-inner"
             />
           </div>
 
           <div
             *ngIf="!loading && allGuests.length > 0"
-            class="flex flex-wrap items-center justify-center lg:justify-end gap-2 w-full lg:w-auto"
+            class="flex flex-wrap items-center justify-center lg:justify-end gap-1.5 sm:gap-2 w-full lg:w-auto"
           >
             <div
-              class="flex items-center gap-2.5 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl"
+              class="flex items-center gap-1.5 sm:gap-2.5 bg-indigo-50 border border-indigo-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
               title="Total de Ingressos"
             >
-              <span class="text-xl leading-none">🎟️</span>
-              <div class="flex flex-col">
-                <span class="text-[9px] font-black uppercase tracking-widest text-indigo-400"
-                  >Total Ingressos</span
+              <span class="text-base sm:text-xl leading-none shrink-0">🎟️</span>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-indigo-400 truncate"
+                  >Total</span
                 >
-                <span class="text-lg font-black text-indigo-700 leading-none">{{
-                  totalConvidados
-                }}</span>
+                <span class="text-sm sm:text-lg font-black text-indigo-700 leading-none">{{ totalConvidados }}</span>
               </div>
             </div>
             <div
-              class="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-xl"
+              class="flex items-center gap-1.5 sm:gap-2.5 bg-emerald-50 border border-emerald-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
             >
-              <span class="text-xl leading-none">✅</span>
-              <div class="flex flex-col">
-                <span class="text-[9px] font-black uppercase tracking-widest text-emerald-500"
-                  >Já Entraram</span
+              <span class="text-base sm:text-xl leading-none shrink-0">✅</span>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-emerald-500 truncate"
+                  >Entraram</span
                 >
-                <span class="text-lg font-black text-emerald-600 leading-none">{{
-                  totalLiberados
-                }}</span>
+                <span class="text-sm sm:text-lg font-black text-emerald-600 leading-none">{{ totalLiberados }}</span>
               </div>
             </div>
             <div
-              class="flex items-center gap-2.5 bg-amber-50 border border-amber-100 px-4 py-2 rounded-xl"
+              class="flex items-center gap-1.5 sm:gap-2.5 bg-amber-50 border border-amber-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
             >
-              <span class="text-xl leading-none">⏳</span>
-              <div class="flex flex-col">
-                <span class="text-[9px] font-black uppercase tracking-widest text-amber-500"
-                  >Faltam Chegar</span
+              <span class="text-base sm:text-xl leading-none shrink-0">⏳</span>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-amber-500 truncate"
+                  >Pendentes</span
                 >
-                <span class="text-lg font-black text-amber-600 leading-none">{{
-                  totalPendentes
-                }}</span>
+                <span class="text-sm sm:text-lg font-black text-amber-600 leading-none">{{ totalPendentes }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div *ngIf="loading" class="text-center py-20">
+        <div *ngIf="loading" class="text-center py-12 sm:py-20">
           <div
-            class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"
+            class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-indigo-600 mx-auto mb-3 sm:mb-4"
           ></div>
-          <p class="text-gray-500 font-bold uppercase tracking-widest text-xs">
+          <p class="text-gray-500 font-bold uppercase tracking-widest text-[10px] sm:text-xs px-2">
             Carregando e agrupando listas...
           </p>
         </div>
 
+        <!-- Lista mobile: só Titular + Convidado, ao clicar abre modal com tudo -->
         <div
           *ngIf="!loading && allGuests.length > 0"
-          class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+          class="md:hidden space-y-2"
         >
-          <div class="overflow-x-auto custom-scrollbar">
-            <table class="min-w-full text-left text-sm whitespace-nowrap">
+          <div
+            *ngFor="let group of filteredGroupedGuests()"
+            (click)="openDetailModal(group)"
+            class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 active:bg-gray-50 transition-colors cursor-pointer flex items-center gap-3"
+          >
+            <div
+              class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-black text-sm"
+              [ngClass]="
+                group.checkin
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : 'bg-gray-200 text-gray-600'
+              "
+            >
+              {{ group.checkin ? '✓' : group.retirante_nome.charAt(0) }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-black text-gray-900 text-sm truncate">{{ group.retirante_nome }}</p>
+              <p class="text-xs text-gray-500 truncate">Titular: {{ group.titular_nome }}</p>
+              <p class="text-[10px] text-gray-400 font-mono mt-0.5">CPF {{ group.retirante_cpf }}</p>
+            </div>
+            <span
+              *ngIf="group.checkin"
+              class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg text-[10px] font-black uppercase shrink-0"
+            >
+              Liberado
+            </span>
+            <span
+              *ngIf="!group.checkin"
+              class="bg-amber-50 text-amber-600 px-2 py-1 rounded-lg text-[10px] font-black uppercase shrink-0"
+            >
+              Pendente
+            </span>
+          </div>
+        </div>
+
+        <!-- Tabela desktop -->
+        <div
+          *ngIf="!loading && allGuests.length > 0"
+          class="hidden md:block bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0"
+        >
+          <div class="overflow-x-auto custom-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+            <table class="min-w-full text-left text-sm whitespace-nowrap" style="min-width: 700px;">
               <thead
-                class="bg-indigo-50/50 text-indigo-900 uppercase font-black text-[10px] tracking-wider border-b border-gray-200"
+                class="bg-indigo-50/50 text-indigo-900 uppercase font-black text-[9px] sm:text-[10px] tracking-wider border-b border-gray-200"
               >
                 <tr>
-                  <th class="px-6 py-4">Usuário (Titular)</th>
-                  <th class="px-6 py-4">Empresa</th>
-                  <th class="px-6 py-4">Convidado (Retirante)</th>
-                  <th class="px-6 py-4">Evento / Data</th>
-                  <th class="px-6 py-4 text-center">Status Ingressos</th>
-                  <th class="px-6 py-4 text-center">Ação</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">Usuário (Titular)</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell">Empresa</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">Convidado (Retirante)</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden sm:table-cell">Evento / Data</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Status</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Ação</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
@@ -187,21 +222,21 @@ import { environment } from '../../../environments/environment';
                   *ngFor="let group of filteredGroupedGuests()"
                   class="hover:bg-gray-50 transition-colors group"
                 >
-                  <td class="px-6 py-4 font-bold text-gray-700">{{ group.titular_nome }}</td>
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-bold text-gray-700 text-xs hidden md:table-cell">{{ group.titular_nome }}</td>
 
-                  <td class="px-6 py-4">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell">
                     <div
-                      class="inline-block max-w-[130px] truncate align-middle bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase border border-indigo-200 cursor-help"
+                      class="inline-block max-w-[130px] truncate align-middle bg-indigo-100 text-indigo-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-black tracking-wider uppercase border border-indigo-200 cursor-help"
                       title="{{ group.empresa }}"
                     >
                       {{ group.empresa }}
                     </div>
                   </td>
 
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">
+                    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
                       <div
-                        class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-xs"
+                        class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 font-black text-[10px] sm:text-xs"
                         [ngClass]="
                           group.checkin
                             ? 'bg-emerald-100 text-emerald-600'
@@ -210,62 +245,60 @@ import { environment } from '../../../environments/environment';
                       >
                         {{ group.checkin ? '✓' : group.retirante_nome.charAt(0) }}
                       </div>
-                      <div>
-                        <div class="font-black text-gray-900 text-sm flex items-center gap-2">
-                          {{ group.retirante_nome }}
+                      <div class="min-w-0">
+                        <div class="font-black text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <span class="truncate">{{ group.retirante_nome }}</span>
                           <span
                             *ngIf="group.quantidade_ingressos > 1"
-                            class="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-md border border-indigo-200 shadow-sm"
+                            class="bg-indigo-100 text-indigo-700 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md border border-indigo-200 shadow-sm shrink-0"
                           >
-                            🎟️ {{ group.quantidade_ingressos }} Ingressos
+                            🎟️ {{ group.quantidade_ingressos }}
                           </span>
                         </div>
-                        <div class="text-[10px] text-gray-400 font-mono mt-0.5">
+                        <div class="text-[9px] sm:text-[10px] text-gray-400 font-mono mt-0.5 truncate">
                           CPF: {{ group.retirante_cpf }}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td class="px-6 py-4">
-                    <div class="font-bold text-gray-800 text-xs">{{ group.evento_titulo }}</div>
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden sm:table-cell">
+                    <div class="font-bold text-gray-800 text-[10px] sm:text-xs max-w-[140px] lg:max-w-none truncate">{{ group.evento_titulo }}</div>
                     <div
-                      class="text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-0.5"
+                      class="text-[9px] sm:text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-0.5"
                     >
                       <span>📅</span> {{ group.data_evento | date: 'dd/MM/yyyy HH:mm' }}
                     </div>
                   </td>
-                  <td class="px-6 py-4 text-center">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">
                     <span
                       *ngIf="group.checkin"
-                      class="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-emerald-100 flex items-center justify-center gap-1 w-max mx-auto"
+                      class="bg-emerald-50 text-emerald-600 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-emerald-100 flex items-center justify-center gap-1 w-max mx-auto"
                     >
-                      <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Liberado ({{
-                        group.ingressos_liberados
-                      }}/{{ group.quantidade_ingressos }})
+                      <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
+                      Liberado ({{ group.ingressos_liberados }}/{{ group.quantidade_ingressos }})
                     </span>
                     <span
                       *ngIf="!group.checkin"
-                      class="bg-amber-50 text-amber-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-amber-100 flex items-center justify-center gap-1 w-max mx-auto"
+                      class="bg-amber-50 text-amber-600 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-amber-100 flex items-center justify-center gap-1 w-max mx-auto"
                     >
-                      <span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span> Pendente ({{
-                        group.quantidade_ingressos - group.ingressos_liberados
-                      }})
+                      <span class="w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0"></span>
+                      Pendente ({{ group.quantidade_ingressos - group.ingressos_liberados }})
                     </span>
                   </td>
-                  <td class="px-6 py-4 text-center">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">
                     <button
                       *ngIf="!group.checkin"
                       (click)="abrirAssinatura(group)"
-                      class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-md shadow-indigo-200 active:scale-95 flex items-center justify-center gap-2"
+                      class="w-full min-w-[120px] sm:min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-md shadow-indigo-200 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
                     >
-                      <span>✍️</span> Iniciar Liberação
+                      <span>✍️</span> Liberar
                     </button>
                     <button
                       *ngIf="group.checkin"
                       (click)="verAssinatura(group.assinatura)"
-                      class="w-full text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      class="w-full min-w-[100px] sm:min-w-0 text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
                     >
-                      <span>👁️</span> Ver Assinatura
+                      <span>👁️</span> Ver
                     </button>
                   </td>
                 </tr>
@@ -277,21 +310,21 @@ import { environment } from '../../../environments/environment';
 
       <div
         *ngIf="showSignatureModal"
-        class="fixed inset-0 bg-gray-900/90 z-50 flex flex-col items-center justify-center p-2 touch-none backdrop-blur-sm"
+        class="fixed inset-0 bg-gray-900/90 z-50 flex flex-col items-center justify-center p-2 sm:p-4 touch-none backdrop-blur-sm"
       >
         <div
-          class="bg-white w-full max-w-lg rounded-2xl overflow-hidden flex flex-col shadow-2xl max-h-[95vh]"
+          class="bg-white w-full max-w-lg rounded-xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl max-h-[95vh] min-h-0"
         >
-          <div class="p-4 bg-indigo-50 border-b border-indigo-100 text-center relative shrink-0">
-            <h3 class="font-black text-indigo-900 text-lg uppercase tracking-tight">
+          <div class="p-3 sm:p-4 bg-indigo-50 border-b border-indigo-100 text-center relative shrink-0">
+            <h3 class="font-black text-indigo-900 text-base sm:text-lg uppercase tracking-tight">
               Identificação na Portaria
             </h3>
-            <p class="text-xs text-indigo-600 mt-1 font-medium">
+            <p class="text-[10px] sm:text-xs text-indigo-600 mt-1 font-medium">
               Liberação de <strong>{{ ingressosParaAssinar.length }} ingresso(s)</strong>
             </p>
           </div>
 
-          <div class="p-4 flex-1 overflow-y-auto custom-scrollbar bg-gray-50 space-y-4">
+          <div class="p-3 sm:p-4 flex-1 overflow-y-auto custom-scrollbar bg-gray-50 space-y-3 sm:space-y-4 min-h-0">
             <div class="space-y-3">
               <p
                 class="text-[10px] text-gray-500 uppercase font-black tracking-widest text-center mb-1"
@@ -301,14 +334,14 @@ import { environment } from '../../../environments/environment';
 
               <div
                 *ngFor="let ticket of ingressosParaAssinar; let i = index"
-                class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm relative"
+                class="bg-white p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-gray-200 shadow-sm relative"
               >
                 <div
-                  class="absolute -top-2 -left-2 bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md"
+                  class="absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 bg-indigo-600 text-white w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-black shadow-md"
                 >
                   {{ i + 1 }}
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-2">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 pl-1 sm:pl-2">
                   <div>
                     <label
                       class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1"
@@ -346,7 +379,7 @@ import { environment } from '../../../environments/environment';
               </p>
               <canvas
                 #signatureCanvas
-                class="bg-white border-2 border-dashed border-indigo-300 rounded-2xl shadow-inner w-full h-40 touch-none cursor-crosshair"
+                class="bg-white border-2 border-dashed border-indigo-300 rounded-xl sm:rounded-2xl shadow-inner w-full h-32 sm:h-40 touch-none cursor-crosshair"
                 (touchstart)="startDrawing($event)"
                 (touchmove)="draw($event)"
                 (touchend)="stopDrawing()"
@@ -367,18 +400,108 @@ import { environment } from '../../../environments/environment';
             </div>
           </div>
 
-          <div class="p-3 bg-white border-t border-gray-100 flex gap-2 shrink-0">
+          <div class="p-2.5 sm:p-3 bg-white border-t border-gray-100 flex gap-2 shrink-0">
             <button
               (click)="fecharModal()"
-              class="w-1/3 py-3 rounded-xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all text-xs"
+              class="flex-1 sm:w-1/3 py-2.5 sm:py-3 rounded-xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all text-[10px] sm:text-xs"
             >
               Cancelar
             </button>
             <button
               (click)="confirmarCheckinLote()"
-              class="w-2/3 py-3 rounded-xl font-black text-white bg-emerald-500 shadow-md shadow-emerald-200 hover:bg-emerald-600 active:scale-95 transition-all text-sm uppercase tracking-wide"
+              class="flex-[2] sm:w-2/3 py-2.5 sm:py-3 rounded-xl font-black text-white bg-emerald-500 shadow-md shadow-emerald-200 hover:bg-emerald-600 active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wide"
             >
               Liberar Entradas
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de detalhes (mobile): todas as informações + ações -->
+      <div
+        *ngIf="selectedGroupForModal"
+        class="fixed inset-0 bg-gray-900/80 z-40 flex flex-col items-center justify-end sm:justify-center p-0 sm:p-4 backdrop-blur-sm"
+        (click)="closeDetailModal()"
+      >
+        <div
+          class="bg-white w-full rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl max-h-[90vh] sm:max-h-[85vh]"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between shrink-0">
+            <h3 class="font-black text-indigo-900 text-sm uppercase tracking-tight">
+              Detalhes do ingresso
+            </h3>
+            <button
+              type="button"
+              (click)="closeDetailModal()"
+              class="p-2 rounded-lg hover:bg-indigo-100 text-indigo-700 transition-colors"
+              aria-label="Fechar"
+            >
+              <span class="text-xl leading-none">×</span>
+            </button>
+          </div>
+          <div class="p-4 flex-1 overflow-y-auto space-y-4">
+            <div>
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Titular</p>
+              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.titular_nome }}</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Empresa</p>
+              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.empresa }}</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Convidado (Retirante)</p>
+              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.retirante_nome }}</p>
+              <p class="text-xs text-gray-500 font-mono mt-0.5">CPF: {{ selectedGroupForModal.retirante_cpf }}</p>
+              <p *ngIf="selectedGroupForModal.quantidade_ingressos > 1" class="text-[10px] text-indigo-600 font-bold mt-1">
+                🎟️ {{ selectedGroupForModal.quantidade_ingressos }} ingressos
+              </p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Evento</p>
+              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.evento_titulo }}</p>
+              <p class="text-xs text-gray-500 mt-0.5">
+                📅 {{ selectedGroupForModal.data_evento | date: 'dd/MM/yyyy HH:mm' }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
+              <span
+                *ngIf="selectedGroupForModal.checkin"
+                class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-black uppercase border border-emerald-100"
+              >
+                <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                Liberado ({{ selectedGroupForModal.ingressos_liberados }}/{{ selectedGroupForModal.quantidade_ingressos }})
+              </span>
+              <span
+                *ngIf="!selectedGroupForModal.checkin"
+                class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-600 px-3 py-1.5 rounded-lg text-xs font-black uppercase border border-amber-100"
+              >
+                <span class="w-2 h-2 bg-amber-400 rounded-full"></span>
+                Pendente ({{ selectedGroupForModal.quantidade_ingressos - selectedGroupForModal.ingressos_liberados }})
+              </span>
+            </div>
+          </div>
+          <div class="p-4 border-t border-gray-100 flex gap-2 shrink-0 bg-white">
+            <button
+              *ngIf="!selectedGroupForModal.checkin"
+              (click)="abrirAssinatura(selectedGroupForModal); closeDetailModal()"
+              class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span>✍️</span> Iniciar Liberação
+            </button>
+            <button
+              *ngIf="selectedGroupForModal.checkin"
+              (click)="verAssinatura(selectedGroupForModal.assinatura)"
+              class="flex-1 text-indigo-600 bg-white border-2 border-indigo-200 hover:bg-indigo-50 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span>👁️</span> Ver Assinatura
+            </button>
+            <button
+              (click)="closeDetailModal()"
+              class="px-4 py-3 rounded-xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all text-sm"
+            >
+              Fechar
             </button>
           </div>
         </div>
@@ -405,6 +528,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   selectedGroup: any = null;
   showSignatureModal = false;
   ingressosParaAssinar: any[] = [];
+  selectedGroupForModal: any = null;
 
   @ViewChild('signatureCanvas') signatureCanvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D | null;
@@ -607,6 +731,14 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     this.showSignatureModal = false;
     this.selectedGroup = null;
     this.ingressosParaAssinar = [];
+  }
+
+  openDetailModal(group: any) {
+    this.selectedGroupForModal = group;
+  }
+
+  closeDetailModal() {
+    this.selectedGroupForModal = null;
   }
 
   private getCoordinates(event: MouseEvent | TouchEvent) {

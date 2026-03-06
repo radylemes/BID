@@ -1,33 +1,33 @@
-<div class="min-h-screen bg-gray-50 p-4 md:p-8">
-  <div class="mb-8">
-    <h1 class="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+<div class="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 lg:p-8 pb-10">
+  <div class="mb-4 sm:mb-6 lg:mb-8">
+    <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2 sm:gap-3">
       <img
         src="assets/wtoken_dice.png"
         alt="WToken Dice"
-        class="w-10 h-10 object-contain drop-shadow-sm"
+        class="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-sm"
       />
       Minhas Apostas
     </h1>
-    <p class="text-gray-500 font-medium text-sm mt-1">
+    <p class="text-gray-500 font-medium text-xs sm:text-sm mt-1">
       Extrato detalhado de todas as suas participações.
     </p>
   </div>
 
-  <div *ngIf="loading" class="space-y-4">
-    <div *ngFor="let i of [1, 2, 3]" class="h-40 bg-white rounded-xl animate-pulse"></div>
+  <div *ngIf="loading" class="space-y-3 sm:space-y-4">
+    <div *ngFor="let i of [1, 2, 3]" class="h-32 sm:h-40 bg-white rounded-xl animate-pulse"></div>
   </div>
 
-  <div *ngIf="!loading && matches.length === 0" class="text-center py-20">
-    <div class="text-4xl mb-2">📭</div>
-    <h3 class="text-gray-500 font-bold">Nenhum histórico encontrado.</h3>
+  <div *ngIf="!loading && matches.length === 0" class="text-center py-12 sm:py-20">
+    <div class="text-3xl sm:text-4xl mb-2">📭</div>
+    <h3 class="text-gray-500 font-bold text-sm sm:text-base">Nenhum histórico encontrado.</h3>
   </div>
 
-  <div class="space-y-4 pb-10">
+  <div class="space-y-3 sm:space-y-4">
     <div
       *ngFor="let match of matches"
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-all md:min-h-[250px]"
     >
-      <div class="w-full md:w-48 h-32 md:h-auto relative bg-gray-200 shrink-0">
+      <div class="w-full md:w-48 h-28 sm:h-32 md:h-auto relative bg-gray-200 shrink-0 min-h-0">
         <img
           [src]="getBannerUrl(match)"
           (error)="$any($event.target).src = 'https://placehold.co/600x400?text=BID'"
@@ -47,50 +47,50 @@
         </div>
       </div>
 
-      <div class="p-5 flex-1 flex flex-col lg:flex-row gap-6">
-        <div class="flex flex-col justify-center shrink-0 lg:w-48">
-          <h3 class="text-lg font-black text-gray-700 leading-tight mb-1">{{ match.titulo }}</h3>
-          <p class="text-xs text-gray-400 font-medium mb-4">
+      <div class="p-3 sm:p-4 md:p-5 flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 min-w-0">
+        <div class="flex flex-col justify-center shrink-0 lg:w-48 min-w-0 text-center items-center lg:items-start">
+          <h3 class="text-base sm:text-lg font-black text-gray-700 leading-tight mb-1 break-words w-full">{{ match.titulo }}</h3>
+          <p class="text-[11px] sm:text-xs text-gray-400 font-medium mb-3 sm:mb-4">
             Realizado em: {{ match.data_evento | date: 'dd/MM/yyyy' }}
           </p>
 
-          <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-2 sm:gap-3 items-center lg:items-stretch">
             <div
               *ngIf="match.tickets_ganhos > 0"
-              class="flex items-center gap-2 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-lg w-max"
+              class="flex items-center justify-center gap-2 bg-emerald-50 border border-emerald-100 px-2.5 sm:px-3 py-1.5 rounded-lg w-max max-w-full"
             >
-              <span class="text-lg">🏆</span>
-              <div>
-                <p class="text-[10px] font-bold text-emerald-800 uppercase leading-none">
+              <span class="text-base sm:text-lg shrink-0">🏆</span>
+              <div class="min-w-0">
+                <p class="text-[9px] sm:text-[10px] font-bold text-emerald-800 uppercase leading-none">
                   Vencedor
                 </p>
-                <p class="text-xs font-medium text-emerald-600">
+                <p class="text-[11px] sm:text-xs font-medium text-emerald-600">
                   Ganhou {{ match.tickets_ganhos }} ingresso(s)
                 </p>
               </div>
             </div>
             <div
               *ngIf="match.tickets_ganhos === 0 && match.status !== 'ABERTA'"
-              class="flex items-center gap-2 bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-lg w-max"
+              class="flex items-center justify-center gap-2 bg-gray-50 border border-gray-100 px-2.5 sm:px-3 py-1.5 rounded-lg w-max max-w-full"
             >
-              <span class="text-lg">💸</span>
-              <div>
-                <p class="text-[10px] font-bold text-gray-500 uppercase leading-none">
+              <span class="text-base sm:text-lg shrink-0">💸</span>
+              <div class="min-w-0">
+                <p class="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase leading-none">
                   Reembolsado
                 </p>
-                <p class="text-xs font-medium text-gray-400">Pontos devolvidos</p>
+                <p class="text-[11px] sm:text-xs font-medium text-gray-400">Pontos devolvidos</p>
               </div>
             </div>
             <div
               *ngIf="match.status === 'ABERTA'"
-              class="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg w-max"
+              class="flex items-center justify-center gap-2 bg-indigo-50 border border-indigo-100 px-2.5 sm:px-3 py-1.5 rounded-lg w-max max-w-full"
             >
-              <span class="text-lg">⏳</span>
-              <div>
-                <p class="text-[10px] font-bold text-indigo-800 uppercase leading-none">
+              <span class="text-base sm:text-lg shrink-0">⏳</span>
+              <div class="min-w-0">
+                <p class="text-[9px] sm:text-[10px] font-bold text-indigo-800 uppercase leading-none">
                   Aguardando
                 </p>
-                <p class="text-xs font-medium text-indigo-600">Sorteio em breve</p>
+                <p class="text-[11px] sm:text-xs font-medium text-indigo-600">Sorteio em breve</p>
               </div>
             </div>
           </div>
@@ -104,44 +104,44 @@
               'cursor-pointer hover:bg-indigo-50/30 hover:border-indigo-200': !eventoAnteriorHoje(match)
             }"
             (click)="!eventoAnteriorHoje(match) && definirRetirantes(match)"
-            class="bg-gray-50/50 rounded-xl p-4 border border-gray-100 transition-all flex flex-col w-full h-full justify-center group/area"
+            class="bg-gray-50/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-100 transition-all flex flex-col w-full min-h-0 justify-center group/area"
           >
             <div
-              class="flex items-center justify-between mb-3 border-b border-gray-200/60 group-hover/area:border-indigo-200 pb-2 transition-colors"
+              class="flex items-center justify-between gap-2 mb-2 sm:mb-3 border-b border-gray-200/60 group-hover/area:border-indigo-200 pb-2 transition-colors flex-wrap"
             >
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <h4
-                  class="text-[10px] font-black text-gray-500 uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors"
+                  class="text-[9px] sm:text-[10px] font-black text-gray-500 uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors truncate"
                 >
                   Responsáveis pela Retirada
                 </h4>
                 <div
-                  class="flex items-center justify-center w-6 h-6 bg-white border border-gray-200 group-hover/area:bg-indigo-100 group-hover/area:text-indigo-700 group-hover/area:border-indigo-300 rounded text-[11px] transition-all shadow-sm"
+                  class="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 bg-white border border-gray-200 group-hover/area:bg-indigo-100 group-hover/area:text-indigo-700 group-hover/area:border-indigo-300 rounded text-[10px] sm:text-[11px] transition-all shadow-sm shrink-0"
                 >
                   <span class="group-hover/area:rotate-12 transition-transform">✏️</span>
                 </div>
               </div>
               <span
-                class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md"
+                class="text-[9px] sm:text-[10px] font-bold bg-indigo-100 text-indigo-700 px-1.5 sm:px-2 py-0.5 rounded-md shrink-0"
                 >{{ match.tickets_ganhos }} Ingresso(s)</span
               >
             </div>
 
             <div
-              class="bg-white rounded-lg border border-gray-200 p-3 shadow-sm max-h-[140px] overflow-y-auto custom-scrollbar"
+              class="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 shadow-sm max-h-[120px] sm:max-h-[140px] overflow-y-auto custom-scrollbar"
             >
               <div class="flex flex-col">
                 <div
                   *ngFor="let ticket of match.ingressos_ganhos_detalhes; let i = index"
-                  class="flex items-center text-[11px] border-b border-gray-50 py-1.5 last:border-0 last:pb-0"
+                  class="flex items-center text-[10px] sm:text-[11px] border-b border-gray-50 py-1 sm:py-1.5 last:border-0 last:pb-0 gap-1 sm:gap-2"
                 >
                   <div
-                    class="w-16 shrink-0 text-gray-400 font-bold uppercase tracking-wider text-[9px]"
+                    class="w-12 sm:w-16 shrink-0 text-gray-400 font-bold uppercase tracking-wider text-[8px] sm:text-[9px]"
                   >
-                    Ingresso {{ i + 1 }}
+                    Ingr. {{ i + 1 }}
                   </div>
 
-                  <div class="flex-1 min-w-0 px-3">
+                  <div class="flex-1 min-w-0 px-1 sm:px-3 overflow-hidden">
                     <span
                       *ngIf="ticket.nome"
                       class="font-black text-gray-800 truncate block"
@@ -150,20 +150,20 @@
                     >
                     <span
                       *ngIf="!ticket.nome"
-                      class="font-bold text-gray-400 uppercase text-[9px] italic block"
+                      class="font-bold text-gray-400 uppercase text-[8px] sm:text-[9px] italic block"
                       >Não indicado</span
                     >
                   </div>
 
-                  <div class="w-24 shrink-0 text-right">
+                  <div class="w-20 sm:w-24 shrink-0 text-right">
                     <span
                       *ngIf="ticket.checkin"
-                      class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider inline-block"
+                      class="bg-emerald-100 text-emerald-700 px-1.5 sm:px-2 py-0.5 rounded text-[7px] sm:text-[8px] font-black uppercase tracking-wider inline-block"
                       >Entregue ✓</span
                     >
                     <span
                       *ngIf="!ticket.checkin"
-                      class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider inline-block"
+                      class="bg-amber-100 text-amber-700 px-1.5 sm:px-2 py-0.5 rounded text-[7px] sm:text-[8px] font-black uppercase tracking-wider inline-block"
                       >Pendente ⏳</span
                     >
                   </div>
@@ -174,20 +174,20 @@
 
           <div
             *ngIf="match.tickets_ganhos === 0 && match.status !== 'ABERTA'"
-            class="text-center flex flex-col justify-center items-center opacity-40 h-full w-full"
+            class="text-center flex flex-col justify-center items-center opacity-40 min-h-[80px] sm:min-h-[100px] w-full py-4"
           >
-            <span class="text-3xl grayscale block mb-1">😢</span>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500"
+            <span class="text-2xl sm:text-3xl grayscale block mb-1">😢</span>
+            <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-500"
               >Não foi dessa vez</span
             >
           </div>
 
           <div
             *ngIf="match.status === 'ABERTA'"
-            class="text-center flex flex-col justify-center items-center opacity-70 h-full w-full"
+            class="text-center flex flex-col justify-center items-center opacity-70 min-h-[80px] sm:min-h-[100px] w-full py-4"
           >
-            <span class="text-3xl block mb-1 animate-pulse">🤞</span>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-500"
+            <span class="text-2xl sm:text-3xl block mb-1 animate-pulse">🤞</span>
+            <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-indigo-500"
               >Sorteio em andamento</span
             >
           </div>
@@ -195,24 +195,24 @@
       </div>
 
       <div
-        class="w-full md:w-64 bg-gray-50 border-t md:border-t-0 md:border-l border-gray-100 p-4 flex flex-col justify-center shrink-0"
+        class="w-full md:w-64 bg-gray-50 border-t md:border-t-0 md:border-l border-gray-100 p-3 sm:p-4 flex flex-col justify-center shrink-0"
       >
-        <div class="flex justify-between items-center mb-3 text-xs border-b border-gray-200 pb-2">
-          <div class="flex flex-col">
-            <span class="text-[9px] font-bold text-gray-400 uppercase">Gasto Real</span>
-            <span class="font-black text-red-500">-{{ match.total_gasto }} pts</span>
+        <div class="flex justify-between items-center gap-2 mb-2 sm:mb-3 text-xs border-b border-gray-200 pb-2">
+          <div class="flex flex-col min-w-0">
+            <span class="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase">Gasto Real</span>
+            <span class="font-black text-red-500 text-sm sm:text-base">-{{ match.total_gasto }} pts</span>
           </div>
-          <div class="flex flex-col text-right">
-            <span class="text-[9px] font-bold text-gray-400 uppercase">Reembolso</span>
-            <span class="font-black text-emerald-600">+{{ match.total_reembolsado }} pts</span>
+          <div class="flex flex-col text-right min-w-0">
+            <span class="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase">Reembolso</span>
+            <span class="font-black text-emerald-600 text-sm sm:text-base">+{{ match.total_reembolsado }} pts</span>
           </div>
         </div>
 
-        <div>
-          <span class="text-[9px] font-bold text-gray-400 uppercase block mb-1.5"
+        <div class="min-w-0">
+          <span class="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase block mb-1 sm:mb-1.5"
             >Seus Lances:</span
           >
-          <div class="flex flex-wrap gap-1.5">
+          <div class="flex flex-wrap gap-1 sm:gap-1.5">
             <span
               *ngFor="let lance of match.lances_detalhados"
               [ngClass]="{
@@ -221,10 +221,10 @@
                   lance.status === 'PERDEU',
                 'bg-indigo-100 text-indigo-700 border-indigo-200': lance.status === 'PENDENTE',
               }"
-              class="text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1"
+              class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded border flex items-center gap-0.5 sm:gap-1"
             >
               {{ lance.valor }}
-              <span *ngIf="lance.status === 'GANHOU'" class="text-[8px]">★</span>
+              <span *ngIf="lance.status === 'GANHOU'" class="text-[7px] sm:text-[8px]">★</span>
             </span>
           </div>
         </div>

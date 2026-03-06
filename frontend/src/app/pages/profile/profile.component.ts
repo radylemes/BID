@@ -20,19 +20,19 @@ import { environment } from '../../../environments/environment';
     `,
   ],
   template: `
-    <div class="h-full w-full flex flex-col min-h-0 bg-gray-50">
-      <div class="flex-1 flex flex-col min-h-0 w-full px-0 space-y-6">
+    <div class="min-h-full w-full flex flex-col min-h-0 bg-gray-50">
+      <div class="flex-1 flex flex-col min-h-0 w-full px-4 sm:px-4 lg:px-0 space-y-4 lg:space-y-6 pb-4 lg:pb-0">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 flex-shrink-0">
           <div
-            class="lg:col-span-3 bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden flex flex-col relative pb-8"
+            class="lg:col-span-3 bg-white rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden flex flex-col relative pb-6 lg:pb-8"
           >
-            <div class="h-32 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
+            <div class="h-24 sm:h-28 lg:h-32 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
 
-            <div class="px-6 relative flex-1 flex flex-col items-center text-center">
-              <div class="relative -mt-16 mb-4 flex justify-center w-full">
+            <div class="px-4 sm:px-5 lg:px-6 relative flex-1 flex flex-col items-center text-center">
+              <div class="relative -mt-12 sm:-mt-14 lg:-mt-16 mb-3 lg:mb-4 flex justify-center w-full">
                 <div class="relative group">
                   <div
-                    class="w-32 h-32 rounded-full border-[6px] border-white bg-white shadow-md overflow-hidden flex items-center justify-center"
+                    class="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full border-4 lg:border-[6px] border-white bg-white shadow-md overflow-hidden flex items-center justify-center"
                   >
                     <img
                       *ngIf="user?.foto"
@@ -42,16 +42,16 @@ import { environment } from '../../../environments/environment';
                     />
                     <div
                       *ngIf="!user?.foto"
-                      class="w-full h-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-4xl font-black uppercase"
+                      class="w-full h-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl font-black uppercase"
                     >
                       {{ (user?.nome_completo || 'U').charAt(0) }}
                     </div>
                   </div>
                   <button
                     (click)="fileInput.click()"
-                    class="absolute bottom-1 right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110"
+                    class="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 sm:p-2 rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -76,18 +76,18 @@ import { environment } from '../../../environments/environment';
                 </div>
               </div>
 
-              <h1 class="text-2xl font-black text-gray-900 leading-tight">
+              <h1 class="text-lg sm:text-xl lg:text-2xl font-black text-gray-900 leading-tight truncate max-w-full px-1">
                 {{ user?.nome_completo || 'Carregando...' }}
               </h1>
-              <p class="text-sm text-gray-500 mt-0.5">{{ user?.email || user?.username }}</p>
+              <p class="text-xs sm:text-sm text-gray-500 mt-0.5 truncate max-w-full px-1">{{ user?.email || user?.username }}</p>
 
               <p
-                class="text-[11px] font-black text-indigo-700 mt-2 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-lg"
+                class="text-[10px] sm:text-[11px] font-black text-indigo-700 mt-2 uppercase tracking-widest bg-indigo-50 px-2 sm:px-3 py-1 rounded-lg"
               >
                 {{ user?.setor || user?.setor_nome || 'Geral' }}
               </p>
 
-              <div class="mt-6 flex justify-center gap-2">
+              <div class="mt-4 sm:mt-6 flex flex-wrap justify-center gap-2">
                 <span
                   class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
                   [class]="
@@ -107,83 +107,83 @@ import { environment } from '../../../environments/environment';
             </div>
           </div>
 
-          <div class="lg:col-span-2 flex flex-col gap-3 h-full">
+          <div class="lg:col-span-2 flex flex-col sm:flex-row lg:flex-col gap-3 h-full">
             <div
-              class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
+              class="bg-white p-4 sm:p-5 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
               <div
-                class="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100"
+                class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100"
               >
                 <img
                   src="/assets/wtoken_coin.png"
                   alt="W Token Coin"
-                  class="w-8 h-8 object-contain drop-shadow-sm"
+                  class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm"
                 />
               </div>
-              <div>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <div class="min-w-0">
+                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Saldo Atual
                 </p>
-                <p class="text-3xl font-black text-gray-800 leading-none mt-1">
-                  {{ user?.pontos || 0 }} <span class="text-sm font-bold text-gray-400">pts</span>
+                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 leading-none mt-1 truncate">
+                  {{ user?.pontos || 0 }} <span class="text-xs sm:text-sm font-bold text-gray-400">pts</span>
                 </p>
               </div>
             </div>
 
             <div
-              class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
+              class="bg-white p-4 sm:p-5 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
               <div
-                class="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100"
+                class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100"
               >
                 <img
                   src="/assets/wtokenl_trophy.png"
                   alt="Troféu"
-                  class="w-8 h-8 object-contain drop-shadow-sm"
+                  class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm"
                 />
               </div>
-              <div>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <div class="min-w-0">
+                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Bids Vencidos
                 </p>
-                <p class="text-3xl font-black text-gray-800 leading-none mt-1">
+                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 leading-none mt-1">
                   {{ stats.bidsVencidos }}
                 </p>
               </div>
             </div>
 
             <div
-              class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 flex-1"
+              class="bg-white p-4 sm:p-5 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
               <div
-                class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center text-3xl border border-blue-100"
+                class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center text-2xl sm:text-3xl border border-blue-100"
               >
                 📊
               </div>
-              <div>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <div class="min-w-0">
+                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Média / Lance
                 </p>
-                <p class="text-3xl font-black text-gray-800 leading-none mt-1">
-                  {{ stats.mediaPontos }} <span class="text-sm font-bold text-gray-400">pts</span>
+                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 leading-none mt-1 truncate">
+                  {{ stats.mediaPontos }} <span class="text-xs sm:text-sm font-bold text-gray-400">pts</span>
                 </p>
               </div>
             </div>
           </div>
 
           <div
-            class="lg:col-span-7 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col"
+            class="lg:col-span-7 bg-white p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex flex-col min-w-0"
           >
-            <div class="flex justify-between items-start mb-6">
-              <div>
-                <h3 class="text-lg font-black text-gray-800 tracking-tight">Evolução do Saldo</h3>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 lg:mb-6">
+              <div class="min-w-0">
+                <h3 class="text-base sm:text-lg font-black text-gray-800 tracking-tight">Evolução do Saldo</h3>
+                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Últimas movimentações reais
                 </p>
               </div>
 
               <div
-                class="flex items-center gap-3 text-[9px] font-black tracking-wider text-gray-500 uppercase flex-wrap justify-end"
+                class="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-black tracking-wider text-gray-500 uppercase flex-wrap"
               >
                 <div class="flex items-center gap-1.5">
                   <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Créditos
@@ -209,10 +209,10 @@ import { environment } from '../../../environments/environment';
 
             <div
               *ngIf="historicoPontos.length > 0"
-              class="relative flex-1 flex items-end justify-between gap-3 h-48 mt-auto border-b border-gray-200 pb-6 pt-8"
+              class="relative flex-1 flex items-end justify-between gap-1 sm:gap-2 lg:gap-3 min-h-[180px] sm:h-48 mt-auto border-b border-gray-200 pb-4 pt-6 sm:pb-6 sm:pt-8"
             >
               <div
-                class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6 pt-8"
+                class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-4 pt-6 sm:pb-6 sm:pt-8"
               >
                 <div class="w-full border-t border-dashed border-gray-100"></div>
                 <div class="w-full border-t border-dashed border-gray-100"></div>
@@ -221,7 +221,7 @@ import { environment } from '../../../environments/environment';
 
               <div
                 *ngFor="let item of historicoPontos"
-                class="relative w-full rounded-t-xl group transition-all duration-300 cursor-pointer z-10"
+                class="relative w-full rounded-t-lg sm:rounded-t-xl group transition-all duration-300 cursor-pointer z-10 min-w-0"
                 [ngClass]="{
                   'bg-emerald-200 hover:bg-emerald-400': item.tipo === 'credito',
                   'bg-amber-200 hover:bg-amber-400': item.tipo === 'bloqueado',
@@ -230,7 +230,7 @@ import { environment } from '../../../environments/environment';
                 [style.height]="(item.valor / maxPonto) * 100 + '%'"
               >
                 <div
-                  class="absolute -top-6 left-1/2 -translate-x-1/2 text-[11px] font-black tracking-tight"
+                  class="absolute -top-5 sm:-top-6 left-1/2 -translate-x-1/2 text-[9px] sm:text-[11px] font-black tracking-tight"
                   [ngClass]="{
                     'text-emerald-600': item.tipo === 'credito',
                     'text-amber-600': item.tipo === 'bloqueado',
@@ -260,7 +260,7 @@ import { environment } from '../../../environments/environment';
                 </div>
 
                 <div
-                  class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-gray-400 whitespace-nowrap"
+                  class="absolute -bottom-5 sm:-bottom-6 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] font-bold text-gray-400 whitespace-nowrap"
                 >
                   {{ item.data }}
                 </div>
@@ -270,37 +270,37 @@ import { environment } from '../../../environments/environment';
         </div>
 
         <div
-          class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0 overflow-hidden"
+          class="bg-white p-4 sm:p-5 md:p-6 lg:p-8 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0"
         >
           <div
-            class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
+            class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 lg:mb-6 flex-shrink-0"
           >
-            <div>
-              <h2 class="text-2xl font-black text-gray-800 tracking-tight">
+            <div class="min-w-0 flex-1">
+              <h2 class="text-xl sm:text-2xl font-black text-gray-800 tracking-tight leading-tight break-words">
                 Meus Convidados (Retirantes)
               </h2>
-              <p class="text-sm text-gray-500 mt-1">
+              <p class="text-xs sm:text-sm text-gray-500 mt-1 leading-snug break-words">
                 Pessoas autorizadas a retirar seus ingressos ganhos na portaria do evento.
               </p>
             </div>
             <button
               (click)="abrirFormularioConvidado()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center gap-2"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <span class="text-lg leading-none">+</span> Adicionar Convidado
             </button>
           </div>
 
-          <div class="overflow-auto flex-1 min-h-0 rounded-2xl border border-gray-100">
-            <table class="w-full text-left text-sm text-gray-600">
+          <div class="overflow-x-auto overflow-y-auto flex-1 min-h-[200px] rounded-xl lg:rounded-2xl border border-gray-100 -mx-1 px-1 sm:mx-0 sm:px-0 bg-gray-50/30">
+            <table class="w-full text-left text-sm text-gray-600 min-w-0">
               <thead
-                class="bg-gray-50/50 text-[10px] uppercase font-black text-gray-400 border-b border-gray-100 tracking-widest"
+                class="bg-gray-50/50 text-[9px] sm:text-[10px] uppercase font-black text-gray-400 border-b border-gray-100 tracking-widest"
               >
                 <tr>
-                  <th class="px-6 py-4">Nome / Contato</th>
-                  <th class="px-6 py-4">CPF</th>
-                  <th class="px-6 py-4">Eventos Participados</th>
-                  <th class="px-6 py-4 text-right">Ações</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">Nome / Contato</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">CPF</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">Eventos Participados</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -313,14 +313,14 @@ import { environment } from '../../../environments/environment';
                   *ngFor="let conv of convidados"
                   class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                 >
-                  <td class="px-6 py-4">
-                    <p class="font-black text-gray-800 text-sm">{{ conv.nome_completo }}</p>
-                    <p class="text-[11px] text-gray-400 font-medium mt-0.5">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">
+                    <p class="font-black text-gray-800 text-xs sm:text-sm">{{ conv.nome_completo }}</p>
+                    <p class="text-[10px] sm:text-[11px] text-gray-400 font-medium mt-0.5 hidden md:block truncate max-w-[180px] lg:max-w-none">
                       {{ conv.email || 'Sem e-mail' }} | {{ conv.telefone || 'Sem telefone' }}
                     </p>
                   </td>
-                  <td class="px-6 py-4 font-mono text-xs font-medium">{{ conv.cpf }}</td>
-                  <td class="px-6 py-4">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-mono text-[10px] sm:text-xs font-medium hidden md:table-cell">{{ conv.cpf }}</td>
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">
                     <span
                       *ngIf="conv.eventos_participados"
                       class="text-gray-600 text-[11px] font-bold italic"
@@ -333,16 +333,16 @@ import { environment } from '../../../environments/environment';
                       >Nenhum evento ainda</span
                     >
                   </td>
-                  <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-right whitespace-nowrap">
                     <button
                       (click)="abrirFormularioConvidado(conv)"
-                      class="text-indigo-600 font-black text-[10px] uppercase tracking-widest bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors"
+                      class="text-indigo-600 font-black text-[10px] uppercase tracking-widest bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg transition-colors inline-flex items-center"
                     >
                       Editar
                     </button>
                     <button
                       (click)="excluirConvidado(conv.id)"
-                      class="text-rose-600 font-black text-[10px] uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-lg transition-colors"
+                      class="text-rose-600 font-black text-[10px] uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-lg transition-colors inline-flex items-center ml-1 sm:ml-2"
                     >
                       Excluir
                     </button>

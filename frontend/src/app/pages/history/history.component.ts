@@ -9,37 +9,37 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+    <div class="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 lg:p-8 pb-10 font-sans">
       <div class="max-w-full mx-auto">
-        <div class="mb-8">
-          <h1 class="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
-            <span class="text-4xl">🏛️</span> Hall da Fama e Histórico
+        <div class="mb-4 sm:mb-6 lg:mb-8">
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2 sm:gap-3">
+            <span class="text-3xl sm:text-4xl">🏛️</span> Hall da Fama e Histórico
           </h1>
-          <p class="text-gray-500 font-medium text-sm mt-1">
+          <p class="text-gray-500 font-medium text-xs sm:text-sm mt-1">
             Veja como foram os BIDs passados, estatísticas de pontos e os grandes vencedores.
           </p>
         </div>
 
-        <div *ngIf="loading" class="flex justify-center py-20">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div *ngIf="loading" class="flex justify-center py-12 sm:py-20">
+          <div class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-indigo-600"></div>
         </div>
 
         <div
           *ngIf="!loading && history.length === 0"
-          class="text-center py-20 bg-white rounded-[2rem] shadow-sm border border-gray-100"
+          class="text-center py-12 sm:py-20 bg-white rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100"
         >
-          <span class="text-5xl block mb-3 grayscale opacity-30">📭</span>
-          <h3 class="text-gray-500 font-bold uppercase tracking-widest text-sm">
+          <span class="text-4xl sm:text-5xl block mb-3 grayscale opacity-30">📭</span>
+          <h3 class="text-gray-500 font-bold uppercase tracking-widest text-xs sm:text-sm px-2">
             Nenhum BID finalizado ainda.
           </h3>
         </div>
 
-        <div class="flex flex-col gap-6 pb-10">
+        <div class="flex flex-col gap-3 sm:gap-4 lg:gap-6">
           <div
             *ngFor="let match of history"
-            class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row transition-all hover:shadow-md"
+            class="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row transition-all hover:shadow-md"
           >
-            <div class="relative h-48 md:h-auto md:w-1/3 lg:w-1/4 bg-gray-900 shrink-0">
+            <div class="relative h-36 sm:h-44 md:h-auto md:w-1/3 lg:w-1/4 bg-gray-900 shrink-0 min-h-0">
               <img
                 [src]="getBannerUrl(match)"
                 (error)="
@@ -51,83 +51,83 @@ import { environment } from '../../../environments/environment';
                 class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-gray-900/90 to-transparent"
               ></div>
 
-              <div class="absolute bottom-4 left-4 right-4">
+              <div class="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4">
                 <span
-                  class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm mb-2 inline-block"
+                  class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm mb-1.5 sm:mb-2 inline-block"
                 >
                   Encerrado em {{ match.data_jogo | date: 'dd/MM/yyyy' }}
                 </span>
-                <h3 class="text-2xl font-black text-white leading-tight drop-shadow-md">
+                <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words">
                   {{ match.titulo }}
                 </h3>
               </div>
             </div>
 
-            <div class="p-5 md:p-8 flex-1 flex flex-col justify-center gap-6">
-              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-3 sm:p-4 md:p-5 lg:p-8 flex-1 flex flex-col justify-center gap-3 sm:gap-4 lg:gap-6 min-w-0">
+              <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 <div
-                  class="bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center"
+                  class="bg-indigo-50/50 border border-indigo-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
-                  <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest"
+                  <span class="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-widest"
                     >Apostado</span
                   >
-                  <span class="text-2xl font-black text-indigo-700 leading-none mt-1">
+                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-indigo-700 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
                     {{ match.stats.total_pontos }}
-                    <span class="text-[10px] text-indigo-400">pts</span>
+                    <span class="text-[9px] sm:text-[10px] text-indigo-400">pts</span>
                   </span>
                 </div>
 
                 <div
-                  class="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center"
+                  class="bg-amber-50/50 border border-amber-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
-                  <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest"
+                  <span class="text-[9px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest"
                     >Média / Lance</span
                   >
-                  <span class="text-2xl font-black text-amber-600 leading-none mt-1">
+                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-amber-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
                     {{ match.stats.media_pontos }}
-                    <span class="text-[10px] text-amber-400">pts</span>
+                    <span class="text-[9px] sm:text-[10px] text-amber-400">pts</span>
                   </span>
                 </div>
 
                 <div
-                  class="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center"
+                  class="bg-emerald-50/50 border border-emerald-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
-                  <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest"
+                  <span class="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest"
                     >Participantes</span
                   >
-                  <span class="text-2xl font-black text-emerald-600 leading-none mt-1">
+                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-emerald-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
                     {{ match.stats.total_participantes }}
-                    <span class="text-[10px] text-emerald-400">pessoas</span>
+                    <span class="text-[9px] sm:text-[10px] text-emerald-400">pessoas</span>
                   </span>
                 </div>
 
                 <div
-                  class="bg-rose-50/50 border border-rose-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center"
+                  class="bg-rose-50/50 border border-rose-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
-                  <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest"
+                  <span class="text-[9px] sm:text-[10px] font-black text-rose-400 uppercase tracking-widest"
                     >Nota de Corte</span
                   >
-                  <span class="text-2xl font-black text-rose-600 leading-none mt-1">
-                    {{ match.nota_corte }} <span class="text-[10px] text-rose-400">pts</span>
+                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-rose-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
+                    {{ match.nota_corte }} <span class="text-[9px] sm:text-[10px] text-rose-400">pts</span>
                   </span>
                 </div>
               </div>
             </div>
 
             <div
-              class="p-6 md:p-8 border-t md:border-t-0 md:border-l border-gray-100 flex flex-col items-center justify-center shrink-0 bg-gray-50 md:w-64"
+              class="w-full md:w-auto p-4 sm:p-5 md:p-6 lg:p-8 border-t md:border-t-0 md:border-l border-gray-100 flex flex-col items-center justify-center shrink-0 bg-gray-50 md:w-64"
             >
-              <div class="text-center mb-4">
-                <span class="text-4xl block mb-2">🏆</span>
-                <h4 class="text-xs font-black text-gray-500 uppercase tracking-widest">
+              <div class="text-center mb-3 sm:mb-4">
+                <span class="text-3xl sm:text-4xl block mb-1.5 sm:mb-2">🏆</span>
+                <h4 class="text-[10px] sm:text-xs font-black text-gray-500 uppercase tracking-widest">
                   {{ match.quantidade_premios }} Ingressos
                 </h4>
-                <p class="text-[10px] text-gray-400 font-medium">Distribuídos</p>
+                <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium">Distribuídos</p>
               </div>
 
               <button
                 (click)="abrirModalGanhadores(match)"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 px-4 rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 uppercase tracking-wide"
+                class="w-full max-w-xs md:max-w-none bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] sm:text-xs py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 uppercase tracking-wide"
               >
                 Ver apostas
               </button>

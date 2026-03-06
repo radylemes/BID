@@ -13,11 +13,31 @@ import { environment } from '../../environments/environment';
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <div class="flex h-screen bg-gray-50 font-sans overflow-hidden">
-      <aside class="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm z-20">
-        <div class="h-16 flex items-center px-6 bg-indigo-700 flex-shrink-0">
+      <!-- Backdrop mobile -->
+      <div
+        *ngIf="sidebarOpen"
+        class="fixed inset-0 bg-black/50 z-10 lg:hidden"
+        (click)="closeSidebar()"
+        aria-hidden="true"
+      ></div>
+
+      <aside
+        class="fixed lg:relative inset-y-0 left-0 z-20 w-72 lg:w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm transition-transform duration-200 ease-out -translate-x-full lg:translate-x-0"
+        [class.-translate-x-full]="!sidebarOpen"
+        [class.translate-x-0]="sidebarOpen"
+      >
+        <div class="h-16 flex items-center justify-between px-4 lg:px-6 bg-indigo-700 flex-shrink-0">
           <h1 class="text-lg font-bold text-white tracking-widest flex items-center gap-2">
             🏟️ <span>BID <span class="text-indigo-300 font-light">WTORRE</span></span>
           </h1>
+          <button
+            type="button"
+            class="lg:hidden p-2 rounded-md text-white/90 hover:bg-white/10 transition-colors"
+            (click)="closeSidebar()"
+            aria-label="Fechar menu"
+          >
+            <span class="text-xl leading-none">×</span>
+          </button>
         </div>
         <div class="bg-white p-3.5 border border-gray-200 shadow-sm">
           <div class="space-y-2">
@@ -48,7 +68,7 @@ import { environment } from '../../environments/environment';
           </div>
         </div>
 
-        <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto" (click)="closeSidebar()">
           <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2">
             Principal
           </p>
@@ -157,11 +177,21 @@ import { environment } from '../../environments/environment';
 
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header
-          class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shadow-sm z-10"
+          class="h-16 bg-white border-b border-gray-200 flex items-center justify-between gap-3 px-4 lg:px-8 shadow-sm z-10"
         >
-          <h2 class="text-xl font-semibold text-gray-800">{{ pageTitle }}</h2>
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              type="button"
+              class="lg:hidden flex-shrink-0 p-2 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+              (click)="toggleSidebar()"
+              aria-label="Abrir menu"
+            >
+              <span class="text-xl leading-none">☰</span>
+            </button>
+            <h2 class="text-lg lg:text-xl font-semibold text-gray-800 truncate">{{ pageTitle }}</h2>
+          </div>
 
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4 flex-shrink-0">
             <a
               routerLink="/profile"
               class="flex items-center gap-3 group hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
@@ -195,7 +225,7 @@ import { environment } from '../../environments/environment';
           </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 lg:p-6">
           <router-outlet></router-outlet>
         </main>
       </div>
@@ -216,8 +246,17 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   meusLancesCount: number = 0;
 
   pageTitle: string = 'Painel de Controle';
+  sidebarOpen = false;
   private routeSub!: Subscription;
   private intervalId: any;
+
+  toggleSidebar() {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  closeSidebar() {
+    this.sidebarOpen = false;
+  }
 
   // ATUALIZADO COM O TÍTULO DO HISTÓRICO
   private routeTitles: { [key: string]: string } = {
@@ -253,6 +292,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
       .subscribe((event: any) => {
         this.atualizarTitulo(event.url);
         this.carregarEstatisticasGlobais();
+        this.closeSidebar();
       });
 
     // Atualiza silenciosamente a cada 5 segundos para refletir lances feitos no Dashboard
