@@ -11,6 +11,7 @@ import { GroupManagerComponent } from './pages/groups/group-manager.component';
 import { MatchManagerComponent } from './pages/matches/match-manager.component';
 import { MyBetsComponent } from './pages/my-bets/my-bets.component';
 import { ReceptionComponent } from './pages/reception/reception.component';
+import { ReceptionConfirmedComponent } from './pages/reception/reception-confirmed.component';
 import { SettingsComponent } from './pages/settings/settings.component';
 import { HistoryComponent } from './pages/history/history.component';
 import { AuditComponent } from './pages/audit/audit.component';
@@ -27,10 +28,16 @@ export const routes: Routes = [
   // Colocamos fora do MainLayout para não exibir o menu lateral no tablet
   // ==========================================
   {
+    path: 'reception/confirmados',
+    component: ReceptionConfirmedComponent,
+    canActivate: [AuthGuard],
+    data: { roles: ['ADMIN', 'PORTARIA'] },
+  },
+  {
     path: 'reception',
     component: ReceptionComponent,
-    canActivate: [AuthGuard], // Protegido! Só entra se estiver logado
-    data: { roles: ['ADMIN', 'PORTARIA'] }, // (Opcional) Se o seu AuthGuard validar perfis
+    canActivate: [AuthGuard],
+    data: { roles: ['ADMIN', 'PORTARIA'] },
   },
 
   // ==========================================

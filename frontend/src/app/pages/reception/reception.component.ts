@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, interval, Subscription } from 'rxjs';
 import Swal from 'sweetalert2';
@@ -16,7 +17,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'app-reception',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   template: `
     <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
@@ -32,6 +33,14 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
         <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+          <a
+            routerLink="/reception/confirmados"
+            class="text-emerald-200 hover:text-white flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold transition-colors bg-indigo-800 hover:bg-emerald-700/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-600 hover:border-emerald-500 active:scale-95"
+            title="Ver convidados já confirmados"
+          >
+            <span class="text-sm sm:text-base leading-none">✅</span>
+            <span class="hidden sm:inline">Confirmados</span>
+          </a>
           <button
             (click)="carregarTudoUnificado()"
             class="text-indigo-200 hover:text-white flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold transition-colors bg-indigo-800 hover:bg-indigo-700 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-600 active:scale-95"
@@ -204,14 +213,14 @@ import { environment } from '../../../environments/environment';
           class="hidden md:block bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0"
         >
           <div class="overflow-x-auto custom-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
-            <table class="min-w-full text-left text-sm whitespace-nowrap" style="min-width: 700px;">
+            <table class="w-full min-w-full text-left text-sm lg:min-w-[700px]">
               <thead
                 class="bg-indigo-50/50 text-indigo-900 uppercase font-black text-[9px] sm:text-[10px] tracking-wider border-b border-gray-200"
               >
                 <tr>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">Usuário (Titular)</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell">Empresa</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">Convidado (Retirante)</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-indigo-50/50 min-w-[140px] lg:min-w-[180px]">Convidado (Retirante)</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden sm:table-cell">Evento / Data</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Status</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Ação</th>
@@ -233,7 +242,7 @@ import { environment } from '../../../environments/environment';
                     </div>
                   </td>
 
-                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]">
                     <div class="flex items-center gap-2 sm:gap-3 min-w-0">
                       <div
                         class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 font-black text-[10px] sm:text-xs"
@@ -293,13 +302,21 @@ import { environment } from '../../../environments/environment';
                     >
                       <span>✍️</span> Liberar
                     </button>
-                    <button
-                      *ngIf="group.checkin"
-                      (click)="verAssinatura(group.assinatura)"
-                      class="w-full min-w-[100px] sm:min-w-0 text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
-                    >
-                      <span>👁️</span> Ver
-                    </button>
+                    <div *ngIf="group.checkin" class="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
+                      <button
+                        (click)="verAssinatura(group.assinatura)"
+                        class="min-w-0 text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1"
+                      >
+                        <span>👁️</span> Assin.
+                      </button>
+                      <button
+                        *ngIf="group.documento"
+                        (click)="verDocumento(group.documento)"
+                        class="min-w-0 text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1"
+                      >
+                        <span>📄</span> Doc.
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -364,6 +381,32 @@ import { environment } from '../../../environments/environment';
                       maxlength="14"
                       class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono"
                     />
+                  </div>
+                </div>
+                <div class="mt-2 sm:mt-3 pl-1 sm:pl-2">
+                  <label
+                    class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1"
+                    >Foto do documento (RG/CNH) da pessoa</label
+                  >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    (change)="onDocumentoSelected($event, ticket)"
+                    class="w-full text-[10px] sm:text-xs font-medium file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-100 file:text-indigo-700 file:font-bold file:cursor-pointer"
+                  />
+                  <div *ngIf="ticket.recebedor_documento" class="mt-2 flex items-center gap-2 flex-wrap">
+                    <img
+                      [src]="ticket.recebedor_documento"
+                      alt="Documento"
+                      class="h-16 w-auto rounded border border-gray-200 object-cover"
+                    />
+                    <button
+                      type="button"
+                      (click)="removerDocumento(ticket)"
+                      class="text-[9px] font-bold text-rose-500 hover:bg-rose-50 py-1 px-3 rounded border border-rose-200 transition-colors uppercase"
+                    >
+                      Remover
+                    </button>
                   </div>
                 </div>
               </div>
@@ -496,6 +539,13 @@ import { environment } from '../../../environments/environment';
               class="flex-1 text-indigo-600 bg-white border-2 border-indigo-200 hover:bg-indigo-50 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <span>👁️</span> Ver Assinatura
+            </button>
+            <button
+              *ngIf="selectedGroupForModal.checkin && selectedGroupForModal.documento"
+              (click)="verDocumento(selectedGroupForModal.documento)"
+              class="flex-1 text-indigo-600 bg-white border-2 border-indigo-200 hover:bg-indigo-50 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span>📄</span> Ver Documento
             </button>
             <button
               (click)="closeDetailModal()"
@@ -661,6 +711,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       if (!mapaGrupos.has(key)) {
         mapaGrupos.set(key, {
           ...guest,
+          documento: guest.documento ?? null,
           ingressos_detalhes: [infoIngresso],
           quantidade_ingressos: 1,
           ingressos_liberados: guest.checkin ? 1 : 0,
@@ -672,6 +723,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         if (guest.checkin) {
           grupo.ingressos_liberados++;
           grupo.assinatura = grupo.assinatura || guest.assinatura;
+          grupo.documento = grupo.documento || guest.documento;
         }
         grupo.checkin = grupo.ingressos_liberados === grupo.quantidade_ingressos;
       }
@@ -707,6 +759,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         ...t,
         recebedor_nome: index === 0 ? group.retirante_nome : '',
         recebedor_cpf: index === 0 ? group.retirante_cpf : '',
+        recebedor_documento: null as string | null,
       };
     });
 
@@ -739,6 +792,25 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
   closeDetailModal() {
     this.selectedGroupForModal = null;
+  }
+
+  onDocumentoSelected(event: Event, ticket: any) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      ticket.recebedor_documento = dataUrl;
+      input.value = '';
+      this.cd.detectChanges();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removerDocumento(ticket: any) {
+    ticket.recebedor_documento = null;
+    this.cd.detectChanges();
   }
 
   private getCoordinates(event: MouseEvent | TouchEvent) {
@@ -779,6 +851,18 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   confirmarCheckinLote() {
+    const semDocumento = this.ingressosParaAssinar.filter(
+      (t) => !t.recebedor_documento || (typeof t.recebedor_documento === 'string' && t.recebedor_documento.trim() === ''),
+    );
+    if (semDocumento.length > 0) {
+      Swal.fire(
+        'Atenção',
+        'Por favor, anexe o documento de todas as pessoas que vão entrar.',
+        'warning',
+      );
+      return;
+    }
+
     const inputsInvalidos = this.ingressosParaAssinar.filter(
       (t) => !t.recebedor_nome || !t.recebedor_cpf,
     );
@@ -803,6 +887,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       return this.http.post(`${this.apiUrl}/checkin`, {
         ingressoId: ticket.ingresso_id,
         assinaturaBase64: base64Signature,
+        documentoBase64: ticket.recebedor_documento,
         recebedorNome: ticket.recebedor_nome,
         recebedorCpf: ticket.recebedor_cpf,
         adminId: this.currentUser.id,
@@ -827,6 +912,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
           if (ingressoAtualizado) {
             guest.checkin = true;
             guest.assinatura = base64Signature;
+            guest.documento = ingressoAtualizado.recebedor_documento ?? guest.documento;
             guest.recebedor_nome = ingressoAtualizado.recebedor_nome;
             guest.recebedor_cpf = ingressoAtualizado.recebedor_cpf;
           }
@@ -845,6 +931,17 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       title: 'Assinatura Registrada',
       imageUrl: base64,
       imageAlt: 'Assinatura do convidado',
+      confirmButtonColor: '#4f46e5',
+      confirmButtonText: 'Fechar',
+    });
+  }
+
+  verDocumento(base64: string | null | undefined) {
+    if (!base64) return;
+    Swal.fire({
+      title: 'Documento Registrado',
+      imageUrl: base64,
+      imageAlt: 'Documento do convidado',
       confirmButtonColor: '#4f46e5',
       confirmButtonText: 'Fechar',
     });

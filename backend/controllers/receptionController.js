@@ -46,7 +46,7 @@ exports.getEventGuests = async (req, res) => {
   const { eventId } = req.params;
   try {
     const query = `
-      SELECT i.id as ingresso_id, i.aposta_id, i.checkin, i.assinatura, i.recebedor_nome as aposta_recebedor_nome, i.recebedor_cpf as aposta_recebedor_cpf,
+      SELECT i.id as ingresso_id, i.aposta_id, i.checkin, i.assinatura, i.documento, i.recebedor_nome as aposta_recebedor_nome, i.recebedor_cpf as aposta_recebedor_cpf,
         u.id as titular_id, u.nome_completo as titular_nome, e.nome as empresa, c.nome_completo as retirante_nome, c.cpf as retirante_cpf
       FROM ingressos i
       JOIN apostas a ON i.aposta_id = a.id
@@ -62,6 +62,7 @@ exports.getEventGuests = async (req, res) => {
       aposta_id: r.aposta_id,
       checkin: r.checkin === 1,
       assinatura: r.assinatura,
+      documento: r.documento,
       titular_id: r.titular_id,
       titular_nome: r.titular_nome,
       empresa: r.empresa || "Geral",
@@ -79,6 +80,7 @@ exports.getEventGuests = async (req, res) => {
 
 exports.checkin = async (req, res) => {
   const idFinal = req.body.ingressoId || req.body.apostaId;
+  const documentoBase64 = req.body.documentoBase64 || req.body.recebedorDocumentoBase64;
   const { assinaturaBase64, recebedorNome, recebedorCpf, adminId } = req.body;
 
   if (!idFinal || !assinaturaBase64 || !recebedorNome || !recebedorCpf) {
@@ -86,13 +88,18 @@ exports.checkin = async (req, res) => {
       .status(400)
       .json({ error: "Dados incompletos para o check-in." });
   }
+  if (!documentoBase64 || typeof documentoBase64 !== "string" || documentoBase64.trim() === "") {
+    return res
+      .status(400)
+      .json({ error: "Documento da pessoa é obrigatório para o check-in." });
+  }
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
     await connection.execute(
-      `UPDATE ingressos SET checkin = 1, assinatura = ?, recebedor_nome = ?, recebedor_cpf = ?, data_checkin = NOW() WHERE id = ?`,
-      [assinaturaBase64, recebedorNome, recebedorCpf, idFinal],
+      `UPDATE ingressos SET checkin = 1, assinatura = ?, documento = ?, recebedor_nome = ?, recebedor_cpf = ?, data_checkin = NOW() WHERE id = ?`,
+      [assinaturaBase64, documentoBase64, recebedorNome, recebedorCpf, idFinal],
     );
 
     const [dados] = await connection.execute(
@@ -122,6 +129,7 @@ exports.checkin = async (req, res) => {
         titular: titularNome,
         recebedor: recebedorNome,
         cpf_recebedor: recebedorCpf,
+        documento_anexado: true,
         motivo: `O(a) funcionário(a) ${nomePorteiro} liberou a entrada de ${recebedorNome} usando o ingresso #${idFinal} de ${titularNome} no evento: ${eventoTitulo}`,
       },
     );

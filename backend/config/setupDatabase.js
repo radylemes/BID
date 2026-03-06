@@ -187,6 +187,7 @@ async function initializeDatabase() {
     `);
 
     // NOVO: Tabela exclusiva para gestão de bilhetes individuais na portaria
+    // Para bancos já existentes, execute uma vez: ALTER TABLE ingressos ADD COLUMN documento LONGTEXT NULL AFTER assinatura;
     await connection.query(`
       CREATE TABLE IF NOT EXISTS ingressos (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -195,6 +196,7 @@ async function initializeDatabase() {
         convidado_id INT NULL,
         checkin TINYINT(1) DEFAULT 0,
         assinatura LONGTEXT NULL,
+        documento LONGTEXT NULL,
         recebedor_nome VARCHAR(255) NULL,
         recebedor_cpf VARCHAR(20) NULL,
         data_checkin DATETIME NULL,
@@ -203,6 +205,22 @@ async function initializeDatabase() {
         FOREIGN KEY (convidado_id) REFERENCES convidados(id) ON DELETE SET NULL
       );
     `);
+
+    // Migração: adicionar coluna documento em instalações antigas (ingressos já existente sem a coluna)
+    try {
+      const [cols] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'ingressos' AND COLUMN_NAME = 'documento'`,
+        [process.env.DB_NAME],
+      );
+      if (cols.length === 0) {
+        await connection.query(
+          `ALTER TABLE ingressos ADD COLUMN documento LONGTEXT NULL AFTER assinatura`,
+        );
+        console.log("✅ Coluna 'documento' adicionada à tabela ingressos.");
+      }
+    } catch (e) {
+      console.warn("Aviso ao verificar/adicionar coluna documento em ingressos:", e.message);
+    }
 
     // Transferências de ingressos não sorteados entre BIDs (origem → destino)
     await connection.query(`
