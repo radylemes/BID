@@ -36,6 +36,22 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+### Aviso "GLIBCXX_3.4.29 not found" / "Unable to initialize JavaScript cache storage"
+
+Se aparecer o aviso sobre `libstdc++.so.6: version GLIBCXX_3.4.29 not found` ou "Unable to initialize JavaScript cache storage", ele **não afeta o resultado do build** — apenas o cache do compilador Angular deixa de ser usado (builds podem ser um pouco mais lentos). O cache em disco já está desativado em `angular.json` (`cli.cache.enabled: false`).
+
+Para eliminar o aviso (opcional), é preciso que o sistema tenha uma libstdc++ com `GLIBCXX_3.4.29`. Em RHEL/CentOS/Rocky 8, instale o gcc-toolset-11 e rode o build no ambiente do toolset:
+
+```bash
+# Instalar (requer root)
+sudo dnf install gcc-toolset-11
+
+# Rodar o build com a libstdc++ do toolset
+scl enable gcc-toolset-11 -- npm run build
+```
+
+Se não usar o toolset, o aviso pode ser ignorado com segurança.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:

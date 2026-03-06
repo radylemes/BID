@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './pages/login/login.component';
+import { AuthLayoutComponent } from './layouts/auth-layout.component';
 import { MainLayoutComponent } from './layouts/main-layout.component';
 import { AuthGuard } from './guards/auth.guard';
 
@@ -21,7 +22,11 @@ import { DisparoEmailsComponent } from './pages/email/disparo-emails.component';
 import { TenantsStatusComponent } from './pages/tenants-status/tenants-status.component';
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent },
+  {
+    path: 'login',
+    component: AuthLayoutComponent,
+    children: [{ path: '', component: LoginComponent }],
+  },
 
   // ==========================================
   // APP DA PORTARIA (TELA CHEIA)

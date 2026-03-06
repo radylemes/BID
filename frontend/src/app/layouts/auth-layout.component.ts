@@ -7,21 +7,37 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule, RouterOutlet],
   template: `
-    <div class="min-h-screen w-full bg-gray-100 flex flex-col overflow-hidden">
-      <div class="w-full bg-gray-900 py-6 flex justify-center shadow-md">
-        <h1 class="text-3xl font-bold text-white tracking-widest uppercase">WTORRE</h1>
-      </div>
-
-      <div class="flex-1 flex items-center justify-center p-4">
-        <div class="w-full max-w-md">
-          <router-outlet></router-outlet>
+    <div class="min-h-screen w-full flex overflow-hidden">
+      <!-- Coluna esquerda: imagem do estádio + logo Allianz -->
+      <div
+        class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative bg-cover bg-center bg-no-repeat"
+        [style.backgroundImage]="'url(assets/allianz_parque_fiel.png)'"
+      >
+        <div class="absolute bottom-0 left-0 p-6" *ngIf="showAllianzLogo">
+          <img
+            src="assets/Logo-Allianz-Parque-Light.svg"
+            alt="Allianz Parque"
+            class="h-12 w-auto max-w-[200px] object-contain"
+            (error)="showAllianzLogo = false"
+          />
         </div>
       </div>
 
-      <div class="py-4 text-center text-gray-400 text-xs">
-        &copy; 2026 Bolão BID - Todos os direitos reservados.
+      <!-- Coluna direita: painel escuro com formulário -->
+      <div class="flex-1 min-h-screen flex flex-col bg-[#1a1f2c]">
+        <main class="flex-1 flex items-center justify-center p-4 sm:p-6">
+          <div class="w-full max-w-md text-center">
+            <router-outlet></router-outlet>
+          </div>
+        </main>
+
+        <footer class="py-4 text-center text-gray-400 text-xs px-4">
+          &copy; 2026 WTorre. Todos os direitos reservados.
+        </footer>
       </div>
     </div>
   `,
 })
-export class AuthLayoutComponent {}
+export class AuthLayoutComponent {
+  showAllianzLogo = true;
+}
