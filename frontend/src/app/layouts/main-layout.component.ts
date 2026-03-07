@@ -28,7 +28,7 @@ import { environment } from '../../environments/environment';
       >
         <div class="relative h-16 flex items-center justify-center px-4 lg:px-6 border-b border-[var(--app-border)] flex-shrink-0">
           <h1 class="text-lg font-bold text-[var(--app-text)] tracking-widest flex items-center">
-            <img src="assets/wtorre.svg" alt="WTorre" class="h-5 w-auto object-contain" />
+            <img src="assets/wtorre.svg" alt="WTorre" class="wtorre-logo h-5 w-auto object-contain" />
           </h1>
           <button
             type="button"

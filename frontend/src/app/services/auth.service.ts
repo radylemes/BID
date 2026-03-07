@@ -7,6 +7,7 @@ import { MsalService } from '@azure/msal-angular';
 import { AuthenticationResult } from '@azure/msal-browser';
 import Swal from 'sweetalert2';
 import { environment } from '../../environments/environment';
+import { ThemeService } from './theme.service';
 
 @Injectable({
   providedIn: 'root',
@@ -18,6 +19,7 @@ export class AuthService {
     private http: HttpClient,
     private router: Router,
     private msalService: MsalService, // 2. Injetar o MSAL aqui no serviço
+    private themeService: ThemeService,
   ) {}
 
   saveSession(response: any) {
@@ -27,6 +29,7 @@ export class AuthService {
 
     if (response && response.user) {
       localStorage.setItem('currentUser', JSON.stringify(response.user));
+      this.themeService.initializeFromStorage();
     }
   }
 

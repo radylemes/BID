@@ -49,6 +49,13 @@
   --tab-active-text: var(--color-text-primary);
 }
 
+/* Logo WTorre (SVG branco): em temas claros fica escuro para aparecer no fundo claro */
+:root:not([data-theme^='escuro']) .wtorre-logo,
+[data-theme='claro'] .wtorre-logo,
+[data-theme^='claro-'] .wtorre-logo {
+  filter: brightness(0);
+}
+
 html,
 body {
   height: 100%;
