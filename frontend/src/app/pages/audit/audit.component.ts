@@ -9,25 +9,25 @@ import Swal from 'sweetalert2';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+    <div class="min-h-screen bg-[var(--app-bg)] p-4 md:p-8 font-sans">
       <div class="max-w-7xl mx-auto">
         <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 class="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+            <h1 class="text-3xl font-black text-[var(--app-text)] tracking-tight flex items-center gap-3">
               <span class="text-4xl">🛡️</span> Auditoria e Logs
             </h1>
-            <p class="text-gray-500 font-medium text-sm mt-1">
+            <p class="text-[var(--app-text-muted)] font-medium text-sm mt-1">
               Rastreamento de atividades, configurações e acessos do sistema.
             </p>
           </div>
 
           <div class="relative w-full md:w-96">
-            <span class="absolute left-4 top-3 text-gray-400">🔍</span>
+            <span class="absolute left-4 top-3 text-[var(--app-text-muted)]">🔍</span>
             <input
               type="text"
               [(ngModel)]="searchTerm"
               placeholder="Buscar por módulo, ação ou usuário..."
-              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all font-medium text-sm"
+              class="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all font-medium text-sm text-[var(--app-text)]"
             />
           </div>
         </div>
@@ -38,22 +38,22 @@ import Swal from 'sweetalert2';
 
         <div
           *ngIf="!loading && logs.length === 0"
-          class="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100"
+          class="text-center py-20 bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)]"
         >
           <span class="text-5xl block mb-3 grayscale opacity-30">📭</span>
-          <h3 class="text-gray-500 font-bold uppercase tracking-widest text-sm">
+          <h3 class="text-[var(--app-text-muted)] font-bold uppercase tracking-widest text-sm">
             Nenhum registro encontrado.
           </h3>
         </div>
 
         <div
           *ngIf="!loading && logs.length > 0"
-          class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+          class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] overflow-hidden"
         >
           <div class="overflow-x-auto custom-scrollbar">
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead
-                class="bg-gray-50 text-gray-500 uppercase font-black text-[10px] tracking-wider border-b border-gray-200"
+                class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] uppercase font-black text-[10px] tracking-wider border-b border-[var(--app-border)]"
               >
                 <tr>
                   <th class="px-6 py-4">Data / Hora</th>
@@ -63,13 +63,13 @@ import Swal from 'sweetalert2';
                   <th class="px-6 py-4 text-center">Detalhes</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let log of filteredLogs()" class="hover:bg-gray-50 transition-colors">
+              <tbody class="divide-y divide-[var(--app-border)]">
+                <tr *ngFor="let log of filteredLogs()" class="hover:bg-[var(--app-nav-hover-bg)] transition-colors">
                   <td class="px-6 py-4">
-                    <div class="font-bold text-gray-800">
+                    <div class="font-bold text-[var(--app-text)]">
                       {{ log.data_hora | date: 'dd/MM/yyyy' }}
                     </div>
-                    <div class="text-[10px] text-gray-400 font-mono">
+                    <div class="text-[10px] text-[var(--app-text-muted)] font-mono">
                       {{ log.data_hora | date: 'HH:mm:ss' }}
                     </div>
                   </td>
@@ -81,7 +81,7 @@ import Swal from 'sweetalert2';
                       >
                         {{ log.admin_nome ? log.admin_nome.charAt(0) : 'S' }}
                       </div>
-                      <span class="font-bold text-gray-700">{{
+                      <span class="font-bold text-[var(--app-text)]">{{
                         log.admin_nome || 'Sistema Automático'
                       }}</span>
                     </div>
@@ -89,7 +89,7 @@ import Swal from 'sweetalert2';
 
                   <td class="px-6 py-4">
                     <span
-                      class="px-2.5 py-1 rounded bg-gray-100 text-gray-600 text-[10px] font-black tracking-wider border border-gray-200 uppercase"
+                      class="px-2.5 py-1 rounded bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] text-[10px] font-black tracking-wider border border-[var(--app-border)] uppercase"
                     >
                       {{ log.modulo }}
                     </span>
@@ -97,7 +97,7 @@ import Swal from 'sweetalert2';
 
                   <td class="px-6 py-4">
                     <span class="text-xs font-bold text-indigo-700">{{ log.acao }}</span>
-                    <div *ngIf="log.registro_id" class="text-[9px] text-gray-400 mt-0.5">
+                    <div *ngIf="log.registro_id" class="text-[9px] text-[var(--app-text-muted)] mt-0.5">
                       ID Ref: #{{ log.registro_id }}
                     </div>
                   </td>
@@ -105,7 +105,7 @@ import Swal from 'sweetalert2';
                   <td class="px-6 py-4 text-center">
                     <button
                       (click)="verDetalhes(log)"
-                      class="bg-white border border-gray-200 hover:border-indigo-300 hover:text-indigo-600 text-gray-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
+                      class="bg-[var(--color-bg-surface)] border border-[var(--app-border)] hover:border-indigo-300 hover:text-indigo-600 text-[var(--app-text-muted)] px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
                     >
                       👁️ Ver Dados
                     </button>

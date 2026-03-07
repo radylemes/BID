@@ -76,6 +76,7 @@ exports.login = async (req, res) => {
         foto: user.foto,
         role: user.perfil,
         pontos: user.pontos,
+        tema_preferido: user.tema_preferido || "claro",
       },
     });
   } catch (error) {
@@ -164,6 +165,7 @@ exports.loginMicrosoft = async (req, res) => {
         foto: userLocal.foto,
         role: userLocal.perfil,
         pontos: userLocal.pontos,
+        tema_preferido: userLocal.tema_preferido || "claro",
       },
     });
   } catch (error) {

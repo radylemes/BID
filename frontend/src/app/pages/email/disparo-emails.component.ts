@@ -16,119 +16,179 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-screen">
       <div class="mb-6">
-        <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Disparo de E-mails</h2>
-        <p class="text-sm text-gray-500 font-medium mt-1">
+        <h2 class="text-3xl font-extrabold text-[var(--app-text)] tracking-tight">Disparo de E-mails</h2>
+        <p class="text-sm text-[var(--app-text-muted)] font-medium mt-1">
           Selecione o tipo de disparo e o BID para enviar e-mails, gerencie templates ou listas de destinatários.
         </p>
       </div>
 
-      <div class="flex gap-1 p-2 mb-4 rounded-xl bg-white border border-gray-200 shadow-sm">
-        <button
-          type="button"
-          (click)="abaAtual = 'disparo'"
-          [class.bg-indigo-600]="abaAtual === 'disparo'"
-          [class.text-white]="abaAtual === 'disparo'"
-          [class.bg-white]="abaAtual !== 'disparo'"
-          [class.text-gray-600]="abaAtual !== 'disparo'"
-          class="px-4 py-2.5 rounded-lg text-sm font-semibold transition"
-        >
-          Disparo
-        </button>
-        <button
-          type="button"
-          (click)="irAbaTemplates()"
-          [class.bg-indigo-600]="abaAtual === 'templates'"
-          [class.text-white]="abaAtual === 'templates'"
-          [class.bg-white]="abaAtual !== 'templates'"
-          [class.text-gray-600]="abaAtual !== 'templates'"
-          class="px-4 py-2.5 rounded-lg text-sm font-semibold transition"
-        >
-          Templates de e-mail
-        </button>
-        <button
-          type="button"
-          (click)="irAbaListas()"
-          [class.bg-indigo-600]="abaAtual === 'listas'"
-          [class.text-white]="abaAtual === 'listas'"
-          [class.bg-white]="abaAtual !== 'listas'"
-          [class.text-gray-600]="abaAtual !== 'listas'"
-          class="px-4 py-2.5 rounded-lg text-sm font-semibold transition"
-        >
-          Listas de e-mail
-        </button>
+      <div class="mb-4">
+        <div class="sm:hidden">
+          <label for="tabs-email" class="sr-only">Aba</label>
+          <select
+            id="tabs-email"
+            [value]="abaAtual"
+            (change)="setAba($any($event.target).value)"
+            class="block w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+          >
+            <option value="disparo">Disparo</option>
+            <option value="templates">Templates de e-mail</option>
+            <option value="listas">Listas de e-mail</option>
+          </select>
+        </div>
+        <ul class="hidden sm:flex text-sm font-medium text-center -space-x-px" role="tablist">
+          <li class="w-full focus-within:z-10" role="presentation">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-current]="abaAtual === 'disparo' ? 'page' : null"
+              (click)="abaAtual = 'disparo'"
+              [ngClass]="{
+                'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtual === 'disparo',
+                'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtual !== 'disparo'
+              }"
+              class="inline-flex items-center justify-center w-full border rounded-l-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+            >
+              <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              Disparo
+            </button>
+          </li>
+          <li class="w-full focus-within:z-10" role="presentation">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-current]="abaAtual === 'templates' ? 'page' : null"
+              (click)="irAbaTemplates()"
+              [ngClass]="{
+                'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtual === 'templates',
+                'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtual !== 'templates'
+              }"
+              class="inline-flex items-center justify-center w-full border font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+            >
+              <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              Templates
+            </button>
+          </li>
+          <li class="w-full focus-within:z-10" role="presentation">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-current]="abaAtual === 'listas' ? 'page' : null"
+              (click)="irAbaListas()"
+              [ngClass]="{
+                'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtual === 'listas',
+                'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtual !== 'listas'
+              }"
+              class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+            >
+              <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              Listas
+            </button>
+          </li>
+        </ul>
       </div>
 
-      <div *ngIf="abaAtual === 'disparo'" class="bg-white rounded-2xl border border-gray-100 shadow-md overflow-hidden">
-        <div class="flex gap-1 p-2 bg-gray-50 border-b border-gray-200">
-          <button
-            type="button"
-            (click)="tipoAtivo = 'BID_ABERTO'"
-            [class.bg-white]="tipoAtivo === 'BID_ABERTO'"
-            [class.shadow-sm]="tipoAtivo === 'BID_ABERTO'"
-            [class.text-indigo-700]="tipoAtivo === 'BID_ABERTO'"
-            [class.font-semibold]="tipoAtivo === 'BID_ABERTO'"
-            class="px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition"
-          >
-            1 – Bid Aberto
-          </button>
-          <button
-            type="button"
-            (click)="tipoAtivo = 'BID_ENCERRADO'"
-            [class.bg-white]="tipoAtivo === 'BID_ENCERRADO'"
-            [class.shadow-sm]="tipoAtivo === 'BID_ENCERRADO'"
-            [class.text-indigo-700]="tipoAtivo === 'BID_ENCERRADO'"
-            [class.font-semibold]="tipoAtivo === 'BID_ENCERRADO'"
-            class="px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition"
-          >
-            2 – Bid Encerrado
-          </button>
-          <button
-            type="button"
-            (click)="tipoAtivo = 'GANHADORES'"
-            [class.bg-white]="tipoAtivo === 'GANHADORES'"
-            [class.shadow-sm]="tipoAtivo === 'GANHADORES'"
-            [class.text-indigo-700]="tipoAtivo === 'GANHADORES'"
-            [class.font-semibold]="tipoAtivo === 'GANHADORES'"
-            class="px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition"
-          >
-            3 – Ganhadores
-          </button>
+      <div *ngIf="abaAtual === 'disparo'" class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] overflow-hidden">
+        <div class="border-b border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-4 pt-4 pb-4">
+          <div class="sm:hidden">
+            <label for="tabs-tipo-disparo" class="sr-only">Tipo de disparo</label>
+            <select
+              id="tabs-tipo-disparo"
+              [value]="tipoAtivo"
+              (change)="setTipoAtivo($any($event.target).value)"
+              class="block w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            >
+              <option value="BID_ABERTO">1 – Bid Aberto</option>
+              <option value="BID_ENCERRADO">2 – Bid Encerrado</option>
+              <option value="GANHADORES">3 – Ganhadores</option>
+            </select>
+          </div>
+          <ul class="hidden sm:flex text-sm font-medium text-center -space-x-px" role="tablist">
+            <li class="w-full focus-within:z-10" role="presentation">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-current]="tipoAtivo === 'BID_ABERTO' ? 'page' : null"
+                (click)="tipoAtivo = 'BID_ABERTO'"
+                [ngClass]="{
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'BID_ABERTO',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'BID_ABERTO'
+                }"
+                class="inline-flex items-center justify-center w-full border rounded-l-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+              >
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l7-7-7-7Z"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h10a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1Z"/></svg>
+                1 – Bid Aberto
+              </button>
+            </li>
+            <li class="w-full focus-within:z-10" role="presentation">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-current]="tipoAtivo === 'BID_ENCERRADO' ? 'page' : null"
+                (click)="tipoAtivo = 'BID_ENCERRADO'"
+                [ngClass]="{
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'BID_ENCERRADO',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'BID_ENCERRADO'
+                }"
+                class="inline-flex items-center justify-center w-full border font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+              >
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11.917L9.724 16.6 19 7.3"/></svg>
+                2 – Bid Encerrado
+              </button>
+            </li>
+            <li class="w-full focus-within:z-10" role="presentation">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-current]="tipoAtivo === 'GANHADORES' ? 'page' : null"
+                (click)="tipoAtivo = 'GANHADORES'"
+                [ngClass]="{
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'GANHADORES',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'GANHADORES'
+                }"
+                class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+              >
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l4-4 4 4 5-5M4 18h16"/></svg>
+                3 – Ganhadores
+              </button>
+            </li>
+          </ul>
         </div>
 
         <div class="p-4">
-          <p class="text-sm text-gray-600 mb-4" [innerHTML]="descricaoTipo"></p>
+          <p class="text-sm text-[var(--app-text-muted)] mb-4" [innerHTML]="descricaoTipo"></p>
 
-          <div *ngIf="loading" class="py-8 text-center text-gray-500">
+          <div *ngIf="loading" class="py-8 text-center text-[var(--app-text-muted)]">
             <span class="animate-pulse">Carregando BIDs...</span>
           </div>
 
-          <div *ngIf="!loading && matches.length === 0" class="py-8 text-center text-gray-400">
+          <div *ngIf="!loading && matches.length === 0" class="py-8 text-center text-[var(--app-text-muted)]">
             Nenhum BID encontrado.
           </div>
 
-          <div *ngIf="!loading && matches.length > 0" class="overflow-x-auto rounded-xl border border-gray-200">
+          <div *ngIf="!loading && matches.length > 0" class="overflow-x-auto rounded-xl border border-[var(--app-border)]">
             <table class="min-w-[700px] w-full text-sm">
               <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">BID</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Disparos já feitos</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Ação</th>
+                <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase">BID</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase">Status</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase">Disparos já feitos</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase">Ação</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let m of matchesFiltrados" class="hover:bg-gray-50/80">
+              <tbody class="divide-y divide-[var(--app-border)]">
+                <tr *ngFor="let m of matchesFiltrados" class="hover:bg-[var(--app-nav-hover-bg)]">
                   <td class="px-4 py-3">
-                    <div class="font-semibold text-gray-900">{{ m.titulo }}</div>
-                    <div class="text-xs text-gray-500">{{ m.nome_grupo || 'Público' }} · {{ m.data_limite_aposta | date:'dd/MM/yyyy HH:mm' }}</div>
+                    <div class="font-semibold text-[var(--app-text)]">{{ m.titulo }}</div>
+                    <div class="text-xs text-[var(--app-text-muted)]">{{ m.nome_grupo || 'Público' }} · {{ m.data_limite_aposta | date:'dd/MM/yyyy HH:mm' }}</div>
                   </td>
                   <td class="px-4 py-3 text-center">
                     <span
                       [ngClass]="{
                         'bg-emerald-500/10 text-emerald-700': m.status === 'ABERTA',
-                        'bg-gray-100 text-gray-600': m.status !== 'ABERTA'
+                        'bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)]': m.status !== 'ABERTA'
                       }"
                       class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase"
                     >
@@ -142,8 +202,8 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                         [class.bg-emerald-100]="m.email_bid_aberto_em"
                         [class.text-emerald-700]="m.email_bid_aberto_em"
-                        [class.bg-gray-100]="!m.email_bid_aberto_em"
-                        [class.text-gray-500]="!m.email_bid_aberto_em"
+                        [class.bg-[var(--color-bg-surface-alt)]]="!m.email_bid_aberto_em"
+                        [class.text-[var(--app-text-muted)]]="!m.email_bid_aberto_em"
                       >
                         Aberto {{ m.email_bid_aberto_em ? '✓' : '—' }}
                       </span>
@@ -152,8 +212,8 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                         [class.bg-emerald-100]="m.email_bid_encerrado_em"
                         [class.text-emerald-700]="m.email_bid_encerrado_em"
-                        [class.bg-gray-100]="!m.email_bid_encerrado_em"
-                        [class.text-gray-500]="!m.email_bid_encerrado_em"
+                        [class.bg-[var(--color-bg-surface-alt)]]="!m.email_bid_encerrado_em"
+                        [class.text-[var(--app-text-muted)]]="!m.email_bid_encerrado_em"
                       >
                         Encerrado {{ m.email_bid_encerrado_em ? '✓' : '—' }}
                       </span>
@@ -162,8 +222,8 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                         [class.bg-emerald-100]="m.email_ganhadores_em"
                         [class.text-emerald-700]="m.email_ganhadores_em"
-                        [class.bg-gray-100]="!m.email_ganhadores_em"
-                        [class.text-gray-500]="!m.email_ganhadores_em"
+                        [class.bg-[var(--color-bg-surface-alt)]]="!m.email_ganhadores_em"
+                        [class.text-[var(--app-text-muted)]]="!m.email_ganhadores_em"
                       >
                         Ganhadores {{ m.email_ganhadores_em ? '✓' : '—' }}
                       </span>
@@ -174,7 +234,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                       <button
                         type="button"
                         (click)="verLogsDisparo(m)"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:border-indigo-400 transition"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)] hover:border-indigo-400 transition"
                         title="Ver log de disparos (destinatários e status)"
                       >
                         Ver log
@@ -210,27 +270,27 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
       </div>
 
       <!-- Aba Templates de e-mail -->
-      <div *ngIf="abaAtual === 'templates'" class="bg-white rounded-2xl border border-gray-100 shadow-md overflow-hidden">
+      <div *ngIf="abaAtual === 'templates'" class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] overflow-hidden">
         <div class="p-4 space-y-4">
           <div class="flex justify-between items-center">
-            <h3 class="text-xl font-bold text-gray-800">Templates de e-mail</h3>
+            <h3 class="text-xl font-bold text-[var(--app-text)]">Templates de e-mail</h3>
             <button (click)="novoTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Novo template</button>
           </div>
-          <div class="rounded-xl border border-gray-200 overflow-hidden">
-            <div *ngIf="templatesLoading" class="p-6 text-center text-gray-500">A carregar...</div>
-            <div *ngIf="!templatesLoading && templatesList.length === 0" class="p-6 text-center text-gray-400">Nenhum template. Crie um novo template.</div>
+          <div class="rounded-xl border border-[var(--app-border)] overflow-hidden">
+            <div *ngIf="templatesLoading" class="p-6 text-center text-[var(--app-text-muted)]">A carregar...</div>
+            <div *ngIf="!templatesLoading && templatesList.length === 0" class="p-6 text-center text-[var(--app-text-muted)]">Nenhum template. Crie um novo template.</div>
             <table *ngIf="!templatesLoading && templatesList.length > 0" class="min-w-full text-sm">
-              <thead class="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
+              <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] uppercase font-bold text-xs">
                 <tr>
                   <th class="px-4 py-3 text-left">Nome</th>
                   <th class="px-4 py-3 text-left">Assunto</th>
                   <th class="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let t of templatesList" class="hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium text-gray-900">{{ t.nome }}</td>
-                  <td class="px-4 py-3 text-gray-600">{{ t.assunto }}</td>
+              <tbody class="divide-y divide-[var(--app-border)]">
+                <tr *ngFor="let t of templatesList" class="hover:bg-[var(--app-nav-hover-bg)]">
+                  <td class="px-4 py-3 font-medium text-[var(--app-text)]">{{ t.nome }}</td>
+                  <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ t.assunto }}</td>
                   <td class="px-4 py-3 text-right">
                     <button (click)="visualizarTemplate(t)" class="mr-2 px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-bold hover:bg-sky-100" title="Visualizar">👁 Visualizar</button>
                     <button (click)="testeEnvioTemplate(t)" class="mr-2 px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold hover:bg-amber-100" title="Enviar e-mail de teste">✉ Teste</button>
@@ -246,33 +306,33 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
       </div>
 
       <!-- Aba Listas de e-mail -->
-      <div *ngIf="abaAtual === 'listas'" class="bg-white rounded-2xl border border-gray-100 shadow-md overflow-hidden">
+      <div *ngIf="abaAtual === 'listas'" class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] overflow-hidden">
         <div class="p-4 space-y-4">
           <div class="flex justify-between items-center">
             <div>
-              <h3 class="text-xl font-bold text-gray-800">Listas de e-mail</h3>
-              <p class="text-sm text-gray-500">Crie listas de destinatários para disparos.</p>
+              <h3 class="text-xl font-bold text-[var(--app-text)]">Listas de e-mail</h3>
+              <p class="text-sm text-[var(--app-text-muted)]">Crie listas de destinatários para disparos.</p>
             </div>
             <button (click)="novaLista()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Nova lista</button>
           </div>
-          <div class="rounded-xl border border-gray-200 overflow-hidden">
-            <div *ngIf="listasEmailLoading" class="p-6 text-center text-gray-500">A carregar...</div>
-            <div *ngIf="!listasEmailLoading && listasEmail.length === 0" class="p-6 text-center text-gray-400">Nenhuma lista. Crie uma nova lista.</div>
+          <div class="rounded-xl border border-[var(--app-border)] overflow-hidden">
+            <div *ngIf="listasEmailLoading" class="p-6 text-center text-[var(--app-text-muted)]">A carregar...</div>
+            <div *ngIf="!listasEmailLoading && listasEmail.length === 0" class="p-6 text-center text-[var(--app-text-muted)]">Nenhuma lista. Crie uma nova lista.</div>
             <table *ngIf="!listasEmailLoading && listasEmail.length > 0" class="min-w-full text-sm">
-              <thead class="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
+              <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] uppercase font-bold text-xs">
                 <tr>
                   <th class="px-4 py-3 text-left">Nome</th>
                   <th class="px-4 py-3 text-left">Descrição</th>
                   <th class="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let lista of listasEmail" class="hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium text-gray-900">{{ lista.nome }}</td>
-                  <td class="px-4 py-3 text-gray-600">{{ lista.descricao || '—' }}</td>
+              <tbody class="divide-y divide-[var(--app-border)]">
+                <tr *ngFor="let lista of listasEmail" class="hover:bg-[var(--app-nav-hover-bg)]">
+                  <td class="px-4 py-3 font-medium text-[var(--app-text)]">{{ lista.nome }}</td>
+                  <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ lista.descricao || '—' }}</td>
                   <td class="px-4 py-3 text-right">
                     <button (click)="abrirItensLista(lista)" class="mr-2 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-100">E-mails</button>
-                    <button (click)="editarLista(lista)" class="mr-2 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200" title="Editar">Editar</button>
+                    <button (click)="editarLista(lista)" class="mr-2 px-2 py-1 bg-[var(--color-bg-surface-alt)] text-[var(--app-text)] rounded text-xs font-bold hover:bg-[var(--app-nav-hover-bg)]" title="Editar">Editar</button>
                     <button (click)="excluirLista(lista)" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100" title="Excluir">Excluir</button>
                   </td>
                 </tr>
@@ -289,6 +349,13 @@ export class DisparoEmailsComponent implements OnInit {
   matches: any[] = [];
   loading = false;
   tipoAtivo: TipoDisparo = 'BID_ABERTO';
+
+  setTipoAtivo(value: string): void {
+    if (value === 'BID_ENCERRADO') this.tipoAtivo = 'BID_ENCERRADO';
+    else if (value === 'GANHADORES') this.tipoAtivo = 'GANHADORES';
+    else this.tipoAtivo = 'BID_ABERTO';
+  }
+
   currentUser: any = {};
   listas: any[] = [];
   templates: any[] = [];
@@ -337,6 +404,17 @@ export class DisparoEmailsComponent implements OnInit {
         this.loadListasEmail();
       }
     });
+  }
+
+  setAba(value: string): void {
+    if (value === 'templates') {
+      this.irAbaTemplates();
+    } else if (value === 'listas') {
+      this.irAbaListas();
+    } else {
+      this.abaAtual = 'disparo';
+      this.router.navigate([], { relativeTo: this.route, queryParams: { aba: null }, queryParamsHandling: 'merge' });
+    }
   }
 
   irAbaListas(): void {

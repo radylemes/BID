@@ -89,6 +89,10 @@ export class UserService {
     return this.http.put(`${this.apiUrl}/${id}`, dados);
   }
 
+  updateTheme(userId: number, tema_preferido: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${userId}/theme`, { tema_preferido });
+  }
+
   getUserStats(userId: number): Observable<any> {
     return this.http.get(`${this.apiUrl}/${userId}/stats`);
   }

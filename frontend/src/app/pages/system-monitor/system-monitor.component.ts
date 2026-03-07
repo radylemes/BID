@@ -33,14 +33,14 @@ import Swal from 'sweetalert2';
             </div>
             <button
               (click)="carregarErros()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-colors shadow-lg active:scale-95"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-colors active:scale-95"
               title="Atualizar"
             >
               🔄
             </button>
             <button
               (click)="limparHistorico()"
-              class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-3 rounded-xl transition-colors shadow-lg active:scale-95 text-sm font-bold"
+              class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-3 rounded-xl transition-colors active:scale-95 text-sm font-bold"
               title="Apagar todo o histórico de erros"
             >
               🗑️ Limpar histórico
@@ -69,7 +69,7 @@ import Swal from 'sweetalert2';
             [ngClass]="
               erro.resolvido
                 ? 'bg-gray-800/30 border-gray-800 opacity-60'
-                : 'bg-gray-800 border-rose-900/50 shadow-lg shadow-rose-900/10'
+                : 'bg-gray-800 border-rose-900/50'
             "
           >
             <div class="shrink-0">
@@ -114,7 +114,7 @@ import Swal from 'sweetalert2';
               <button
                 *ngIf="!erro.resolvido"
                 (click)="marcarResolvido(erro.id)"
-                class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-lg shadow-emerald-900/20"
+                class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors"
               >
                 Marcar Resolvido
               </button>

@@ -17,13 +17,13 @@ import * as XLSX from 'xlsx';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="container mx-auto p-4 bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 bg-[var(--app-bg)] min-h-screen">
       <div
-        class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-6 rounded-xl shadow-md border border-gray-100"
+        class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-[var(--color-bg-surface)] p-6 rounded-xl border border-[var(--app-border)]"
       >
         <div>
-          <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Gerenciar BIDs</h2>
-          <p class="text-sm text-gray-500 font-medium">
+          <h2 class="text-3xl font-extrabold text-[var(--app-text)] tracking-tight">Gerenciar BIDs</h2>
+          <p class="text-sm text-[var(--app-text-muted)] font-medium">
             Total de {{ matches.length }} BIDs cadastrados
           </p>
         </div>
@@ -53,151 +53,172 @@ import * as XLSX from 'xlsx';
         </div>
       </div>
 
-      <div class="bg-white shadow-xl rounded-2xl border border-gray-100 overflow-hidden">
-        <div *ngIf="loading" class="p-8 text-center text-gray-500">
+      <div class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] overflow-hidden">
+        <div *ngIf="loading" class="p-8 text-center text-[var(--app-text-muted)]">
           <span class="animate-pulse">Carregando BIDs...</span>
         </div>
-        <div *ngIf="!loading && matches.length === 0" class="p-8 text-center text-gray-400">
+        <div *ngIf="!loading && matches.length === 0" class="p-8 text-center text-[var(--app-text-muted)]">
           Nenhum bid encontrado. Crie um novo!
         </div>
 
         <div
           *ngIf="!loading && matches.length > 0"
-          class="border-b border-gray-200 bg-gray-50/50 px-4 pt-4"
+          class="border-b border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-4 pt-4 pb-4"
         >
-          <div class="flex gap-1 rounded-lg p-1 bg-gray-100 w-fit">
-            <button
-              type="button"
-              (click)="abaAtiva = 'atuais'"
-              [class.bg-white]="abaAtiva === 'atuais'"
-              [class.shadow-sm]="abaAtiva === 'atuais'"
-              [class.text-indigo-700]="abaAtiva === 'atuais'"
-              [class.font-semibold]="abaAtiva === 'atuais'"
-              class="px-4 py-2.5 rounded-md text-sm text-gray-600 hover:text-gray-800 transition"
+          <div class="sm:hidden">
+            <label for="tabs-bids" class="sr-only">Aba de BIDs</label>
+            <select
+              id="tabs-bids"
+              [value]="abaAtiva"
+              (change)="setAba($any($event.target).value)"
+              class="block w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             >
-              Em andamento ({{ matchesAtuaisCount }})
-            </button>
-            <button
-              type="button"
-              (click)="abaAtiva = 'anteriores'"
-              [class.bg-white]="abaAtiva === 'anteriores'"
-              [class.shadow-sm]="abaAtiva === 'anteriores'"
-              [class.text-indigo-700]="abaAtiva === 'anteriores'"
-              [class.font-semibold]="abaAtiva === 'anteriores'"
-              class="px-4 py-2.5 rounded-md text-sm text-gray-600 hover:text-gray-800 transition"
-            >
-              Anteriores ({{ matchesAnterioresCount }})
-            </button>
+              <option value="atuais">Em andamento ({{ matchesAtuaisCount }})</option>
+              <option value="anteriores">Anteriores ({{ matchesAnterioresCount }})</option>
+            </select>
           </div>
+          <ul class="hidden sm:flex text-sm font-medium text-center -space-x-px" role="tablist">
+            <li class="w-full focus-within:z-10" role="presentation">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-current]="abaAtiva === 'atuais' ? 'page' : null"
+                (click)="abaAtiva = 'atuais'"
+                [ngClass]="{
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtiva === 'atuais',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtiva !== 'atuais'
+                }"
+                class="inline-flex items-center justify-center w-full border rounded-l-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+              >
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                Em andamento ({{ matchesAtuaisCount }})
+              </button>
+            </li>
+            <li class="w-full focus-within:z-10" role="presentation">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-current]="abaAtiva === 'anteriores' ? 'page' : null"
+                (click)="abaAtiva = 'anteriores'"
+                [ngClass]="{
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtiva === 'anteriores',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtiva !== 'anteriores'
+                }"
+                class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+              >
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 1 1 0-4h14a2 2 0 1 1 0 4M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8m-9 4h4"/></svg>
+                Anteriores ({{ matchesAnterioresCount }})
+              </button>
+            </li>
+          </ul>
         </div>
 
         <div
           *ngIf="!loading && matches.length > 0 && displayedMatches.length > 0"
-          class="overflow-x-auto rounded-xl border border-gray-200/80"
+          class="overflow-x-auto overflow-y-visible border-t border-[var(--app-border)] -mx-2 sm:mx-0 px-2 sm:px-0"
         >
-          <table class="min-w-[900px] w-full text-sm">
-            <thead>
-              <tr class="bg-gray-50 border-b border-gray-200">
+          <table class="min-w-[700px] sm:min-w-[900px] w-full text-sm">
+            <thead class="sticky top-0 z-20">
+              <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
                 <th
-                  class="px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  class="w-[180px] min-w-[160px] sm:min-w-0 sm:w-auto sticky left-0 z-20 bg-[var(--color-bg-surface-alt)] px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)] align-middle"
                 >
                   BID
                 </th>
                 <th
-                  class="px-4 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle"
+                  title="Ingressos disponíveis / Não sorteados"
                 >
-                  Ingressos
+                  Ingr. / Não sort.
                 </th>
                 <th
-                  class="px-4 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap"
-                >
-                  Não sort.
-                </th>
-                <th
-                  class="px-4 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
                 >
                   Datas
                 </th>
                 <th
-                  class="px-4 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle"
                 >
                   Status
                 </th>
                 <th
-                  class="px-4 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
                 >
                   Ações
                 </th>
                 <th
-                  class="px-4 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
                 >
                   Relatórios
                 </th>
               </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-100">
-              <tr *ngFor="let m of displayedMatches" class="hover:bg-gray-50/80 transition-colors">
-                <td class="px-5 py-4">
-                  <div class="font-semibold text-gray-900">{{ m.titulo }}</div>
-                  <div
-                    class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-1.5"
-                  >
+            <tbody class="bg-[var(--color-bg-surface)] divide-y divide-[var(--app-border)]">
+              <tr *ngFor="let m of displayedMatches" class="group hover:bg-[var(--app-nav-hover-bg)] transition-colors">
+                <td class="w-[180px] min-w-[160px] sm:min-w-0 sm:w-auto sticky left-0 z-10 bg-[var(--color-bg-surface)] group-hover:bg-[var(--app-nav-hover-bg)] px-3 sm:px-5 py-3 sm:py-4 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)] align-middle">
+                  <div class="flex flex-col justify-center min-h-[52px]">
+                    <div class="font-semibold text-[var(--app-text)] truncate" [title]="m.titulo">{{ m.titulo }}</div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--app-text-muted)] mt-1">
+                      <span
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
+                      >
+                        {{ m.nome_grupo || 'Público' }}
+                      </span>
+                      <span class="inline-flex items-center gap-1 shrink-0">
+                        <span class="text-rose-500">📍</span>
+                        {{ m.local || 'Local não definido' }}
+                      </span>
+                      <span
+                        *ngIf="m.setor_evento_nome"
+                        class="inline-flex items-center gap-1 text-indigo-600 font-medium shrink-0"
+                        ><span aria-hidden="true">🪑</span> {{ m.setor_evento_nome }}</span
+                      >
+                    </div>
+                  </div>
+                </td>
+                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-center min-h-[52px] gap-1.5 flex-wrap">
                     <span
-                      class="inline-flex items-center px-2.5 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shrink-0"
+                      [title]="
+                        (m.ingressos_transferidos || 0) > 0
+                          ? (m.quantidade_premios_efetiva ?? m.quantidade_premios ?? 1) +
+                            ' orig., ' +
+                            m.ingressos_transferidos +
+                            ' transf.'
+                          : 'Ingressos'
+                      "
+                      ><img
+                        src="assets/allianz_ticket_blue_cartoon.png"
+                        alt=""
+                        class="w-4 h-4 object-contain inline-block"
+                        aria-hidden="true"
+                      />
+                      {{
+                        m.quantidade_premios_restante ??
+                          m.quantidade_premios_efetiva ??
+                          m.quantidade_premios ??
+                          1
+                      }}</span
                     >
-                      {{ m.nome_grupo || 'Público' }}
-                    </span>
-                    <span class="flex items-center gap-1"
-                      ><span class="text-rose-500">📍</span>
-                      {{ m.local || 'Local não definido' }}</span
+                    <span class="text-[var(--app-text-muted)] text-xs shrink-0">/</span>
+                    <span
+                      *ngIf="m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
+                      title="Não sorteados"
+                      ><span aria-hidden="true">🎟️</span> {{ m.ingressos_nao_sorteados }}</span
                     >
                     <span
-                      *ngIf="m.setor_evento_nome"
-                      class="flex items-center gap-1 text-indigo-600 font-medium"
-                      ><span aria-hidden="true">🪑</span> {{ m.setor_evento_nome }}</span
+                      *ngIf="m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0"
+                      class="text-[var(--app-text-muted)] text-xs shrink-0"
+                      title="Não sorteados"
+                      >—</span
                     >
                   </div>
                 </td>
-                <td class="px-4 py-4 text-center align-middle">
-                  <span
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200"
-                    [title]="
-                      (m.ingressos_transferidos || 0) > 0
-                        ? (m.quantidade_premios_efetiva ?? m.quantidade_premios ?? 1) +
-                          ' orig., ' +
-                          m.ingressos_transferidos +
-                          ' transf.'
-                        : null
-                    "
-                    ><img
-                      src="assets/allianz_ticket_blue_cartoon.png"
-                      alt=""
-                      class="w-4 h-4 object-contain inline-block"
-                      aria-hidden="true"
-                    />
-                    {{
-                      m.quantidade_premios_restante ??
-                        m.quantidade_premios_efetiva ??
-                        m.quantidade_premios ??
-                        1
-                    }}</span
-                  >
-                </td>
-                <td class="px-4 py-4 text-center align-middle">
-                  <span
-                    *ngIf="m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200"
-                    title="Não sorteados"
-                    ><span aria-hidden="true">🎟️</span> {{ m.ingressos_nao_sorteados }}</span
-                  >
-                  <span
-                    *ngIf="m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0"
-                    class="text-gray-300"
-                    >—</span
-                  >
-                </td>
-                <td class="px-4 py-4 text-center align-middle">
-                  <div class="flex flex-col gap-0.5 text-xs">
+                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-center min-h-[52px]">
+                  <div class="flex flex-col gap-0.5 text-xs whitespace-nowrap items-center">
                     <span
                       class="text-emerald-600 font-medium flex items-center justify-center gap-1"
                       ><span aria-hidden="true">🟢</span>
@@ -208,33 +229,36 @@ import * as XLSX from 'xlsx';
                       {{ m.data_limite_aposta | date: 'dd/MM HH:mm' }}</span
                     >
                   </div>
+                  </div>
                 </td>
-                <td class="px-4 py-4 text-center align-middle">
+                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-center min-h-[52px]">
                   <span
                     [ngClass]="{
                       'bg-emerald-500/10 text-emerald-700 border-emerald-300':
                         m.status === 'ABERTA',
-                      'bg-gray-100 text-gray-600 border-gray-200': m.status !== 'ABERTA',
+                      'bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] border-[var(--app-border)]': m.status !== 'ABERTA',
                     }"
-                    class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border"
+                    class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border shrink-0"
                     >{{ m.status }}</span
                   >
+                  </div>
                 </td>
-                <td class="px-4 py-4 text-right align-middle">
-                  <div class="flex justify-end items-center gap-1.5 flex-wrap">
+                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-end min-h-[52px] gap-1.5 flex-nowrap">
                     <button
                       (click)="m.status === 'ABERTA' && editarJogo(m)"
                       [disabled]="m.status !== 'ABERTA'"
                       [class.opacity-50]="m.status !== 'ABERTA'"
                       [class.cursor-not-allowed]="m.status !== 'ABERTA'"
-                      class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 transition disabled:hover:bg-blue-50"
+                      class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 transition disabled:hover:bg-blue-50 shrink-0"
                       [title]="m.status === 'ABERTA' ? 'Editar' : 'Edição não permitida'"
                     >
                       ✏️
                     </button>
                     <button
                       (click)="clonarJogo(m)"
-                      class="p-2 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 transition"
+                      class="p-2 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 transition shrink-0"
                       title="Clonar"
                     >
                       📑
@@ -242,23 +266,23 @@ import * as XLSX from 'xlsx';
                     <button
                       *ngIf="m.status === 'ABERTA'"
                       (click)="finalizarJogo(m)"
-                      class="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100 transition"
+                      class="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100 transition shrink-0"
                       title="Encerrar"
                     >
                       🏁
                     </button>
                     <button
                       (click)="excluirJogo(m)"
-                      class="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 transition"
+                      class="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 transition shrink-0"
                       title="Excluir"
                     >
                       🗑️
                     </button>
-                    <span class="w-px h-5 bg-gray-200 mx-0.5" *ngIf="m.status !== 'ABERTA'"></span>
+                    <span class="w-px h-5 bg-[var(--app-border)] mx-0.5 shrink-0" *ngIf="m.status !== 'ABERTA'"></span>
                     <button
                       *ngIf="m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
                       (click)="redistribuir(m)"
-                      class="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100 transition"
+                      class="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100 transition shrink-0"
                       title="Encaminhar sobresalentes"
                     >
                       🔄
@@ -266,18 +290,18 @@ import * as XLSX from 'xlsx';
                     <button
                       *ngIf="m.status !== 'ABERTA'"
                       (click)="acrescentarIngressos(m)"
-                      class="p-2 rounded-lg bg-teal-50 text-teal-600 hover:bg-teal-100 border border-teal-100 transition"
+                      class="p-2 rounded-lg bg-teal-50 text-teal-600 hover:bg-teal-100 border border-teal-100 transition shrink-0"
                       title="Acrescentar ingressos"
                     >
                       ➕
                     </button>
                   </div>
                 </td>
-                <td class="px-4 py-4 text-right align-middle">
-                  <div class="flex justify-end items-center gap-1.5">
+                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-end min-h-[52px] gap-1.5 flex-nowrap">
                     <button
                       (click)="dispararEmail(m)"
-                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition"
+                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition shrink-0"
                       title="Enviar e-mail"
                     >
                       ✉️ E-mail
@@ -285,7 +309,7 @@ import * as XLSX from 'xlsx';
                     <button
                       *ngIf="m.status !== 'ABERTA'"
                       (click)="baixarRelatorio(m, 'pdf')"
-                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition"
+                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition shrink-0"
                       title="PDF"
                     >
                       PDF
@@ -293,12 +317,12 @@ import * as XLSX from 'xlsx';
                     <button
                       *ngIf="m.status !== 'ABERTA'"
                       (click)="baixarRelatorio(m, 'excel')"
-                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition"
+                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition shrink-0"
                       title="Excel"
                     >
                       Excel
                     </button>
-                    <span *ngIf="m.status === 'ABERTA'" class="text-gray-300 text-xs">—</span>
+                    <span *ngIf="m.status === 'ABERTA'" class="text-[var(--app-text-muted)] text-xs shrink-0">—</span>
                   </div>
                 </td>
               </tr>
@@ -307,7 +331,7 @@ import * as XLSX from 'xlsx';
         </div>
         <div
           *ngIf="!loading && matches.length > 0 && displayedMatches.length === 0"
-          class="p-8 text-center text-gray-500"
+          class="p-8 text-center text-[var(--app-text-muted)]"
         >
           Nenhum BID nesta aba.
         </div>
@@ -322,6 +346,10 @@ export class MatchManagerComponent implements OnInit {
   currentUser: any = {};
   loading: boolean = false;
   abaAtiva: 'atuais' | 'anteriores' = 'atuais';
+
+  setAba(value: string): void {
+    this.abaAtiva = value === 'anteriores' ? 'anteriores' : 'atuais';
+  }
 
   private get hojeInicio(): Date {
     const h = new Date();

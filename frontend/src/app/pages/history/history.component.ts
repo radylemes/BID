@@ -9,13 +9,13 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 lg:p-8 pb-10 font-sans">
+    <div class="history-theme min-h-screen bg-[var(--app-bg)] p-3 sm:p-4 md:p-6 lg:p-8 pb-10 font-sans">
       <div class="max-w-full mx-auto">
         <div class="mb-4 sm:mb-6 lg:mb-8">
-          <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2 sm:gap-3">
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-[var(--app-text)] tracking-tight flex items-center gap-2 sm:gap-3">
             <span class="text-3xl sm:text-4xl">🏛️</span> Hall da Fama e Histórico
           </h1>
-          <p class="text-gray-500 font-medium text-xs sm:text-sm mt-1">
+          <p class="text-[var(--app-text-muted)] font-medium text-xs sm:text-sm mt-1">
             Veja como foram os BIDs passados, estatísticas de pontos e os grandes vencedores.
           </p>
         </div>
@@ -26,10 +26,10 @@ import { environment } from '../../../environments/environment';
 
         <div
           *ngIf="!loading && history.length === 0"
-          class="text-center py-12 sm:py-20 bg-white rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100"
+          class="text-center py-12 sm:py-20 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)]"
         >
           <span class="text-4xl sm:text-5xl block mb-3 grayscale opacity-30">📭</span>
-          <h3 class="text-gray-500 font-bold uppercase tracking-widest text-xs sm:text-sm px-2">
+          <h3 class="text-[var(--app-text-muted)] font-bold uppercase tracking-widest text-xs sm:text-sm px-2">
             Nenhum BID finalizado ainda.
           </h3>
         </div>
@@ -37,7 +37,7 @@ import { environment } from '../../../environments/environment';
         <div class="flex flex-col gap-3 sm:gap-4 lg:gap-6">
           <div
             *ngFor="let match of history"
-            class="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row transition-all hover:shadow-md"
+            class="bg-[var(--color-bg-surface)] rounded-xl lg:rounded-2xl border border-[var(--app-border)] overflow-hidden flex flex-col md:flex-row transition-all"
           >
             <div class="relative h-36 sm:h-44 md:h-auto md:w-1/3 lg:w-1/4 bg-gray-900 shrink-0 min-h-0">
               <img
@@ -115,19 +115,19 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <div
-              class="w-full md:w-auto p-4 sm:p-5 md:p-6 lg:p-8 border-t md:border-t-0 md:border-l border-gray-100 flex flex-col items-center justify-center shrink-0 bg-gray-50 md:w-64"
+              class="w-full md:w-auto p-4 sm:p-5 md:p-6 lg:p-8 border-t md:border-t-0 md:border-l border-[var(--app-border)] flex flex-col items-center justify-center shrink-0 bg-[var(--color-bg-surface-alt)] md:w-64"
             >
               <div class="text-center mb-3 sm:mb-4">
                 <span class="text-3xl sm:text-4xl block mb-1.5 sm:mb-2">🏆</span>
-                <h4 class="text-[10px] sm:text-xs font-black text-gray-500 uppercase tracking-widest">
+                <h4 class="text-[10px] sm:text-xs font-black text-[var(--app-text-muted)] uppercase tracking-widest">
                   {{ match.quantidade_premios }} Ingressos
                 </h4>
-                <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium">Distribuídos</p>
+                <p class="text-[9px] sm:text-[10px] text-[var(--app-text-muted)] font-medium">Distribuídos</p>
               </div>
 
               <button
                 (click)="abrirModalGanhadores(match)"
-                class="w-full max-w-xs md:max-w-none bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] sm:text-xs py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 uppercase tracking-wide"
+                class="w-full max-w-xs md:max-w-none bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] sm:text-xs py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl transition-all active:scale-95 uppercase tracking-wide"
               >
                 Ver apostas
               </button>
@@ -325,7 +325,7 @@ export class HistoryComponent implements OnInit {
       showCloseButton: true,
       showConfirmButton: false,
       customClass: {
-        popup: 'rounded-[2rem] p-4',
+        popup: 'history-modal-theme rounded-[2rem] p-4',
         closeButton: 'focus:outline-none',
       },
     });

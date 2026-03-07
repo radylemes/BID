@@ -74,16 +74,37 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
 
   readonly editorId = TINYMCE_EDITOR_ID;
   readonly tags = TAGS_TEMPLATE_EMAIL;
-  readonly tinymceInit = {
-    base_url: '/tinymce',
-    suffix: '.min',
-    plugins: 'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
-    toolbar: 'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | code | removeformat | help',
-    toolbar_mode: 'wrap' as const,
-    height: 480,
-    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }',
-    placeholder: 'Olá {{usuario.nome}}, escreva aqui o conteúdo do e-mail...',
-  };
+
+  /** Config do TinyMCE: usa tema escuro quando o app está em qualquer tema escuro (escuro-*). */
+  get tinymceInit(): Record<string, unknown> {
+    const theme = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : null;
+    const isDark = theme !== null && theme.startsWith('escuro');
+    const base = {
+      base_url: '/tinymce',
+      suffix: '.min',
+      plugins:
+        'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
+      toolbar:
+        'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | code | removeformat | help',
+      toolbar_mode: 'wrap' as const,
+      height: 480,
+      placeholder: 'Olá {{usuario.nome}}, escreva aqui o conteúdo do e-mail...',
+    };
+    if (isDark) {
+      return {
+        ...base,
+        skin: 'oxide-dark',
+        content_css: 'dark',
+        content_style:
+          'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; background: #1e293b; color: #f1f5f9; }',
+      };
+    }
+    return {
+      ...base,
+      content_style:
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }',
+    };
+  }
 
   constructor(
     private route: ActivatedRoute,

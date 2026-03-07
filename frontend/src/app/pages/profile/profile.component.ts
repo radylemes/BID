@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
 import { AuthService } from '../../services/auth.service';
 import { GuestService } from '../../services/guest.service';
+import { ThemeService, AppTheme, APP_THEMES } from '../../services/theme.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 
@@ -17,14 +18,312 @@ import { environment } from '../../../environments/environment';
         display: block;
         height: 100%;
       }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-gray-50,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-white,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-gray-50\\/30,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-gray-50\\/50 {
+        background-color: var(--color-bg-secondary);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .border-gray-50,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .border-gray-100,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .border-gray-200 {
+        border-color: var(--color-border-primary);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-900,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-800,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-700 {
+        color: var(--color-text-primary);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-600,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-500 {
+        color: var(--color-text-secondary);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-400,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-gray-300 {
+        color: var(--color-text-tertiary);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .hover\\:bg-gray-50\\/50:hover {
+        background-color: var(--color-bg-hover);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-indigo-50,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-indigo-100 {
+        background-color: rgba(99, 102, 241, 0.18);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-indigo-600 {
+        background-color: var(--color-primary);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .hover\\:bg-indigo-700:hover {
+        background-color: var(--color-primary-dark);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-indigo-700,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-indigo-600 {
+        color: var(--color-primary-light);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-emerald-50 {
+        background-color: rgba(16, 185, 129, 0.16);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-emerald-700,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-emerald-600 {
+        color: var(--color-success);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-amber-50 {
+        background-color: rgba(245, 158, 11, 0.16);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-amber-700,
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-amber-600 {
+        color: var(--color-warning);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-blue-50 {
+        background-color: rgba(59, 130, 246, 0.16);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-blue-500 {
+        color: var(--color-info);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-rose-50 {
+        background-color: rgba(244, 63, 94, 0.16);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .text-rose-600 {
+        color: var(--color-danger);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-emerald-200 {
+        background-color: rgba(16, 185, 129, 0.28);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-amber-200 {
+        background-color: rgba(245, 158, 11, 0.28);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-rose-200 {
+        background-color: rgba(244, 63, 94, 0.28);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .hover\\:bg-emerald-400:hover {
+        background-color: rgba(16, 185, 129, 0.4);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .hover\\:bg-amber-400:hover {
+        background-color: rgba(245, 158, 11, 0.4);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .hover\\:bg-rose-400:hover {
+        background-color: rgba(244, 63, 94, 0.4);
+      }
+
+      :host-context([data-theme='escuro']), :host-context([data-theme^='escuro-']) .bg-gray-800 {
+        background-color: #111827;
+      }
+
+      .profile-theme-switch {
+        width: 100%;
+        display: grid;
+        place-items: center;
+      }
+
+      .profile-theme-switch label {
+        cursor: pointer;
+      }
+
+      .profile-theme-switch.disabled label {
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+
+      .profile-theme-switch #profile-theme-checkbox {
+        display: none;
+      }
+
+      .profile-theme-switch .toggle {
+        height: 40px;
+        width: 110px;
+        border-radius: 9999px;
+        background: linear-gradient(to bottom, #6ec8ff, #1f73a7);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 6px 6px 10px #0000003d;
+        transition: all 0.5s ease-in-out;
+      }
+
+      .profile-theme-switch .mountains {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        z-index: 3;
+        background-color: #1d7371;
+        transition: all 0.5s ease-in-out;
+        clip-path: polygon(
+          0% 80%,
+          25% 50%,
+          40% 70%,
+          60% 35%,
+          65% 45%,
+          80% 20%,
+          100% 80%,
+          100% 100%,
+          0% 100%
+        );
+      }
+
+      .profile-theme-switch .cloud {
+        height: 4px;
+        width: 10px;
+        border-radius: 9999px;
+        background-color: #fff;
+        position: absolute;
+        top: 20%;
+        left: 10%;
+        filter: opacity(0.5);
+      }
+
+      .profile-theme-switch .sea {
+        height: 110px;
+        width: 300%;
+        border-radius: 50%;
+        position: absolute;
+        right: 50%;
+        bottom: -500%;
+        transform: translateX(50%);
+        transition: all 0.5s ease-in-out;
+        background: linear-gradient(to bottom, #3f75cc, #06063b, #06063b, #06063b, #06063b);
+      }
+
+      .profile-theme-switch .sea::before {
+        content: '';
+        height: 12px;
+        width: 7px;
+        background-color: rgba(254, 254, 254, 0.34);
+        filter: blur(5px);
+        position: absolute;
+        top: 2%;
+        left: 43%;
+      }
+
+      .profile-theme-switch .star {
+        height: 2px;
+        width: 2px;
+        position: absolute;
+        top: -50%;
+        right: 15%;
+        background-color: #fff;
+        transition: all 0.5s ease-in-out;
+        filter: blur(0.8px);
+        border-radius: 50%;
+      }
+
+      .profile-theme-switch .star::before {
+        content: '';
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        top: -50%;
+        right: 20px;
+        background-color: #fff;
+        transition: all 0.5s ease-in-out;
+        border-radius: 50%;
+      }
+
+      .profile-theme-switch .star::after {
+        content: '';
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        top: 10px;
+        right: -20px;
+        background-color: #fff;
+        transition: all 0.5s ease-in-out;
+        border-radius: 50%;
+      }
+
+      .profile-theme-switch .cloud::before {
+        content: '';
+        height: 6px;
+        width: 6px;
+        border-radius: 50%;
+        background-color: #fff;
+        position: absolute;
+        top: -50%;
+        right: 50%;
+        transform: translateX(50%);
+      }
+
+      .profile-theme-switch #profile-theme-checkbox:checked + .toggle {
+        background: linear-gradient(to bottom, #036daf, #003d63);
+      }
+
+      .profile-theme-switch .toggle::before {
+        content: '';
+        height: 20px;
+        width: 20px;
+        position: absolute;
+        top: 18%;
+        right: 30%;
+        border-radius: 50%;
+        background-color: #ffd34d;
+        transition: all 0.5s ease-in-out;
+        box-shadow: 0 0 15px #fef95fc3;
+      }
+
+      .profile-theme-switch .toggle::after {
+        content: '';
+        height: 18px;
+        width: 18px;
+        position: absolute;
+        top: 20%;
+        left: -60%;
+        border-radius: 50%;
+        background-color: #fff;
+        transition: all 0.5s ease-in-out;
+        box-shadow: 0 0 10px #ffffff88;
+      }
+
+      .profile-theme-switch #profile-theme-checkbox:checked + .toggle::before {
+        transform: translateX(210%);
+      }
+
+      .profile-theme-switch #profile-theme-checkbox:checked + .toggle::after {
+        transform: translateX(340%);
+      }
+
+      .profile-theme-switch #profile-theme-checkbox:checked + .toggle .mountains {
+        background-color: #05021a;
+        transform: translateY(100%);
+      }
+
+      .profile-theme-switch #profile-theme-checkbox:checked + .toggle .sea {
+        background-color: #05021a;
+        bottom: -210%;
+      }
+
+      .profile-theme-switch #profile-theme-checkbox:checked + .toggle .star {
+        transform: rotate(10deg);
+        top: 20%;
+      }
     `,
   ],
   template: `
-    <div class="min-h-full w-full flex flex-col min-h-0 bg-gray-50">
+    <div class="min-h-full w-full flex flex-col min-h-0 bg-[var(--app-bg)]">
       <div class="flex-1 flex flex-col min-h-0 w-full px-4 sm:px-4 lg:px-0 space-y-4 lg:space-y-6 pb-4 lg:pb-0">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 flex-shrink-0">
           <div
-            class="lg:col-span-3 bg-white rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden flex flex-col relative pb-6 lg:pb-8"
+            class="lg:col-span-3 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] overflow-hidden flex flex-col relative pb-6 lg:pb-8"
           >
             <div class="h-24 sm:h-28 lg:h-32 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
 
@@ -32,7 +331,7 @@ import { environment } from '../../../environments/environment';
               <div class="relative -mt-12 sm:-mt-14 lg:-mt-16 mb-3 lg:mb-4 flex justify-center w-full">
                 <div class="relative group">
                   <div
-                    class="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full border-4 lg:border-[6px] border-white bg-white shadow-md overflow-hidden flex items-center justify-center"
+                    class="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full border-4 lg:border-[6px] border-[var(--color-bg-surface)] bg-[var(--color-bg-surface)] overflow-hidden flex items-center justify-center"
                   >
                     <img
                       *ngIf="user?.foto"
@@ -49,7 +348,7 @@ import { environment } from '../../../environments/environment';
                   </div>
                   <button
                     (click)="fileInput.click()"
-                    class="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 sm:p-2 rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110"
+                    class="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 sm:p-2 rounded-full cursor-pointer transition-transform hover:scale-110"
                   >
                     <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -76,10 +375,10 @@ import { environment } from '../../../environments/environment';
                 </div>
               </div>
 
-              <h1 class="text-lg sm:text-xl lg:text-2xl font-black text-gray-900 leading-tight truncate max-w-full px-1">
+              <h1 class="text-lg sm:text-xl lg:text-2xl font-black text-[var(--app-text)] leading-tight truncate max-w-full px-1">
                 {{ user?.nome_completo || 'Carregando...' }}
               </h1>
-              <p class="text-xs sm:text-sm text-gray-500 mt-0.5 truncate max-w-full px-1">{{ user?.email || user?.username }}</p>
+              <p class="text-xs sm:text-sm text-[var(--app-text-muted)] mt-0.5 truncate max-w-full px-1">{{ user?.email || user?.username }}</p>
 
               <p
                 class="text-[10px] sm:text-[11px] font-black text-indigo-700 mt-2 uppercase tracking-widest bg-indigo-50 px-2 sm:px-3 py-1 rounded-lg"
@@ -104,12 +403,26 @@ import { environment } from '../../../environments/environment';
                   Conta Ativa
                 </span>
               </div>
+
+              <div class="mt-4 w-full max-w-xs">
+                <p class="text-[10px] font-black text-[var(--app-text-muted)] uppercase tracking-widest mb-2">Tema</p>
+                <select
+                  [ngModel]="selectedTheme"
+                  (ngModelChange)="alterarTema($event)"
+                  [disabled]="themeSaving"
+                  class="w-full rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--app-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  @for (opt of themeOptions; track opt.value) {
+                    <option [value]="opt.value">{{ opt.label }}</option>
+                  }
+                </select>
+              </div>
             </div>
           </div>
 
           <div class="lg:col-span-2 flex flex-col sm:flex-row lg:flex-col gap-3 h-full">
             <div
-              class="bg-white p-4 sm:p-5 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
+              class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
               <div
                 class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100"
@@ -120,18 +433,18 @@ import { environment } from '../../../environments/environment';
                   class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm"
                 />
               </div>
-              <div class="min-w-0">
-                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
                   Saldo Atual
                 </p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 leading-none mt-1 truncate">
-                  {{ user?.pontos || 0 }} <span class="text-xs sm:text-sm font-bold text-gray-400">pts</span>
+                <p class="text-base sm:text-xl md:text-2xl lg:text-3xl font-black text-[var(--app-text)] leading-none mt-1 break-words">
+                  {{ user?.pontos ?? 0 | number:'1.0-0':'pt' }} <span class="text-xs sm:text-sm font-bold text-[var(--app-text-muted)]">pts</span>
                 </p>
               </div>
             </div>
 
             <div
-              class="bg-white p-4 sm:p-5 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
+              class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
               <div
                 class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100"
@@ -143,47 +456,47 @@ import { environment } from '../../../environments/environment';
                 />
               </div>
               <div class="min-w-0">
-                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
                   Bids Vencidos
                 </p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 leading-none mt-1">
+                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-[var(--app-text)] leading-none mt-1">
                   {{ stats.bidsVencidos }}
                 </p>
               </div>
             </div>
 
             <div
-              class="bg-white p-4 sm:p-5 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
+              class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
               <div
                 class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center text-2xl sm:text-3xl border border-blue-100"
               >
                 📊
               </div>
-              <div class="min-w-0">
-                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
                   Média / Lance
                 </p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-gray-800 leading-none mt-1 truncate">
-                  {{ stats.mediaPontos }} <span class="text-xs sm:text-sm font-bold text-gray-400">pts</span>
+                <p class="text-base sm:text-xl md:text-2xl lg:text-3xl font-black text-[var(--app-text)] leading-none mt-1 break-words">
+                  {{ stats.mediaPontos | number:'1.0-0':'pt' }} <span class="text-xs sm:text-sm font-bold text-[var(--app-text-muted)]">pts</span>
                 </p>
               </div>
             </div>
           </div>
 
           <div
-            class="lg:col-span-7 bg-white p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex flex-col min-w-0"
+            class="lg:col-span-7 bg-[var(--color-bg-surface)] p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex flex-col min-w-0"
           >
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 lg:mb-6">
               <div class="min-w-0">
-                <h3 class="text-base sm:text-lg font-black text-gray-800 tracking-tight">Evolução do Saldo</h3>
-                <p class="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <h3 class="text-base sm:text-lg font-black text-[var(--app-text)] tracking-tight">Evolução do Saldo</h3>
+                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
                   Últimas movimentações reais
                 </p>
               </div>
 
               <div
-                class="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-black tracking-wider text-gray-500 uppercase flex-wrap"
+                class="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-black tracking-wider text-[var(--app-text-muted)] uppercase flex-wrap"
               >
                 <div class="flex items-center gap-1.5">
                   <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Créditos
@@ -199,7 +512,7 @@ import { environment } from '../../../environments/environment';
 
             <div
               *ngIf="historicoPontos.length === 0"
-              class="flex-1 flex flex-col items-center justify-center text-gray-400 h-48"
+              class="flex-1 flex flex-col items-center justify-center text-[var(--app-text-muted)] h-48"
             >
               <span class="text-4xl mb-2 opacity-50 grayscale">📊</span>
               <span class="text-xs font-bold uppercase tracking-wider"
@@ -209,14 +522,14 @@ import { environment } from '../../../environments/environment';
 
             <div
               *ngIf="historicoPontos.length > 0"
-              class="relative flex-1 flex items-end justify-between gap-1 sm:gap-2 lg:gap-3 min-h-[180px] sm:h-48 mt-auto border-b border-gray-200 pb-4 pt-6 sm:pb-6 sm:pt-8"
+              class="relative flex-1 flex items-end justify-between gap-1 sm:gap-2 lg:gap-3 min-h-[180px] sm:h-48 mt-auto border-b border-[var(--app-border)] pb-4 pt-6 sm:pb-6 sm:pt-8"
             >
               <div
                 class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-4 pt-6 sm:pb-6 sm:pt-8"
               >
-                <div class="w-full border-t border-dashed border-gray-100"></div>
-                <div class="w-full border-t border-dashed border-gray-100"></div>
-                <div class="w-full border-t border-dashed border-gray-100"></div>
+                <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
+                <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
+                <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
               </div>
 
               <div
@@ -243,7 +556,7 @@ import { environment } from '../../../environments/environment';
                 <div
                   class="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-2 px-3 rounded-lg font-bold pointer-events-none transition-opacity whitespace-nowrap shadow-xl flex flex-col items-center z-50"
                 >
-                  <span class="text-[9px] text-gray-300 font-medium mb-1 truncate max-w-[150px]">{{
+                  <span class="text-[9px] text-[var(--app-text-muted)] font-medium mb-1 truncate max-w-[150px]">{{
                     item.evento || 'Movimentação'
                   }}</span>
                   <span
@@ -256,11 +569,11 @@ import { environment } from '../../../environments/environment';
                   >
                     {{ item.tipo === 'credito' ? '+' : '-' }}{{ item.valor }} pts
                   </span>
-                  <span class="text-[8px] text-gray-400 font-normal mt-0.5">{{ item.data }}</span>
+                  <span class="text-[8px] text-[var(--app-text-muted)] font-normal mt-0.5">{{ item.data }}</span>
                 </div>
 
                 <div
-                  class="absolute -bottom-5 sm:-bottom-6 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] font-bold text-gray-400 whitespace-nowrap"
+                  class="absolute -bottom-5 sm:-bottom-6 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] font-bold text-[var(--app-text-muted)] whitespace-nowrap"
                 >
                   {{ item.data }}
                 </div>
@@ -270,16 +583,16 @@ import { environment } from '../../../environments/environment';
         </div>
 
         <div
-          class="bg-white p-4 sm:p-5 md:p-6 lg:p-8 rounded-xl lg:rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0"
+          class="bg-[var(--color-bg-surface)] p-4 sm:p-5 md:p-6 lg:p-8 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex-1 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0"
         >
           <div
             class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 lg:mb-6 flex-shrink-0"
           >
             <div class="min-w-0 flex-1">
-              <h2 class="text-xl sm:text-2xl font-black text-gray-800 tracking-tight leading-tight break-words">
+              <h2 class="text-xl sm:text-2xl font-black text-[var(--app-text)] tracking-tight leading-tight break-words">
                 Meus Convidados (Retirantes)
               </h2>
-              <p class="text-xs sm:text-sm text-gray-500 mt-1 leading-snug break-words">
+              <p class="text-xs sm:text-sm text-[var(--app-text-muted)] mt-1 leading-snug break-words">
                 Pessoas autorizadas a retirar seus ingressos ganhos na portaria do evento.
               </p>
             </div>
@@ -291,10 +604,10 @@ import { environment } from '../../../environments/environment';
             </button>
           </div>
 
-          <div class="overflow-x-auto overflow-y-auto flex-1 min-h-[200px] rounded-xl lg:rounded-2xl border border-gray-100 -mx-1 px-1 sm:mx-0 sm:px-0 bg-gray-50/30">
-            <table class="w-full text-left text-sm text-gray-600 min-w-0">
+          <div class="overflow-x-auto overflow-y-auto flex-1 min-h-[200px] rounded-xl lg:rounded-2xl border border-[var(--app-border)] -mx-1 px-1 sm:mx-0 sm:px-0 bg-[var(--color-bg-surface-alt)]">
+            <table class="w-full text-left text-sm text-[var(--app-text-muted)] min-w-0">
               <thead
-                class="bg-gray-50/50 text-[9px] sm:text-[10px] uppercase font-black text-gray-400 border-b border-gray-100 tracking-widest"
+                class="bg-[var(--color-bg-surface-alt)] text-[9px] sm:text-[10px] uppercase font-black text-[var(--app-text-muted)] border-b border-[var(--app-border)] tracking-widest"
               >
                 <tr>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">Nome / Contato</th>
@@ -305,17 +618,17 @@ import { environment } from '../../../environments/environment';
               </thead>
               <tbody>
                 <tr *ngIf="convidados.length === 0">
-                  <td colspan="4" class="text-center py-16 text-gray-400 font-medium">
+                  <td colspan="4" class="text-center py-16 text-[var(--app-text-muted)] font-medium">
                     Nenhum convidado cadastrado.
                   </td>
                 </tr>
                 <tr
                   *ngFor="let conv of convidados"
-                  class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                  class="border-b border-[var(--app-border)] hover:bg-[var(--app-nav-hover-bg)] transition-colors"
                 >
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">
-                    <p class="font-black text-gray-800 text-xs sm:text-sm">{{ conv.nome_completo }}</p>
-                    <p class="text-[10px] sm:text-[11px] text-gray-400 font-medium mt-0.5 hidden md:block truncate max-w-[180px] lg:max-w-none">
+                    <p class="font-black text-[var(--app-text)] text-xs sm:text-sm">{{ conv.nome_completo }}</p>
+                    <p class="text-[10px] sm:text-[11px] text-[var(--app-text-muted)] font-medium mt-0.5 hidden md:block truncate max-w-[180px] lg:max-w-none">
                       {{ conv.email || 'Sem e-mail' }} | {{ conv.telefone || 'Sem telefone' }}
                     </p>
                   </td>
@@ -323,13 +636,13 @@ import { environment } from '../../../environments/environment';
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">
                     <span
                       *ngIf="conv.eventos_participados"
-                      class="text-gray-600 text-[11px] font-bold italic"
+                      class="text-[var(--app-text-muted)] text-[11px] font-bold italic"
                     >
                       {{ conv.eventos_participados }}
                     </span>
                     <span
                       *ngIf="!conv.eventos_participados"
-                      class="text-gray-300 text-[11px] font-medium italic"
+                      class="text-[var(--app-text-muted)] text-[11px] font-medium italic"
                       >Nenhum evento ainda</span
                     >
                   </td>
@@ -360,6 +673,9 @@ export class ProfileComponent implements OnInit {
   user: any = null;
   apiUrl = environment.apiUri.replace('/api', '');
   convidados: any[] = [];
+  selectedTheme: AppTheme = 'claro';
+  themeOptions = APP_THEMES;
+  themeSaving = false;
 
   stats = { bidsVencidos: 0, mediaPontos: 0 };
 
@@ -376,6 +692,7 @@ export class ProfileComponent implements OnInit {
     private userService: UserService,
     private authService: AuthService,
     private guestService: GuestService,
+    private themeService: ThemeService,
     private cd: ChangeDetectorRef,
   ) {}
 
@@ -393,6 +710,8 @@ export class ProfileComponent implements OnInit {
       this.user.nome_completo = this.user.nome_completo || this.user.nome;
       this.user.username = this.user.username || this.user.login;
       this.user.role = this.user.role || this.user.perfil || 'user';
+      this.selectedTheme = this.themeService.resolveThemeFromUser(this.user);
+      this.themeService.applyTheme(this.selectedTheme);
       this.avatarUrlFinal = this.getAvatarUrlStable(this.user);
       this.carregarConvidados();
       this.carregarEstatisticas();
@@ -408,6 +727,8 @@ export class ProfileComponent implements OnInit {
               nome_completo: fullUser.nome_completo || fullUser.nome || this.user.nome_completo,
             };
             this.user = usuarioAtualizado;
+            this.selectedTheme = this.themeService.resolveThemeFromUser(usuarioAtualizado);
+            this.themeService.applyTheme(this.selectedTheme);
             localStorage.setItem('currentUser', JSON.stringify(usuarioAtualizado));
             // Atualiza o avatar no próximo ciclo para evitar NG0100 (ExpressionChangedAfterItHasBeenCheckedError)
             setTimeout(() => {
@@ -622,4 +943,28 @@ export class ProfileComponent implements OnInit {
       error: (err) => Swal.fire('Erro', 'Falha no envio.', 'error'),
     });
   }
+
+  alterarTema(theme: AppTheme) {
+    if (!this.user?.id || theme === this.selectedTheme || this.themeSaving) return;
+
+    const previousTheme = this.selectedTheme;
+    this.selectedTheme = theme;
+    this.themeService.setTheme(theme);
+    this.themeSaving = true;
+
+    this.userService.updateTheme(this.user.id, theme).subscribe({
+      next: () => {
+        this.user.tema_preferido = theme;
+        localStorage.setItem('currentUser', JSON.stringify(this.user));
+        this.themeSaving = false;
+      },
+      error: () => {
+        this.selectedTheme = previousTheme;
+        this.themeService.setTheme(previousTheme);
+        this.themeSaving = false;
+        Swal.fire('Erro', 'Não foi possível salvar seu tema.', 'error');
+      },
+    });
+  }
+
 }

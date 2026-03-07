@@ -104,6 +104,7 @@ async function initializeDatabase() {
         ativo TINYINT(1) DEFAULT 1,
         microsoft_id VARCHAR(255) NULL,
         foto VARCHAR(500) NULL,
+        tema_preferido VARCHAR(50) NOT NULL DEFAULT 'claro',
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE SET NULL,
         FOREIGN KEY (setor_id) REFERENCES setores(id) ON DELETE SET NULL,
@@ -360,6 +361,7 @@ async function initializeDatabase() {
     await ensureColumns("usuarios", [
       { nome: "microsoft_id", tipo: "VARCHAR(255) NULL" },
       { nome: "foto", tipo: "VARCHAR(500) NULL" },
+      { nome: "tema_preferido", tipo: "VARCHAR(50) NOT NULL DEFAULT 'claro'" },
       { nome: "empresa_id", tipo: "INT NULL" },
       { nome: "setor_id", tipo: "INT NULL" },
       { nome: "grupo_id", tipo: "INT NULL" },
@@ -383,6 +385,16 @@ async function initializeDatabase() {
     await ensureColumns("regras_pontuacao", [
       { nome: "grupo_id", tipo: "INT NULL" },
     ]);
+
+    // 2.1 Garante tema_preferido aceita temas claros e variantes escuras (carbon, amber, forest, violet)
+    try {
+      await connection.query(
+        "ALTER TABLE usuarios MODIFY COLUMN tema_preferido VARCHAR(50) NOT NULL DEFAULT 'claro'",
+      );
+      await connection.query(
+        "UPDATE usuarios SET tema_preferido = 'escuro-violet' WHERE tema_preferido = 'escuro'",
+      );
+    } catch (e) {}
 
     // 3. Garante utf8mb4 em templates_email (emojis e Unicode completo)
     try {

@@ -298,7 +298,7 @@ import { environment } from '../../../environments/environment';
                     <button
                       *ngIf="!group.checkin"
                       (click)="abrirAssinatura(group)"
-                      class="w-full min-w-[120px] sm:min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-md shadow-indigo-200 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
+                      class="w-full min-w-[120px] sm:min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
                     >
                       <span>✍️</span> Liberar
                     </button>
@@ -452,7 +452,7 @@ import { environment } from '../../../environments/environment';
             </button>
             <button
               (click)="confirmarCheckinLote()"
-              class="flex-[2] sm:w-2/3 py-2.5 sm:py-3 rounded-xl font-black text-white bg-emerald-500 shadow-md shadow-emerald-200 hover:bg-emerald-600 active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wide"
+              class="flex-[2] sm:w-2/3 py-2.5 sm:py-3 rounded-xl font-black text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wide"
             >
               Liberar Entradas
             </button>

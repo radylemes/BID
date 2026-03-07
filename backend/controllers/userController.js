@@ -128,6 +128,43 @@ exports.getUserById = async (req, res) => {
   }
 };
 
+exports.updateTheme = async (req, res) => {
+  try {
+    const targetUserId = Number(req.params.id);
+    const authenticatedUserId = Number(req.user?.id);
+    const { tema_preferido } = req.body || {};
+
+    if (!authenticatedUserId || authenticatedUserId !== targetUserId) {
+      return res.status(403).json({ message: "Você só pode alterar o próprio tema." });
+    }
+
+    const temasValidos = [
+      "claro", "claro-carbon", "claro-amber", "claro-forest", "claro-violet",
+      "escuro", "escuro-carbon", "escuro-amber", "escuro-forest", "escuro-violet",
+    ];
+    if (!temasValidos.includes(String(tema_preferido))) {
+      return res.status(400).json({ message: "Tema inválido. Use: claro, escuro-carbon, escuro-amber, escuro-forest ou escuro-violet." });
+    }
+
+    const [result] = await db.execute(
+      "UPDATE usuarios SET tema_preferido = ? WHERE id = ?",
+      [tema_preferido, targetUserId],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Usuário não encontrado." });
+    }
+
+    return res.json({
+      message: "Tema atualizado com sucesso.",
+      tema_preferido,
+    });
+  } catch (error) {
+    await logErro("USER_CONTROLLER_UPDATE_THEME", error);
+    return res.status(500).json({ error: "Erro ao atualizar tema do usuário." });
+  }
+};
+
 /** Retorna a lista de configurações de tenants (tenant 1 + tenant 2 se configurado). */
 function getTenantConfigs() {
   const configs = [

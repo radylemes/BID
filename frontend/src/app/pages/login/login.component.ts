@@ -16,7 +16,7 @@ import Swal from 'sweetalert2';
           [src]="wtorreLogoSrc"
           alt="WTorre"
           class="h-10 w-auto object-contain"
-          (error)="wtorreLogoSrc = 'assets/wtorre.png'" style="padding-bottom: 10px;height: 45px;"
+          style="padding-bottom: 10px;height: 45px;"
         />
         <div class="mt-2 w-28 h-0.5 bg-blue-500 rounded-full" aria-hidden="true"></div>
       </div>

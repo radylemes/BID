@@ -12,7 +12,7 @@ import { environment } from '../../environments/environment';
   standalone: true,
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="flex h-screen bg-gray-50 font-sans overflow-hidden">
+    <div class="flex h-screen bg-[var(--app-bg)] text-[var(--app-text)] font-sans overflow-hidden">
       <!-- Backdrop mobile -->
       <div
         *ngIf="sidebarOpen"
@@ -22,135 +22,135 @@ import { environment } from '../../environments/environment';
       ></div>
 
       <aside
-        class="fixed lg:relative inset-y-0 left-0 z-20 w-72 lg:w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm transition-transform duration-200 ease-out -translate-x-full lg:translate-x-0"
+        class="fixed lg:relative inset-y-0 left-0 z-20 w-72 lg:w-64 bg-[var(--color-bg-surface)] border-r border-[var(--app-border)] flex flex-col shadow-sm transition-transform duration-200 ease-out -translate-x-full lg:translate-x-0"
         [class.-translate-x-full]="!sidebarOpen"
         [class.translate-x-0]="sidebarOpen"
       >
-        <div class="h-16 flex items-center justify-between px-4 lg:px-6 bg-indigo-700 flex-shrink-0">
-          <h1 class="text-lg font-bold text-white tracking-widest flex items-center gap-2">
-            🏟️ <span>BID <span class="text-indigo-300 font-light">WTORRE</span></span>
+        <div class="relative h-16 flex items-center justify-center px-4 lg:px-6 border-b border-[var(--app-border)] flex-shrink-0">
+          <h1 class="text-lg font-bold text-[var(--app-text)] tracking-widest flex items-center">
+            <img src="assets/wtorre.svg" alt="WTorre" class="h-5 w-auto object-contain" />
           </h1>
           <button
             type="button"
-            class="lg:hidden p-2 rounded-md text-white/90 hover:bg-white/10 transition-colors"
+            class="lg:hidden absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] transition-colors"
             (click)="closeSidebar()"
             aria-label="Fechar menu"
           >
             <span class="text-xl leading-none">×</span>
           </button>
         </div>
-        <div class="bg-white p-3.5 border border-gray-200 shadow-sm">
+        <div class="mx-3 mt-4 mb-2 bg-[var(--color-bg-surface-alt)] p-3.5 rounded-xl border border-[var(--app-border)] shadow-sm">
           <div class="space-y-2">
             <div class="flex justify-between items-center text-xs gap-2">
-              <span class="text-gray-500 font-medium flex items-center gap-1.5 shrink-0">
+              <span class="text-[var(--app-text-muted)] font-medium flex items-center gap-1.5 shrink-0">
                 <img src="assets/wtoken_coin.png" alt="" class="w-6 h-6 object-contain" /> Saldo</span
               >
               <span class="font-black text-emerald-600"
                 >{{ saldo | number }}
-                <span class="text-[9px] text-gray-400 font-bold">pts</span></span
+                <span class="text-[9px] text-[var(--app-text-muted)] font-bold">pts</span></span
               >
             </div>
             <div class="flex justify-between items-center text-xs gap-2">
-              <span class="text-gray-500 font-medium flex items-center gap-1.5 shrink-0">
+              <span class="text-[var(--app-text-muted)] font-medium flex items-center gap-1.5 shrink-0">
                 <img src="assets/wtoken_coin_locked.png" alt="" class="w-6 h-6 object-contain" /> Em Jogo</span
               >
               <span class="font-black text-amber-500"
                 >{{ pontosEmJogo | number }}
-                <span class="text-[9px] text-gray-400 font-bold">pts</span></span
+                <span class="text-[9px] text-[var(--app-text-muted)] font-bold">pts</span></span
               >
             </div>
             <div class="flex justify-between items-center text-xs gap-2">
-              <span class="text-gray-500 font-medium flex items-center gap-1.5 shrink-0">
+              <span class="text-[var(--app-text-muted)] font-medium flex items-center gap-1.5 shrink-0">
                 <img src="assets/wtoken_dice.png" alt="" class="w-6 h-6 object-contain" /> Lances</span
               >
-              <span class="font-black text-indigo-600">{{ meusLancesCount }}</span>
+              <span class="font-black text-[var(--color-primary-light)]">{{ meusLancesCount }}</span>
             </div>
           </div>
         </div>
 
         <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto" (click)="closeSidebar()">
-          <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2">
+          <p class="px-3 text-xs font-black text-[#5f7aa3] uppercase tracking-widest mb-2 mt-3">
             Principal
           </p>
           <a
             routerLink="/dashboard"
-            routerLinkActive="bg-indigo-50 text-indigo-600"
-            class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
             <span class="mr-3 text-lg">🏠</span> Início
           </a>
 
           <a
             routerLink="/profile"
-            routerLinkActive="bg-indigo-50 text-indigo-600"
-            class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
             <span class="mr-3 text-lg">👤</span> Meu Perfil
           </a>
 
           <a
             routerLink="/minhas-apostas"
-            routerLinkActive="bg-indigo-50 text-indigo-600"
-            class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
             <span class="mr-3 text-lg">🎫</span> Meus Bids
           </a>
 
           <a
             routerLink="/historico"
-            routerLinkActive="bg-indigo-50 text-indigo-600"
-            class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
             <span class="mr-3 text-lg">🏛️</span> Histórico
           </a>
 
           <div *ngIf="isAdmin">
-            <div class="my-4 border-t border-gray-100"></div>
-            <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <div class="my-4 border-t border-[var(--app-border)]"></div>
+            <p class="px-3 text-xs font-black text-[#5f7aa3] uppercase tracking-widest mb-2">
               Administração
             </p>
             <a
               routerLink="/users"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">👥</span> Gerenciar Usuários
             </a>
             <a
               routerLink="/groups"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">🏢</span> Gerenciar Grupos
             </a>
             <a
               routerLink="/matches/manage"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">🎫</span> Gerenciar Bids
             </a>
             <a
               *ngIf="isAdmin || userRole === 'PORTARIA'"
               routerLink="/reception"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">📱</span> App Portaria
             </a>
             <a
               *ngIf="isAdmin"
               routerLink="/auditoria"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">🛡️</span> Auditoria
             </a>
             <a
               *ngIf="isAdmin"
               routerLink="/email/disparo"
-              routerLinkActive="bg-indigo-50 text-indigo-600"
-              class="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors group"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">📧</span> Disparo de E-mails
             </a>
@@ -165,10 +165,10 @@ import { environment } from '../../environments/environment';
           </div>
         </nav>
 
-        <div class="p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-3">
+        <div class="p-4 border-t border-[var(--app-border)] bg-[var(--color-bg-surface)] flex flex-col gap-3">
           <button
             (click)="logout()"
-            class="flex items-center justify-center w-full px-3 py-2 text-sm font-bold text-red-600 bg-white border border-red-100 hover:bg-red-50 rounded-lg transition-colors shadow-sm"
+            class="flex items-center justify-center w-full px-3 py-2 text-sm font-bold text-red-400 bg-transparent border border-red-500/70 hover:bg-red-500/10 rounded-xl transition-colors"
           >
             <span class="mr-2 text-lg">🚪</span> Sair do Sistema
           </button>
@@ -177,41 +177,41 @@ import { environment } from '../../environments/environment';
 
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header
-          class="h-16 bg-white border-b border-gray-200 flex items-center justify-between gap-3 px-4 lg:px-8 shadow-sm z-10"
+          class="h-16 bg-[var(--app-surface)] border-b border-[var(--app-border)] flex items-center justify-between gap-3 px-4 lg:px-8 shadow-sm z-10"
         >
           <div class="flex items-center gap-3 min-w-0 flex-1">
             <button
               type="button"
-              class="lg:hidden flex-shrink-0 p-2 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+              class="lg:hidden flex-shrink-0 p-2 rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-surface-muted)] transition-colors"
               (click)="toggleSidebar()"
               aria-label="Abrir menu"
             >
               <span class="text-xl leading-none">☰</span>
             </button>
-            <h2 class="text-lg lg:text-xl font-semibold text-gray-800 truncate">{{ pageTitle }}</h2>
+            <h2 class="text-lg lg:text-xl font-semibold text-[var(--app-text)] truncate">{{ pageTitle }}</h2>
           </div>
 
           <div class="flex items-center gap-4 flex-shrink-0">
             <a
               routerLink="/profile"
-              class="flex items-center gap-3 group hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+              class="flex items-center gap-3 group hover:bg-[var(--app-surface-muted)] px-3 py-1.5 rounded-lg transition-all cursor-pointer"
             >
               <div class="text-right hidden md:block">
                 <p
-                  class="text-sm font-bold text-gray-700 truncate max-w-[150px]"
+                  class="text-sm font-bold text-[var(--app-text)] truncate max-w-[150px]"
                   title="{{ userName }}"
                 >
                   {{ userName || 'Carregando...' }}
                 </p>
                 <p
-                  class="text-[10px] text-indigo-500 font-bold uppercase tracking-wider group-hover:text-indigo-700"
+                  class="text-[10px] text-[var(--color-primary-light)] font-bold uppercase tracking-wider group-hover:text-[var(--color-primary)]"
                 >
                   Ver Perfil
                 </p>
               </div>
 
               <div
-                class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200 overflow-hidden shadow-sm"
+                class="h-10 w-10 rounded-full bg-[var(--color-primary-lighter)] flex items-center justify-center text-[var(--color-primary-dark)] font-bold border border-[var(--app-border)] overflow-hidden shadow-sm"
               >
                 <img
                   *ngIf="fotoUrlCompleta"
@@ -225,7 +225,7 @@ import { environment } from '../../environments/environment';
           </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 lg:p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-[var(--app-bg)] p-4 lg:p-6">
           <router-outlet></router-outlet>
         </main>
       </div>

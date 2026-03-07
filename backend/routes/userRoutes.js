@@ -60,6 +60,7 @@ router.delete("/:id", userController.deleteUser);
 router.put("/:id/pontos", userController.updatePontos);
 router.put("/:id/status", userController.toggleStatus);
 router.put("/:id/grupo", userController.updateUserGroup);
+router.put("/:id/theme", authMiddleware, userController.updateTheme);
 router.get("/:id/historico", userController.getHistorico);
 
 // Adicione junto das suas outras rotas:

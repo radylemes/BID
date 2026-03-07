@@ -22,26 +22,26 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
     SystemMonitorComponent,
   ],
   template: `
-    <div class="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-screen">
       <div class="mb-8">
-        <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">
+        <h2 class="text-3xl font-extrabold text-[var(--app-text)] tracking-tight">
           Configurações do Sistema
         </h2>
-        <p class="text-sm text-gray-500 font-medium">
+        <p class="text-sm text-[var(--app-text-muted)] font-medium">
           Gerencie automações, regras de negócio e integrações.
         </p>
       </div>
 
       <div
-        class="bg-white shadow-md rounded-2xl border border-gray-100 flex flex-col lg:flex-row overflow-hidden min-h-[600px]"
+        class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] flex flex-col lg:flex-row overflow-hidden min-h-[600px]"
       >
-        <div class="w-full lg:w-64 bg-gray-50 border-r border-gray-100 p-4 space-y-2 shrink-0">
+        <div class="w-full lg:w-64 bg-[var(--color-bg-surface-alt)] border-r border-[var(--app-border)] p-4 space-y-2 shrink-0">
           <button
             (click)="abaAtual = 'pontos'"
             [ngClass]="
               abaAtual === 'pontos'
                 ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
             "
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
@@ -52,7 +52,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             [ngClass]="
               abaAtual === 'email'
                 ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
             "
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
@@ -63,7 +63,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             [ngClass]="
               abaAtual === 'tenants-status'
                 ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
             "
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
@@ -74,7 +74,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             [ngClass]="
               abaAtual === 'monitor'
                 ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
             "
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
@@ -82,22 +82,22 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
           </button>
         </div>
 
-        <div class="p-6 md:p-8 flex-1 bg-white">
-          <div *ngIf="loading" class="text-gray-400 animate-pulse font-bold text-center py-10">
+        <div class="p-6 md:p-8 flex-1 bg-[var(--color-bg-surface)]">
+          <div *ngIf="loading" class="text-[var(--app-text-muted)] animate-pulse font-bold text-center py-10">
             Carregando dados...
           </div>
 
           <div *ngIf="abaAtual === 'pontos' && !loading">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
               <div>
-                <h3 class="text-xl font-black text-gray-800">Automação de Pontos</h3>
-                <p class="text-xs text-gray-500 mt-1">
+                <h3 class="text-xl font-black text-[var(--app-text)]">Automação de Pontos</h3>
+                <p class="text-xs text-[var(--app-text-muted)] mt-1">
                   Configure regras de ganho de pontos e aplique filtros específicos.
                 </p>
               </div>
               <button
                 (click)="abrirModalRegra()"
-                class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-5 rounded-xl shadow-md shadow-emerald-200 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-5 rounded-xl transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
               >
                 <span class="text-lg leading-none">+</span> Nova Regra
               </button>
@@ -105,20 +105,20 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
 
             <div
               *ngIf="rules.length === 0"
-              class="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-200"
+              class="text-center py-16 bg-[var(--color-bg-surface-alt)] rounded-2xl border border-dashed border-[var(--app-border)]"
             >
               <span class="text-5xl opacity-30 grayscale mb-3 block">🕰️</span>
-              <h4 class="text-gray-600 font-bold">Nenhuma regra configurada</h4>
+              <h4 class="text-[var(--app-text-muted)] font-bold">Nenhuma regra configurada</h4>
             </div>
 
             <div *ngIf="rules.length > 0" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div
                 *ngFor="let rule of rules"
-                class="bg-white p-5 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between"
+                class="bg-[var(--color-bg-surface)] p-5 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between"
                 [ngClass]="
                   rule.ativo
-                    ? 'border-indigo-100 shadow-sm hover:shadow-md'
-                    : 'border-gray-200 opacity-60 grayscale'
+                    ? 'border-indigo-100'
+                    : 'border-[var(--app-border)] opacity-60 grayscale'
                 "
               >
                 <div
@@ -129,7 +129,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                 <div>
                   <div class="flex justify-between items-start mb-2 pl-2">
                     <div class="flex-1 pr-3">
-                      <h4 class="font-black text-gray-800 text-sm leading-tight">
+                      <h4 class="font-black text-[var(--app-text)] text-sm leading-tight">
                         {{ rule.descricao }}
                       </h4>
 
@@ -162,7 +162,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                           [ngClass]="
                             rule.somente_ativos
                               ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                              : 'bg-gray-100 text-gray-500 border-gray-200'
+                              : 'bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] border-[var(--app-border)]'
                           "
                         >
                           {{ rule.somente_ativos ? '✅ Somente Ativos' : '👁️ Todos Usuários' }}
@@ -186,11 +186,11 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
 
                 <div class="mt-4 pl-2 space-y-3">
                   <div
-                    class="bg-gray-50 rounded-xl p-3 border border-gray-100 flex items-center justify-between text-xs"
+                    class="bg-[var(--color-bg-surface-alt)] rounded-xl p-3 border border-[var(--app-border)] flex items-center justify-between text-xs"
                   >
-                    <div class="flex items-center gap-2 text-gray-700 font-bold">
+                    <div class="flex items-center gap-2 text-[var(--app-text)] font-bold">
                       <span class="text-indigo-600">+{{ rule.pontos }} pts</span>
-                      <span class="text-gray-300">|</span>
+                      <span class="text-[var(--app-text-muted)]">|</span>
                       <span class="font-medium"
                         >🔁 A cada {{ rule.frequencia_valor }} {{ rule.frequencia_tipo }}</span
                       >
@@ -198,14 +198,14 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                     <div class="flex gap-1">
                       <button
                         (click)="abrirModalRegra(rule)"
-                        class="text-gray-400 hover:text-indigo-500 transition-colors p-1"
+                        class="text-[var(--app-text-muted)] hover:text-indigo-500 transition-colors p-1"
                         title="Editar"
                       >
                         ✏️
                       </button>
                       <button
                         (click)="deletarRegra(rule.id)"
-                        class="text-gray-400 hover:text-rose-500 transition-colors p-1"
+                        class="text-[var(--app-text-muted)] hover:text-rose-500 transition-colors p-1"
                         title="Apagar"
                       >
                         🗑️
@@ -213,7 +213,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                     </div>
                   </div>
 
-                  <div class="text-[9px] text-gray-400 flex justify-between items-center">
+                  <div class="text-[9px] text-[var(--app-text-muted)] flex justify-between items-center">
                     <span *ngIf="rule.ultima_execucao" title="Última Execução"
                       >Última: {{ rule.ultima_execucao | date: 'dd/MM HH:mm' }}</span
                     >

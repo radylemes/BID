@@ -1,0 +1,160 @@
+/**
+ * BID WTORRE - Light Theme Tokens (variantes: default, Carbon, Amber, Forest, Violet)
+ * Cada variante ativa quando data-theme="claro" ou data-theme="claro-{nome}".
+ * O tema "claro" (default) está em styles.scss :root.
+ */
+
+/* ---------- Claro explícito (replica :root para data-theme="claro") ---------- */
+:root[data-theme='claro'],
+[data-theme='claro'] {
+  --color-primary: #4f46e5;
+  --color-primary-dark: #4338ca;
+  --color-primary-light: #6366f1;
+  --color-primary-lighter: #c7d2fe;
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f1f5f9;
+  --color-bg-hover: #eef2ff;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-alt: #f8fafc;
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-border-primary: #e5e7eb;
+  --color-border-secondary: #d1d5db;
+  --color-border-light: #f3f4f6;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --app-nav-hover-bg: #eef2ff;
+  --app-nav-active-bg: #e0e7ff;
+  --app-nav-active-text: #3730a3;
+  --tab-active-bg: #e0e7ff;
+  --tab-active-text: var(--color-text-primary);
+}
+
+/* ---------- Claro Carbon (Zinc + Cyan) ---------- */
+:root[data-theme='claro-carbon'],
+[data-theme='claro-carbon'] {
+  --color-primary: #06b6d4;
+  --color-primary-dark: #0891b2;
+  --color-primary-light: #22d3ee;
+  --color-primary-lighter: #a5f3fc;
+  --color-bg-primary: #fafafa;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f4f4f5;
+  --color-bg-hover: #e4e4e7;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-alt: #f4f4f5;
+  --color-text-primary: #18181b;
+  --color-text-secondary: #52525b;
+  --color-text-tertiary: #71717a;
+  --color-text-muted: #a1a1aa;
+  --color-border-primary: #e4e4e7;
+  --color-border-secondary: #d4d4d8;
+  --color-border-light: #f4f4f5;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --app-nav-hover-bg: rgba(6, 182, 212, 0.08);
+  --app-nav-active-bg: rgba(6, 182, 212, 0.16);
+  --app-nav-active-text: #0891b2;
+  --tab-active-bg: rgba(6, 182, 212, 0.16);
+  --tab-active-text: var(--color-text-primary);
+}
+
+/* ---------- Claro Amber (Stone + Amber) ---------- */
+:root[data-theme='claro-amber'],
+[data-theme='claro-amber'] {
+  --color-primary: #d97706;
+  --color-primary-dark: #b45309;
+  --color-primary-light: #f59e0b;
+  --color-primary-lighter: #fde68a;
+  --color-bg-primary: #fafaf9;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f5f5f4;
+  --color-bg-hover: #fef3c7;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-alt: #f5f5f4;
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-tertiary: #78716c;
+  --color-text-muted: #a8a29e;
+  --color-border-primary: #e7e5e4;
+  --color-border-secondary: #d6d3d1;
+  --color-border-light: #f5f5f4;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --app-nav-hover-bg: #fef3c7;
+  --app-nav-active-bg: #fde68a;
+  --app-nav-active-text: #b45309;
+  --tab-active-bg: #fde68a;
+  --tab-active-text: var(--color-text-primary);
+}
+
+/* ---------- Claro Forest (Emerald) ---------- */
+:root[data-theme='claro-forest'],
+[data-theme='claro-forest'] {
+  --color-primary: #059669;
+  --color-primary-dark: #047857;
+  --color-primary-light: #10b981;
+  --color-primary-lighter: #a7f3d0;
+  --color-bg-primary: #ecfdf5;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #d1fae5;
+  --color-bg-hover: #a7f3d0;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-alt: #d1fae5;
+  --color-text-primary: #022c22;
+  --color-text-secondary: #047857;
+  --color-text-tertiary: #059669;
+  --color-text-muted: #0d9488;
+  --color-border-primary: #a7f3d0;
+  --color-border-secondary: #6ee7b7;
+  --color-border-light: #d1fae5;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --app-nav-hover-bg: rgba(5, 150, 105, 0.1);
+  --app-nav-active-bg: rgba(5, 150, 105, 0.2);
+  --app-nav-active-text: #047857;
+  --tab-active-bg: rgba(5, 150, 105, 0.2);
+  --tab-active-text: var(--color-text-primary);
+}
+
+/* ---------- Claro Violet (Violet) ---------- */
+:root[data-theme='claro-violet'],
+[data-theme='claro-violet'] {
+  --color-primary: #7c3aed;
+  --color-primary-dark: #6d28d9;
+  --color-primary-light: #8b5cf6;
+  --color-primary-lighter: #ddd6fe;
+  --color-bg-primary: #f5f3ff;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #ede9fe;
+  --color-bg-hover: #e9e5ff;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-alt: #ede9fe;
+  --color-text-primary: #2e1065;
+  --color-text-secondary: #5b21b6;
+  --color-text-tertiary: #6d28d9;
+  --color-text-muted: #8b5cf6;
+  --color-border-primary: #ddd6fe;
+  --color-border-secondary: #c4b5fd;
+  --color-border-light: #ede9fe;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --app-nav-hover-bg: rgba(124, 58, 237, 0.08);
+  --app-nav-active-bg: rgba(124, 58, 237, 0.18);
+  --app-nav-active-text: #6d28d9;
+  --tab-active-bg: rgba(124, 58, 237, 0.18);
+  --tab-active-text: var(--color-text-primary);
+}

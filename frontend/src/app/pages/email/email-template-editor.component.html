@@ -1,20 +1,20 @@
-<div class="h-full flex flex-col min-h-0">
+<div class="h-full flex flex-col min-h-0 bg-[var(--app-bg)]">
   <!-- Cabeçalho fixo -->
-  <div class="flex-shrink-0 px-4 md:px-6 py-4 bg-white border-b border-gray-200">
+  <div class="flex-shrink-0 px-4 md:px-6 py-4 bg-[var(--color-bg-surface)] border-b border-[var(--app-border)]">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <a href="javascript:void(0)" (click)="voltar()" class="text-gray-500 hover:text-indigo-600 p-1 rounded-lg hover:bg-gray-100 cursor-pointer">
+        <a href="javascript:void(0)" (click)="voltar()" class="text-[var(--app-text-muted)] hover:text-indigo-600 p-1 rounded-lg hover:bg-[var(--app-nav-hover-bg)] cursor-pointer">
           ← Voltar
         </a>
-        <h1 class="text-2xl font-extrabold text-gray-800">
+        <h1 class="text-2xl font-extrabold text-[var(--app-text)]">
           {{ isEdit ? 'Editar template' : 'Novo template de e-mail' }}
         </h1>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" (click)="preview()" [disabled]="saving" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 rounded-lg font-medium text-sm">
+        <button type="button" (click)="preview()" [disabled]="saving" class="px-4 py-2 bg-[var(--color-bg-surface-alt)] hover:bg-[var(--app-nav-hover-bg)] disabled:opacity-50 text-[var(--app-text)] rounded-lg font-medium text-sm">
           {{ saving ? 'A gerar...' : 'Visualizar' }}
         </button>
-        <button type="button" (click)="voltar()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+        <button type="button" (click)="voltar()" class="px-4 py-2 border border-[var(--app-border)] rounded-lg text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)] font-medium">
           Cancelar
         </button>
         <button type="button" (click)="salvar()" [disabled]="saving" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-bold">
@@ -24,25 +24,25 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="flex-1 flex items-center justify-center text-gray-500">A carregar template...</div>
+  <div *ngIf="loading" class="flex-1 flex items-center justify-center text-[var(--app-text-muted)]">A carregar template...</div>
 
   <!-- Layout: menu lateral (nome, assunto, tags, opções) + apenas o editor à direita -->
   <div *ngIf="!loading" class="flex-1 min-h-0 flex overflow-hidden">
     <!-- Barra lateral: formulário + menu do corpo (tags, HTML, pré-visualizar) -->
-    <aside class="w-72 flex-shrink-0 bg-white border-r border-gray-200 p-4 flex flex-col gap-5 overflow-y-auto">
+    <aside class="w-72 flex-shrink-0 bg-[var(--color-bg-surface)] border-r border-[var(--app-border)] p-4 flex flex-col gap-5 overflow-y-auto">
       <div>
-        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Nome do template</label>
-        <input type="text" [(ngModel)]="nome" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Convite evento" />
+        <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase mb-2">Nome do template</label>
+        <input type="text" [(ngModel)]="nome" class="w-full px-3 py-2.5 border border-[var(--app-border)] rounded-lg text-sm bg-[var(--color-bg-surface)] text-[var(--app-text)] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Convite evento" />
       </div>
       <div>
-        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Assunto do e-mail</label>
-        <input type="text" [(ngModel)]="assunto" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Convite: {{ '{{evento.titulo}}' }}" />
+        <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase mb-2">Assunto do e-mail</label>
+        <input type="text" [(ngModel)]="assunto" class="w-full px-3 py-2.5 border border-[var(--app-border)] rounded-lg text-sm bg-[var(--color-bg-surface)] text-[var(--app-text)] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Convite: {{ '{{evento.titulo}}' }}" />
       </div>
-      <div class="border-t border-gray-100 pt-4">
-        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Corpo do e-mail (editor visual)</label>
-        <p class="text-xs text-gray-500 mb-3">Formate o texto com a barra de ferramentas. Use as tags abaixo para dados dinâmicos (evento, usuário).</p>
+      <div class="border-t border-[var(--app-border)] pt-4">
+        <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase mb-2">Corpo do e-mail (editor visual)</label>
+        <p class="text-xs text-[var(--app-text-muted)] mb-3">Formate o texto com a barra de ferramentas. Use as tags abaixo para dados dinâmicos (evento, usuário).</p>
         <div class="space-y-2">
-          <button *ngFor="let t of tags" type="button" (click)="insertTag(t.tag)" [title]="t.desc" class="w-full text-left px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-mono hover:bg-gray-200 border border-gray-200 truncate">
+          <button *ngFor="let t of tags" type="button" (click)="insertTag(t.tag)" [title]="t.desc" class="w-full text-left px-3 py-2 bg-[var(--color-bg-surface-alt)] text-[var(--app-text)] rounded-lg text-xs font-mono hover:bg-[var(--app-nav-hover-bg)] border border-[var(--app-border)] truncate">
             {{ t.tag }}
           </button>
           <button type="button" (click)="abrirEditorHtml()" class="w-full px-3 py-2.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 border border-indigo-200">
@@ -50,9 +50,9 @@
           </button>
         </div>
       </div>
-      <div class="border-t border-gray-100 pt-4">
-        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Pré-visualizar com evento</label>
-        <select [(ngModel)]="partidaIdPreview" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white">
+      <div class="border-t border-[var(--app-border)] pt-4">
+        <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase mb-2">Pré-visualizar com evento</label>
+        <select [(ngModel)]="partidaIdPreview" class="w-full px-3 py-2.5 border border-[var(--app-border)] rounded-lg text-sm bg-[var(--color-bg-surface)] text-[var(--app-text)]">
           <option [ngValue]="null">Dados de exemplo</option>
           <option *ngFor="let p of partidas" [ngValue]="p.id">{{ p.titulo }}</option>
         </select>
@@ -60,7 +60,7 @@
     </aside>
 
     <!-- À direita: apenas o editor -->
-    <main class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden bg-white">
+    <main class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden bg-[var(--color-bg-surface)]">
       <div class="flex-1 min-h-0 tinymce-editor-wrapper">
         <editor
           [id]="editorId"
@@ -76,17 +76,17 @@
 
 <!-- Modal de pré-visualização -->
 <div *ngIf="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" (click)="fecharModalPreview()" role="dialog" aria-modal="true" aria-labelledby="modal-preview-title">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" (click)="$event.stopPropagation()">
-    <div class="flex-shrink-0 px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-      <h2 id="modal-preview-title" class="text-lg font-bold text-gray-800">Pré-visualização</h2>
-      <button type="button" (click)="fecharModalPreview()" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+  <div class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] w-full max-w-3xl max-h-[90vh] flex flex-col" (click)="$event.stopPropagation()">
+    <div class="flex-shrink-0 px-5 py-4 border-b border-[var(--app-border)] flex items-center justify-between">
+      <h2 id="modal-preview-title" class="text-lg font-bold text-[var(--app-text)]">Pré-visualização</h2>
+      <button type="button" (click)="fecharModalPreview()" class="p-2 text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)] rounded-lg">
         <span class="sr-only">Fechar</span>
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
     <div class="flex-1 min-h-0 overflow-auto p-5">
-      <p class="text-sm text-gray-600 mb-3">Assunto: <strong>{{ previewAssunto }}</strong></p>
-      <div class="border border-gray-200 rounded-lg p-4 bg-white text-sm prose prose-sm max-w-none" [innerHTML]="previewHtmlSafe"></div>
+      <p class="text-sm text-[var(--app-text-muted)] mb-3">Assunto: <strong class="text-[var(--app-text)]">{{ previewAssunto }}</strong></p>
+      <div class="border border-[var(--app-border)] rounded-lg p-4 bg-[var(--color-bg-surface-alt)] text-sm prose prose-sm max-w-none text-[var(--app-text)]" [innerHTML]="previewHtmlSafe"></div>
     </div>
   </div>
 </div>

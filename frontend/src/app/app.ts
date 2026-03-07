@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ThemeService } from './services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -8,4 +9,8 @@ import { RouterOutlet } from '@angular/router';
   // O template é SÓ ISSO. O Router decide qual layout carregar.
   template: `<router-outlet></router-outlet>`,
 })
-export class App {}
+export class App {
+  constructor(private themeService: ThemeService) {
+    this.themeService.initializeFromStorage();
+  }
+}
