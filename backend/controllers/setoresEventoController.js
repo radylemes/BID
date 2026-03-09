@@ -64,7 +64,9 @@ exports.deleteOne = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "Setor não encontrado." });
     }
+    const nome = rows[0].nome;
     await db.execute("DELETE FROM setores_evento WHERE id = ?", [id]);
+    await gravarAuditoria(null, req.user?.id, "SETORES_EVENTO", "DELETE", id, { nome });
     res.json({ message: "Setor excluído. BIDs que o usavam ficarão sem setor." });
   } catch (error) {
     await logErro("SETORES_EVENTO_DELETE", error);

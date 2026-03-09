@@ -111,7 +111,9 @@ exports.loginMicrosoft = async (req, res) => {
         [oid],
       );
       if (uId.length > 0) userLocal = uId[0];
-    } catch (e) {}
+    } catch (e) {
+      await logErro("AUTH_CONTROLLER_LOGIN_MICROSOFT_GET_USER", e);
+    }
 
     if (!userLocal) {
       const [uMail] = await db.execute(
@@ -132,7 +134,9 @@ exports.loginMicrosoft = async (req, res) => {
             "UPDATE usuarios SET microsoft_id = ?, is_ad_user = 1 WHERE id = ?",
             [oid, userLocal.id],
           );
-        } catch (err) {}
+        } catch (err) {
+          await logErro("AUTH_CONTROLLER_LOGIN_MICROSOFT_UPDATE_MSID", err);
+        }
       }
     }
 

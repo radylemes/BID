@@ -328,6 +328,10 @@ exports.createList = async (req, res) => {
       "SELECT id, nome, descricao, criado_em FROM listas_email WHERE id = ?",
       [result.insertId]
     );
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "CREATE_LIST", result.insertId, {
+      nome: String(nome).trim(),
+      descricao: descricao ? String(descricao).trim() : null,
+    });
     res.status(201).json(rows[0]);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_CREATE_LIST", error);
@@ -351,6 +355,10 @@ exports.updateList = async (req, res) => {
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Lista não encontrada." });
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "UPDATE_LIST", id, {
+      nome: String(nome).trim(),
+      descricao: descricao ? String(descricao).trim() : null,
+    });
     res.json(rows[0]);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_UPDATE_LIST", error);
@@ -361,10 +369,14 @@ exports.updateList = async (req, res) => {
 exports.deleteList = async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await db.execute("DELETE FROM listas_email WHERE id = ?", [id]);
-    if (result.affectedRows === 0) {
+    const [listRows] = await db.query("SELECT id, nome FROM listas_email WHERE id = ?", [id]);
+    if (listRows.length === 0) {
       return res.status(404).json({ error: "Lista não encontrada." });
     }
+    await db.execute("DELETE FROM listas_email WHERE id = ?", [id]);
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "DELETE_LIST", id, {
+      nome: listRows[0].nome,
+    });
     res.json({ message: "Lista excluída." });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_DELETE_LIST", error);
@@ -401,6 +413,10 @@ exports.addListItem = async (req, res) => {
       "SELECT id, lista_id, email, nome_opcional, criado_em FROM listas_email_itens WHERE id = ?",
       [result.insertId]
     );
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "ADD_LIST_ITEM", result.insertId, {
+      lista_id: listaId,
+      email: String(email).trim(),
+    });
     res.status(201).json(rows[0]);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_ADD_LIST_ITEM", error);
@@ -411,13 +427,21 @@ exports.addListItem = async (req, res) => {
 exports.removeListItem = async (req, res) => {
   try {
     const { listaId, itemId } = req.params;
-    const [result] = await db.execute(
+    const [itemRows] = await db.query(
+      "SELECT id, email FROM listas_email_itens WHERE id = ? AND lista_id = ?",
+      [itemId, listaId]
+    );
+    if (itemRows.length === 0) {
+      return res.status(404).json({ error: "Item não encontrado." });
+    }
+    await db.execute(
       "DELETE FROM listas_email_itens WHERE id = ? AND lista_id = ?",
       [itemId, listaId]
     );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Item não encontrado." });
-    }
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "REMOVE_LIST_ITEM", itemId, {
+      lista_id: listaId,
+      email: itemRows[0].email,
+    });
     res.json({ message: "Item removido." });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_REMOVE_LIST_ITEM", error);
@@ -477,6 +501,10 @@ exports.importCsv = async (req, res) => {
         row
       );
     }
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "IMPORT_CSV", listaId, {
+      lista_id: listaId,
+      adicionados: toInsert.length,
+    });
     res.json({ adicionados: toInsert.length, mensagem: `${toInsert.length} e-mail(s) importado(s).` });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_IMPORT_CSV", error);
@@ -521,6 +549,11 @@ exports.importUsers = async (req, res) => {
       );
       adicionados++;
     }
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "IMPORT_USERS", listaId, {
+      lista_id: listaId,
+      adicionados,
+      total_usuarios: usuarios.length,
+    });
     res.json({
       adicionados,
       ignorados_duplicados: usuarios.length - adicionados,
@@ -592,6 +625,11 @@ exports.createTemplate = async (req, res) => {
       "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email WHERE id = ?",
       [result.insertId]
     );
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "CREATE_TEMPLATE", result.insertId, {
+      nome: String(nome).trim(),
+      assunto: String(assunto).trim(),
+      tipo_disparo: tipo_disparo || null,
+    });
     res.status(201).json(rows[0]);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_CREATE_TEMPLATE", error);
@@ -631,6 +669,11 @@ exports.updateTemplate = async (req, res) => {
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Template não encontrado." });
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "UPDATE_TEMPLATE", id, {
+      nome: String(nome).trim(),
+      assunto: String(assunto).trim(),
+      tipo_disparo: tipo_disparo || null,
+    });
     res.json(rows[0]);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_UPDATE_TEMPLATE", error);
@@ -642,10 +685,14 @@ exports.updateTemplate = async (req, res) => {
 exports.deleteTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await db.execute("DELETE FROM templates_email WHERE id = ?", [id]);
-    if (result.affectedRows === 0) {
+    const [templateRows] = await db.query("SELECT id, nome FROM templates_email WHERE id = ?", [id]);
+    if (templateRows.length === 0) {
       return res.status(404).json({ error: "Template não encontrado." });
     }
+    await db.execute("DELETE FROM templates_email WHERE id = ?", [id]);
+    await gravarAuditoria(db, req.user?.id, "EMAIL", "DELETE_TEMPLATE", id, {
+      nome: templateRows[0].nome,
+    });
     res.json({ message: "Template excluído." });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_DELETE_TEMPLATE", error);
@@ -958,27 +1005,30 @@ exports.getDisparosLog = async (req, res) => {
        LIMIT 50`,
       [partidaId]
     );
-    const logs = rows.map((row) => {
-      let detalhes = {};
-      try {
-        detalhes = row.detalhes ? JSON.parse(row.detalhes) : {};
-      } catch (e) {
-        detalhes = { raw: row.detalhes };
-      }
-      const dataHora = row.data_hora;
-      const dataHoraIso =
-        dataHora instanceof Date
-          ? dataHora.toISOString()
-          : dataHora
-            ? new Date(dataHora).toISOString()
-            : null;
-      return {
-        id: row.id,
-        data_hora: dataHoraIso || dataHora,
-        admin_nome: row.admin_nome,
-        ...detalhes,
-      };
-    });
+    const logs = await Promise.all(
+      rows.map(async (row) => {
+        let detalhes = {};
+        try {
+          detalhes = row.detalhes ? JSON.parse(row.detalhes) : {};
+        } catch (e) {
+          await logErro("EMAIL_CONTROLLER_GET_DISPAROS_LOG_PARSE", e);
+          detalhes = { raw: row.detalhes };
+        }
+        const dataHora = row.data_hora;
+        const dataHoraIso =
+          dataHora instanceof Date
+            ? dataHora.toISOString()
+            : dataHora
+              ? new Date(dataHora).toISOString()
+              : null;
+        return {
+          id: row.id,
+          data_hora: dataHoraIso || dataHora,
+          admin_nome: row.admin_nome,
+          ...detalhes,
+        };
+      })
+    );
     res.json(logs);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_GET_DISPAROS_LOG", error);
@@ -1075,7 +1125,7 @@ async function buildListaGanhadoresPdf(partidaId) {
           fotoDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
         }
       } catch (e) {
-        // ignora se não conseguir ler o arquivo
+        logErro("EMAIL_CONTROLLER_PDF_READ_PHOTO", e).catch(() => {});
       }
     }
     return {

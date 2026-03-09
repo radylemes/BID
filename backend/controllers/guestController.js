@@ -87,6 +87,10 @@ exports.updateGuest = async (req, res) => {
       "UPDATE convidados SET nome_completo = ?, cpf = ?, email = ?, telefone = ? WHERE id = ?",
       [nome_completo, cpf, email || null, telefone || null, id],
     );
+    await gravarAuditoria(null, req.user?.id, "CONVIDADOS", "UPDATE", id, {
+      nome_completo,
+      cpf,
+    });
     res.json({ message: "Convidado atualizado!" });
   } catch (error) {
     await logErro("GUEST_CONTROLLER_UPDATE_GUEST", error);
@@ -97,7 +101,14 @@ exports.updateGuest = async (req, res) => {
 exports.deleteGuest = async (req, res) => {
   const { id } = req.params;
   try {
+    const [rows] = await db.execute("SELECT id, nome_completo FROM convidados WHERE id = ?", [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Convidado não encontrado." });
+    }
     await db.execute("DELETE FROM convidados WHERE id = ?", [id]);
+    await gravarAuditoria(null, req.user?.id, "CONVIDADOS", "DELETE", id, {
+      nome_completo: rows[0].nome_completo,
+    });
     res.json({ message: "Convidado excluído!" });
   } catch (error) {
     await logErro("GUEST_CONTROLLER_DELETE_GUEST", error);

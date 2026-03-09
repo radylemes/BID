@@ -232,6 +232,7 @@ exports.getTenantsStatus = async (req, res) => {
           item.message = `${graphResponse.status}: ${msg}`;
         }
       } catch (err) {
+        await logErro("USER_CONTROLLER_GET_TENANTS_STATUS_ITEM", err);
         item.message = err.response?.data?.error?.message || err.message || "Erro ao conectar";
       }
       results.push(item);
@@ -863,6 +864,7 @@ exports.uploadAvatar = async (req, res) => {
       filePath,
       userId,
     ]);
+    await gravarAuditoria(null, req.user?.id, "USER", "UPLOAD_AVATAR", userId, { userId });
     res.json({ message: "Foto atualizada com sucesso", path: filePath });
   } catch (error) {
     await logErro("USER_CONTROLLER_UPLOAD_AVATAR", error);
