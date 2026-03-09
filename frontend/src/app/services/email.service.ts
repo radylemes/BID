@@ -23,6 +23,7 @@ export interface TemplateEmail {
   nome: string;
   assunto: string;
   corpo_html: string;
+  tipo_disparo?: string | null;
   criado_em?: string;
   atualizado_em?: string;
 }
@@ -132,11 +133,12 @@ export class EmailService {
     return this.http.get<TemplateEmail>(`${this.apiUrl}/templates/${id}`);
   }
 
-  createTemplate(nome: string, assunto: string, corpo_html: string): Observable<TemplateEmail> {
+  createTemplate(nome: string, assunto: string, corpo_html: string, tipo_disparo?: string | null): Observable<TemplateEmail> {
     return this.http.post<TemplateEmail>(`${this.apiUrl}/templates`, {
       nome,
       assunto,
       corpo_html,
+      tipo_disparo: tipo_disparo ?? null,
     });
   }
 
@@ -144,12 +146,14 @@ export class EmailService {
     id: number,
     nome: string,
     assunto: string,
-    corpo_html: string
+    corpo_html: string,
+    tipo_disparo?: string | null
   ): Observable<TemplateEmail> {
     return this.http.put<TemplateEmail>(`${this.apiUrl}/templates/${id}`, {
       nome,
       assunto,
       corpo_html,
+      tipo_disparo: tipo_disparo ?? null,
     });
   }
 

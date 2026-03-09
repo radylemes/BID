@@ -885,7 +885,7 @@ export class SettingsComponent implements OnInit {
   }
 
   clonarTemplate(t: TemplateEmail) {
-    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '').subscribe({
+    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '', t.tipo_disparo ?? undefined).subscribe({
       next: () => {
         this.loadTemplates();
         Swal.fire({ icon: 'success', title: 'Template clonado.', timer: 1500, showConfirmButton: false });

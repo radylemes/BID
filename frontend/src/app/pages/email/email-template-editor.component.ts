@@ -62,6 +62,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
   nome = '';
   assunto = '';
   corpoHtml = '';
+  tipoDisparo: string | null = null;
   loading = false;
   saving = false;
   partidas: { id: number; titulo: string }[] = [];
@@ -143,6 +144,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
           this.nome = t?.nome ?? '';
           this.assunto = t?.assunto ?? '';
           this.corpoHtml = (t as any)?.corpo_html ?? t?.corpo_html ?? '';
+          this.tipoDisparo = (t as any)?.tipo_disparo ?? t?.tipo_disparo ?? null;
           this.loading = false;
           this.cdr.markForCheck();
         },
@@ -253,7 +255,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
       Swal.fire('Erro ao salvar', msg, 'error');
     };
     if (this.isEdit && this.id != null) {
-      this.emailService.updateTemplate(this.id, this.nome, this.assunto, this.corpoHtml).subscribe({
+      this.emailService.updateTemplate(this.id, this.nome, this.assunto, this.corpoHtml, this.tipoDisparo ?? undefined).subscribe({
         next: () => {
           Swal.fire({ icon: 'success', title: 'Template atualizado.', timer: 1500, showConfirmButton: false });
           this.voltar();
@@ -263,7 +265,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
         this.saving = false;
       });
     } else {
-      this.emailService.createTemplate(this.nome, this.assunto, this.corpoHtml).subscribe({
+      this.emailService.createTemplate(this.nome, this.assunto, this.corpoHtml, this.tipoDisparo ?? undefined).subscribe({
         next: () => {
           Swal.fire({ icon: 'success', title: 'Template criado.', timer: 1500, showConfirmButton: false });
           this.voltar();

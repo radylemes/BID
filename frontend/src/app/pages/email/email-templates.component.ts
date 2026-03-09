@@ -161,6 +161,15 @@ export class EmailTemplatesComponent implements OnInit {
             <input id="tpl-assunto" class="swal2-input w-full m-0" value="${t?.assunto || ''}" placeholder="Ex: Convite: {{evento.titulo}}">
           </div>
           <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tipo de disparo</label>
+            <select id="tpl-tipo" class="swal2-input w-full m-0 text-sm">
+              <option value="" ${!t?.tipo_disparo ? 'selected' : ''}>Qualquer</option>
+              <option value="BID_ABERTO" ${t?.tipo_disparo === 'BID_ABERTO' ? 'selected' : ''}>Bid aberto</option>
+              <option value="BID_ENCERRADO" ${t?.tipo_disparo === 'BID_ENCERRADO' ? 'selected' : ''}>Bid encerrado</option>
+              <option value="GANHADORES" ${t?.tipo_disparo === 'GANHADORES' ? 'selected' : ''}>Ganhadores</option>
+            </select>
+          </div>
+          <div>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Corpo (HTML)</label>
             <textarea id="tpl-corpo" class="swal2-textarea w-full m-0 font-mono text-sm" rows="12" placeholder="<p>Olá {{usuario.nome}},</p><p>Evento: {{evento.titulo}}</p>">${(t?.corpo_html || '').replace(new RegExp('<' + '/textarea>', 'gi'), '<\\/textarea>')}</textarea>
           </div>
@@ -190,13 +199,15 @@ export class EmailTemplatesComponent implements OnInit {
       preConfirm: () => {
         const nome = (document.getElementById('tpl-nome') as HTMLInputElement)?.value?.trim();
         const assunto = (document.getElementById('tpl-assunto') as HTMLInputElement)?.value?.trim();
+        const tipoEl = document.getElementById('tpl-tipo') as HTMLSelectElement | null;
+        const tipo_disparo = tipoEl?.value?.trim() || null;
         let corpo = (document.getElementById('tpl-corpo') as HTMLTextAreaElement)?.value ?? '';
         corpo = corpo.replace(new RegExp('<\\\\/textarea>', 'gi'), '</' + 'textarea>');
         if (!nome || !assunto) {
           Swal.showValidationMessage('Nome e assunto são obrigatórios.');
           return null;
         }
-        return { nome, assunto, corpo_html: corpo };
+        return { nome, assunto, corpo_html: corpo, tipo_disparo };
       },
       didOpen: () => {
         const container = Swal.getHtmlContainer();
@@ -230,9 +241,9 @@ export class EmailTemplatesComponent implements OnInit {
       },
     }).then((result) => {
       if (result.isConfirmed && result.value) {
-        const { nome, assunto, corpo_html } = result.value;
+        const { nome, assunto, corpo_html, tipo_disparo } = result.value;
         if (isEdit && t) {
-          this.emailService.updateTemplate(t.id, nome, assunto, corpo_html).subscribe({
+          this.emailService.updateTemplate(t.id, nome, assunto, corpo_html, tipo_disparo ?? undefined).subscribe({
             next: () => {
               this.carregar();
               Swal.fire({ icon: 'success', title: 'Template atualizado.', timer: 1500, showConfirmButton: false });
@@ -240,7 +251,7 @@ export class EmailTemplatesComponent implements OnInit {
             error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao atualizar.', 'error'),
           });
         } else {
-          this.emailService.createTemplate(nome, assunto, corpo_html).subscribe({
+          this.emailService.createTemplate(nome, assunto, corpo_html, tipo_disparo ?? undefined).subscribe({
             next: () => {
               this.carregar();
               Swal.fire({ icon: 'success', title: 'Template criado.', timer: 1500, showConfirmButton: false });
@@ -273,7 +284,7 @@ export class EmailTemplatesComponent implements OnInit {
   }
 
   clonarTemplate(t: TemplateEmail) {
-    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '').subscribe({
+    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '', t.tipo_disparo ?? undefined).subscribe({
       next: () => {
         this.carregar();
         Swal.fire({ icon: 'success', title: 'Template clonado.', timer: 1500, showConfirmButton: false });

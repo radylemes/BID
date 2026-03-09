@@ -535,10 +535,12 @@ exports.importUsers = async (req, res) => {
 
 // ==================== TEMPLATES ====================
 
+const TIPOS_DISPARO_VALIDOS = ["BID_ABERTO", "BID_ENCERRADO", "GANHADORES"];
+
 exports.getTemplates = async (req, res) => {
   try {
     const [rows] = await db.query(
-      "SELECT id, nome, assunto, corpo_html, criado_em, atualizado_em FROM templates_email ORDER BY nome ASC"
+      "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email ORDER BY nome ASC"
     );
     res.json(rows);
   } catch (error) {
@@ -551,7 +553,7 @@ exports.getTemplateById = async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await db.query(
-      "SELECT id, nome, assunto, corpo_html, criado_em, atualizado_em FROM templates_email WHERE id = ?",
+      "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email WHERE id = ?",
       [id]
     );
     if (rows.length === 0) {
@@ -570,18 +572,24 @@ exports.createTemplate = async (req, res) => {
     const nome = body.nome;
     const assunto = body.assunto;
     const corpo_html = body.corpo_html;
+    let tipo_disparo = body.tipo_disparo;
     if (!nome || !String(nome).trim()) {
       return res.status(400).json({ error: "Nome do template é obrigatório." });
     }
     if (!assunto || !String(assunto).trim()) {
       return res.status(400).json({ error: "Assunto é obrigatório." });
     }
+    if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
+      return res.status(400).json({ error: "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO ou GANHADORES." });
+    }
+    if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
+    else tipo_disparo = String(tipo_disparo).trim();
     const [result] = await db.execute(
-      "INSERT INTO templates_email (nome, assunto, corpo_html) VALUES (?, ?, ?)",
-      [String(nome).trim(), String(assunto).trim(), corpo_html != null ? String(corpo_html) : ""]
+      "INSERT INTO templates_email (nome, assunto, corpo_html, tipo_disparo) VALUES (?, ?, ?, ?)",
+      [String(nome).trim(), String(assunto).trim(), corpo_html != null ? String(corpo_html) : "", tipo_disparo]
     );
     const [rows] = await db.query(
-      "SELECT id, nome, assunto, corpo_html, criado_em, atualizado_em FROM templates_email WHERE id = ?",
+      "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email WHERE id = ?",
       [result.insertId]
     );
     res.status(201).json(rows[0]);
@@ -602,18 +610,24 @@ exports.updateTemplate = async (req, res) => {
     const nome = body.nome;
     const assunto = body.assunto;
     const corpo_html = body.corpo_html;
+    let tipo_disparo = body.tipo_disparo;
     if (!nome || !String(nome).trim()) {
       return res.status(400).json({ error: "Nome do template é obrigatório." });
     }
     if (!assunto || !String(assunto).trim()) {
       return res.status(400).json({ error: "Assunto é obrigatório." });
     }
+    if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
+      return res.status(400).json({ error: "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO ou GANHADORES." });
+    }
+    if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
+    else tipo_disparo = String(tipo_disparo).trim();
     await db.execute(
-      "UPDATE templates_email SET nome = ?, assunto = ?, corpo_html = ? WHERE id = ?",
-      [String(nome).trim(), String(assunto).trim(), corpo_html != null ? String(corpo_html) : "", id]
+      "UPDATE templates_email SET nome = ?, assunto = ?, corpo_html = ?, tipo_disparo = ? WHERE id = ?",
+      [String(nome).trim(), String(assunto).trim(), corpo_html != null ? String(corpo_html) : "", tipo_disparo, id]
     );
     const [rows] = await db.query(
-      "SELECT id, nome, assunto, corpo_html, criado_em, atualizado_em FROM templates_email WHERE id = ?",
+      "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email WHERE id = ?",
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Template não encontrado." });
@@ -1114,7 +1128,11 @@ async function buildListaGanhadoresPdf(partidaId) {
     });
     return Buffer.from(pdfBuffer);
   } finally {
-    if (browser) await browser.close();
+    try {
+      if (browser) await browser.close();
+    } catch (closeErr) {
+      await logErro("EMAIL_CONTROLLER_PUPPETEER_CLOSE", closeErr);
+    }
   }
 }
 

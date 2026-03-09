@@ -313,6 +313,7 @@ async function initializeDatabase() {
         nome VARCHAR(255) NOT NULL,
         assunto VARCHAR(255) NOT NULL,
         corpo_html LONGTEXT NOT NULL,
+        tipo_disparo VARCHAR(50) NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
@@ -384,6 +385,10 @@ async function initializeDatabase() {
     ]);
     await ensureColumns("regras_pontuacao", [
       { nome: "grupo_id", tipo: "INT NULL" },
+    ]);
+
+    await ensureColumns("templates_email", [
+      { nome: "tipo_disparo", tipo: "VARCHAR(50) NULL" },
     ]);
 
     // 2.1 Garante tema_preferido aceita temas claros e variantes escuras (carbon, amber, forest, violet)

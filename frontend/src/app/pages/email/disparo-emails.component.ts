@@ -284,6 +284,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 <tr>
                   <th class="px-4 py-3 text-left">Nome</th>
                   <th class="px-4 py-3 text-left">Assunto</th>
+                  <th class="px-4 py-3 text-left">Tipo</th>
                   <th class="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
@@ -291,6 +292,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 <tr *ngFor="let t of templatesList" class="hover:bg-[var(--app-nav-hover-bg)]">
                   <td class="px-4 py-3 font-medium text-[var(--app-text)]">{{ t.nome }}</td>
                   <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ t.assunto }}</td>
+                  <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ getLabelTipoTemplate(t.tipo_disparo) }}</td>
                   <td class="px-4 py-3 text-right">
                     <button (click)="visualizarTemplate(t)" class="mr-2 px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-bold hover:bg-sky-100" title="Visualizar">👁 Visualizar</button>
                     <button (click)="testeEnvioTemplate(t)" class="mr-2 px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold hover:bg-amber-100" title="Enviar e-mail de teste">✉ Teste</button>
@@ -918,7 +920,7 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   clonarTemplate(t: TemplateEmail): void {
-    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '').subscribe({
+    this.emailService.createTemplate(t.nome + ' (cópia)', t.assunto, t.corpo_html ?? '', t.tipo_disparo ?? undefined).subscribe({
       next: () => {
         this.loadTemplates();
         Swal.fire({ icon: 'success', title: 'Template clonado.', timer: 1500, showConfirmButton: false });
@@ -1098,7 +1100,10 @@ export class DisparoEmailsComponent implements OnInit {
     }).subscribe({
       next: ({ listas, templates }) => {
         this.listas = listas || [];
-        this.templates = templates || [];
+        const all = templates || [];
+        // Mostrar apenas templates cujo tipo é exatamente o selecionado (BID_ABERTO, BID_ENCERRADO ou GANHADORES).
+        // Templates com tipo "Qualquer" (null/vazio) não aparecem quando um tipo específico está selecionado.
+        this.templates = all.filter((t) => t.tipo_disparo === this.tipoAtivo);
         this.mostrarModalDisparo(match);
       },
       error: () => Swal.fire('Erro', 'Falha ao carregar listas ou templates.', 'error'),
@@ -1114,13 +1119,18 @@ export class DisparoEmailsComponent implements OnInit {
     const templatesOptions =
       this.templates.length > 0
         ? this.templates.map((t) => `<option value="${t.id}">${t.nome} – ${t.assunto}</option>`).join('')
-        : '<option value="">— Nenhum template —</option>';
+        : '<option value="">— Nenhum template para este tipo —</option>';
+    const hintSemTemplate =
+      this.templates.length === 0
+        ? `<p class="text-left text-xs text-amber-600 mt-1 mb-2">Atribua o tipo "<strong>${this.getLabelTipo(this.tipoAtivo)}</strong>" aos templates em Configurações → Templates de e-mail para que apareçam aqui.</p>`
+        : '';
 
     let html = `
       <p class="text-left text-sm text-gray-600 mb-3">BID: <strong>${match.titulo}</strong></p>
       <p class="text-left text-xs text-gray-500 mb-3">Tipo: <strong>${this.getLabelTipo(this.tipoAtivo)}</strong></p>
       <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Template</label>
-      <select id="swal-template" class="swal2-input w-full m-0 mb-3">${templatesOptions}</select>
+      <select id="swal-template" class="swal2-input w-full m-0 mb-1">${templatesOptions}</select>
+      ${hintSemTemplate}
     `;
 
     if (usaLista) {
@@ -1246,6 +1256,20 @@ export class DisparoEmailsComponent implements OnInit {
         return '3 – Ganhadores';
       default:
         return t;
+    }
+  }
+
+  getLabelTipoTemplate(tipo: string | null | undefined): string {
+    if (tipo == null || tipo === '') return 'Qualquer';
+    switch (tipo) {
+      case 'BID_ABERTO':
+        return 'Bid aberto';
+      case 'BID_ENCERRADO':
+        return 'Bid encerrado';
+      case 'GANHADORES':
+        return 'Ganhadores';
+      default:
+        return tipo;
     }
   }
 }
