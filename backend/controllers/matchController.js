@@ -159,20 +159,38 @@ exports.getMyBets = async (req, res) => {
   try {
     const sql = `
       SELECT p.*, g.nome as nome_grupo,
-        (SELECT GROUP_CONCAT(CONCAT(a.id, ':', a.valor_pago, ':', a.status) ORDER BY a.valor_pago DESC) 
+        (SELECT GROUP_CONCAT(CONCAT(a.id, ':', a.valor_pago, ':', a.status) ORDER BY a.data_aposta DESC) 
          FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as meus_lances_detalhados,
         (SELECT GROUP_CONCAT(CONCAT(i.id, ':', COALESCE(c.nome_completo, ''), ':', i.checkin) SEPARATOR ',') 
          FROM ingressos i
          JOIN apostas a ON i.aposta_id = a.id
          LEFT JOIN convidados c ON i.convidado_id = c.id
-         WHERE a.partida_id = p.id AND a.usuario_id = ?) as raw_ingressos
+         WHERE a.partida_id = p.id AND a.usuario_id = ?) as raw_ingressos,
+        (SELECT h.pontos_antes FROM historico_pontos h
+         WHERE h.usuario_id = ?
+           AND h.motivo = (
+             CASE
+               WHEN CHAR_LENGTH(CONCAT('BID: ', IFNULL(p.titulo, ''))) <= 255 THEN CONCAT('BID: ', IFNULL(p.titulo, ''))
+               ELSE CONCAT(LEFT(CONCAT('BID: ', IFNULL(p.titulo, '')), 252), '...')
+             END
+           )
+         ORDER BY h.data_alteracao ASC LIMIT 1) AS pontos_antes_participacao,
+        (SELECT h.pontos_depois FROM historico_pontos h
+         WHERE h.usuario_id = ?
+           AND h.motivo = (
+             CASE
+               WHEN CHAR_LENGTH(CONCAT('BID: ', IFNULL(p.titulo, ''))) <= 255 THEN CONCAT('BID: ', IFNULL(p.titulo, ''))
+               ELSE CONCAT(LEFT(CONCAT('BID: ', IFNULL(p.titulo, '')), 252), '...')
+             END
+           )
+         ORDER BY h.data_alteracao ASC LIMIT 1) AS pontos_depois_participacao
       FROM partidas p
       LEFT JOIN grupos g ON p.grupo_id = g.id
       WHERE EXISTS (SELECT 1 FROM apostas a2 WHERE a2.partida_id = p.id AND a2.usuario_id = ?)
       ORDER BY p.data_jogo DESC
     `;
 
-    const params = [userId, userId, userId];
+    const params = [userId, userId, userId, userId, userId];
     const [rows] = await db.execute(sql, params);
 
     const dbUtcToISO = (v) => {

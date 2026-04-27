@@ -181,7 +181,10 @@ export class MyBetsComponent implements OnInit {
           '<h3 class="text-xl font-black text-gray-800 tracking-tight">Responsáveis pela Retirada</h3>',
         html: `
           <div class="text-left mt-2">
-            <p class="text-xs text-gray-500 mb-4">Você possui <strong>${match.ingressos_ganhos_detalhes.length} ingresso(s)</strong>. Selecione quem irá utilizar cada um:</p>
+            <p class="text-xs text-gray-500 mb-2">Você possui <strong>${match.ingressos_ganhos_detalhes.length} ingresso(s)</strong>. Selecione quem irá utilizar cada um:</p>
+            <p class="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 leading-snug">
+              <strong class="font-black">Importante:</strong> só é possível indicar <strong>1 ingresso por convidado</strong>. A mesma pessoa não pode ser selecionada em mais de um ingresso.
+            </p>
             <div class="max-h-80 overflow-y-auto custom-scrollbar pr-1">
                 ${htmlSelects}
             </div>
@@ -201,14 +204,21 @@ export class MyBetsComponent implements OnInit {
           });
         },
         preConfirm: () => {
-          const resultados = [];
+          const resultados: { ingressoId: number; convidadoId: string }[] = [];
+          const convidadosJaUsados = new Set<string>();
           for (const ticket of match.ingressos_ganhos_detalhes) {
             if (!ticket.checkin) {
               const select = document.getElementById(
                 `select-ticket-${ticket.id}`,
               ) as HTMLSelectElement;
               if (select && select.value) {
-                // ATUALIZADO: Agora envia o ID da tabela de ingressos!
+                if (convidadosJaUsados.has(select.value)) {
+                  Swal.showValidationMessage(
+                    'Cada convidado pode ser indicado em apenas um ingresso. Ajuste as seleções para não repetir a mesma pessoa.',
+                  );
+                  return false;
+                }
+                convidadosJaUsados.add(select.value);
                 resultados.push({ ingressoId: ticket.id, convidadoId: select.value });
               }
             }

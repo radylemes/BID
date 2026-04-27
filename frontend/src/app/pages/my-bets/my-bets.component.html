@@ -197,13 +197,37 @@
       <div
         class="w-full md:w-64 bg-[var(--color-bg-surface-alt)] border-t md:border-t-0 md:border-l border-[var(--app-border)] p-3 sm:p-4 flex flex-col justify-center shrink-0"
       >
+        <div
+          *ngIf="match.pontos_antes_participacao != null && match.pontos_depois_participacao != null"
+          class="mb-2 sm:mb-3 text-xs border-b border-[var(--app-border)] pb-2 text-center"
+        >
+          <span class="text-[8px] sm:text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide block mb-1"
+            >Saldo no lance</span
+          >
+          <span
+            class="font-black text-sm sm:text-base tabular-nums leading-tight"
+            [ngClass]="{
+              'text-red-500': +match.pontos_depois_participacao < +match.pontos_antes_participacao,
+              'text-emerald-600': +match.pontos_depois_participacao > +match.pontos_antes_participacao,
+              'text-[var(--app-text)]':
+                +match.pontos_depois_participacao === +match.pontos_antes_participacao,
+            }"
+          >
+            {{ match.pontos_antes_participacao }} → {{ match.pontos_depois_participacao }} pts
+          </span>
+        </div>
+
         <div class="flex justify-between items-center gap-2 mb-2 sm:mb-3 text-xs border-b border-[var(--app-border)] pb-2">
           <div class="flex flex-col min-w-0">
-            <span class="text-[8px] sm:text-[9px] font-bold text-[var(--app-text-muted)] uppercase">Gasto Real</span>
+            <span class="text-[8px] sm:text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide"
+              >Gasto real</span
+            >
             <span class="font-black text-red-500 text-sm sm:text-base">-{{ match.total_gasto }} pts</span>
           </div>
           <div class="flex flex-col text-right min-w-0">
-            <span class="text-[8px] sm:text-[9px] font-bold text-[var(--app-text-muted)] uppercase">Reembolso</span>
+            <span class="text-[8px] sm:text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide"
+              >Reembolso</span
+            >
             <span class="font-black text-emerald-600 text-sm sm:text-base">+{{ match.total_reembolsado }} pts</span>
           </div>
         </div>
