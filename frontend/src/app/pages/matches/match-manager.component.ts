@@ -310,9 +310,17 @@ import * as XLSX from 'xlsx';
                       *ngIf="m.status !== 'ABERTA'"
                       (click)="baixarRelatorio(m, 'pdf')"
                       class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition shrink-0"
-                      title="PDF"
+                      title="PDF lista de portaria (ganhadores)"
                     >
                       PDF
+                    </button>
+                    <button
+                      *ngIf="m.status !== 'ABERTA'"
+                      (click)="baixarPdfResultadoApostas(m)"
+                      class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition shrink-0"
+                      title="PDF com todas as apostas (data e hora)"
+                    >
+                      Apostas
                     </button>
                     <button
                       *ngIf="m.status !== 'ABERTA'"
@@ -1168,6 +1176,84 @@ export class MatchManagerComponent implements OnInit {
         }
       },
       error: () => Swal.fire('Erro', 'Falha ao buscar relatório.', 'error'),
+    });
+  }
+
+  baixarPdfResultadoApostas(match: any) {
+    this.settingsService.getExportSettings().pipe(
+      catchError(() => of(null)),
+      switchMap((settings) =>
+        this.matchService.getBetsReport(match.id).pipe(
+          map((dados: any) => ({ settings, dados })),
+        ),
+      ),
+    ).subscribe({
+      next: ({ settings, dados }: { settings: Record<string, string> | null; dados: any[] }) => {
+        if (!dados || dados.length === 0) {
+          Swal.fire('Vazio', 'Não há apostas registadas para este evento.', 'info');
+          return;
+        }
+        const colunas = ['Data e hora', 'Participante', 'Lance (pts)', 'Resultado'];
+        const fmtData = (iso: string | null | undefined) => {
+          if (!iso) return '—';
+          try {
+            return new Date(iso).toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            });
+          } catch {
+            return String(iso);
+          }
+        };
+        const statusLabel = (s: string) => {
+          if (s === 'GANHOU') return 'Ganhou';
+          if (s === 'PERDEU') return 'Perdeu';
+          if (s === 'PENDENTE') return 'Pendente';
+          return s || '—';
+        };
+        const formatoTabela = dados.map((row: any) => [
+          fmtData(row.data_aposta),
+          row.nome_completo ?? '',
+          row.valor_pago ?? '',
+          statusLabel(String(row.status ?? '')),
+        ]);
+        const nomeArquivo = `Resultado_BID_${match.titulo.replace(/\s+/g, '_')}`;
+        const pdfStyle = this.settingsService.parseExportPdfStyle(settings);
+
+        const useLetterhead = this.settingsService.useLetterhead(settings);
+        const letterheadPath = settings?.['export_pdf_letterhead_path'] ?? '';
+        if (useLetterhead && letterheadPath) {
+          this.settingsService.getLetterheadBlob().subscribe({
+            next: (blob) => {
+              const pathLower = letterheadPath.toLowerCase();
+              const isImageByPath = /\.(png|jpg|jpeg)$/.test(pathLower);
+              const useAsImage =
+                blob.size > 0 &&
+                (blob.type.startsWith('image/') ||
+                  (isImageByPath && (blob.type === '' || blob.type === 'application/octet-stream')));
+              if (useAsImage) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  this.gerarPDF(match.titulo, colunas, formatoTabela, nomeArquivo, reader.result as string, pdfStyle);
+                };
+                reader.readAsDataURL(blob);
+              } else if (blob.type === 'application/pdf' || pathLower.endsWith('.pdf')) {
+                this.renderTimbradoPdfNaPrimeiraPagina(match.titulo, colunas, formatoTabela, nomeArquivo, blob, pdfStyle);
+              } else {
+                this.gerarPDF(match.titulo, colunas, formatoTabela, nomeArquivo, undefined, pdfStyle);
+              }
+            },
+            error: () => this.gerarPDF(match.titulo, colunas, formatoTabela, nomeArquivo, undefined, pdfStyle),
+          });
+        } else {
+          this.gerarPDF(match.titulo, colunas, formatoTabela, nomeArquivo, undefined, pdfStyle);
+        }
+      },
+      error: () => Swal.fire('Erro', 'Falha ao buscar relatório de apostas.', 'error'),
     });
   }
 

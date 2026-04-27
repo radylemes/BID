@@ -1038,6 +1038,40 @@ exports.getMatchWinnersReport = async (req, res) => {
   }
 };
 
+exports.getMatchBetsReport = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `
+      SELECT a.id, u.nome_completo AS nome_completo, a.valor_pago, a.status, a.data_aposta
+      FROM apostas a
+      JOIN usuarios u ON a.usuario_id = u.id
+      WHERE a.partida_id = ?
+      ORDER BY a.data_aposta ASC, a.id ASC
+    `,
+      [req.params.id],
+    );
+
+    /** Mesma convenção que getMatches: datas no banco em UTC → ISO com sufixo Z. */
+    const dbUtcToISO = (v) => {
+      if (!v) return null;
+      const s = String(v).trim().replace(" ", "T");
+      return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
+    };
+
+    const results = rows.map((row) => ({
+      id: row.id,
+      nome_completo: row.nome_completo,
+      valor_pago: row.valor_pago,
+      status: row.status,
+      data_aposta: dbUtcToISO(row.data_aposta),
+    }));
+    res.json(results);
+  } catch (error) {
+    await logErro("MATCH_CONTROLLER_BETS_REPORT", error);
+    res.status(500).json({ error: "Erro." });
+  }
+};
+
 exports.getPublicHistory = async (req, res) => {
   try {
     const [users] = await db.execute(

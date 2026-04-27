@@ -61,6 +61,12 @@ router.get(
   authorizeRoles("ADMIN"),
   matchController.getMatchWinnersReport,
 );
+router.get(
+  "/:id/bets-report",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  matchController.getMatchBetsReport,
+);
 router.post(
   "/:id/redistribuir",
   authMiddleware,

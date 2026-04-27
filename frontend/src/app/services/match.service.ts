@@ -57,6 +57,10 @@ export class MatchService {
     return this.http.get(`${this.apiUrl}/${partidaId}/winners-report`);
   }
 
+  getBetsReport(partidaId: number) {
+    return this.http.get(`${this.apiUrl}/${partidaId}/bets-report`);
+  }
+
   getPublicHistory() {
     return this.http.get<any[]>(`${this.apiUrl}/public/history`);
   }
