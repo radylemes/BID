@@ -1122,6 +1122,13 @@ exports.getPublicHistory = async (req, res) => {
 
     const matchIds = matches.map((m) => m.id);
 
+    /** Mesma convenção que getMatchBetsReport: UTC no banco → ISO com Z. */
+    const dbUtcToISO = (v) => {
+      if (!v) return null;
+      const s = String(v).trim().replace(" ", "T");
+      return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
+    };
+
     // Estatísticas agregadas por partida
     const [statsRows] = await db.execute(
       `
@@ -1146,17 +1153,18 @@ exports.getPublicHistory = async (req, res) => {
           u.id as usuario_id,
           u.nome_completo,
           u.foto,
-          a.valor_pago
+          a.valor_pago,
+          a.data_aposta
         FROM apostas a
         JOIN usuarios u ON a.usuario_id = u.id
         WHERE a.partida_id IN (${matchIds.map(() => "?").join(",")})
           AND a.status = 'GANHOU'
-        ORDER BY a.partida_id ASC, a.valor_pago DESC
+        ORDER BY a.partida_id ASC, a.valor_pago DESC, a.data_aposta ASC, a.id ASC
       `,
       matchIds,
     );
 
-    // Todas as apostas de cada partida (para exibir no histórico), ordenadas por valor
+    // Todas as apostas: maior pontuação primeiro; empate em pontos → ordem cronológica do lance
     const [allBetsRows] = await db.execute(
       `
         SELECT 
@@ -1165,11 +1173,12 @@ exports.getPublicHistory = async (req, res) => {
           u.nome_completo,
           u.foto,
           a.valor_pago,
-          a.status
+          a.status,
+          a.data_aposta
         FROM apostas a
         JOIN usuarios u ON a.usuario_id = u.id
         WHERE a.partida_id IN (${matchIds.map(() => "?").join(",")})
-        ORDER BY a.partida_id ASC, a.valor_pago DESC, a.id ASC
+        ORDER BY a.partida_id ASC, a.valor_pago DESC, a.data_aposta ASC, a.id ASC
       `,
       matchIds,
     );
@@ -1194,6 +1203,7 @@ exports.getPublicHistory = async (req, res) => {
         nome: row.nome_completo,
         valor: row.valor_pago,
         foto: row.foto || null,
+        data_aposta: dbUtcToISO(row.data_aposta),
       });
     }
 
@@ -1208,6 +1218,7 @@ exports.getPublicHistory = async (req, res) => {
         valor: row.valor_pago,
         foto: row.foto || null,
         status: row.status || "PENDENTE",
+        data_aposta: dbUtcToISO(row.data_aposta),
       });
     }
 

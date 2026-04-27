@@ -201,6 +201,20 @@ export class HistoryComponent implements OnInit {
     return this.getFotoUrl(user.foto);
   }
 
+  /** Data/hora do lance no fuso local (ISO vindo da API com Z). */
+  formatarDataHoraAposta(iso: string | null | undefined): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   abrirModalGanhadores(match: any) {
     const apostas = match.apostas && match.apostas.length > 0 ? match.apostas : (match.winners || []);
     if (!apostas || apostas.length === 0) {
@@ -213,12 +227,15 @@ export class HistoryComponent implements OnInit {
       return;
     }
 
-    let posGanhador = 0;
+    const ganhadores = apostas.filter((x: any) => x.status === 'GANHOU' || !x.status);
+    const maxValorGanhou =
+      ganhadores.length > 0 ? Math.max(...ganhadores.map((x: any) => Number(x.valor) || 0)) : 0;
+
     const apostasHtml = apostas
       .map((item: any, i: number) => {
         const isGanhou = item.status === 'GANHOU' || !item.status; // sem status = lista antiga só de ganhadores
-        if (isGanhou) posGanhador += 1;
-        const isFirst = isGanhou && posGanhador === 1;
+        const isFirst =
+          isGanhou && maxValorGanhou > 0 && (Number(item.valor) || 0) === maxValorGanhou;
         const initial = (item.nome || '?').charAt(0).toUpperCase();
         const medal = isFirst ? '<span class="text-amber-500 mr-1 text-lg">🥇</span>' : '';
         const avatarBorder = isGanhou
@@ -232,6 +249,10 @@ export class HistoryComponent implements OnInit {
         const badgeGanhou = isGanhou
           ? '<span class="bg-emerald-100 text-emerald-700 font-black text-[10px] px-2 py-0.5 rounded-md border border-emerald-200 ml-1">Ganhou</span>'
           : '';
+        const dataHoraAposta = this.formatarDataHoraAposta(item.data_aposta);
+        const linhaDataAposta = dataHoraAposta
+          ? `<p class="text-[11px] text-gray-500 font-medium mt-0.5 tabular-nums">🕐 ${dataHoraAposta}</p>`
+          : '';
 
         return `
         <div class="flex items-center justify-between bg-white p-3 rounded-xl border mb-2 transition-colors ${isGanhou ? 'border-emerald-200 bg-emerald-50/30 hover:border-emerald-300' : 'border-gray-100 hover:border-gray-200'}">
@@ -242,10 +263,11 @@ export class HistoryComponent implements OnInit {
             <div class="flex items-center justify-center overflow-hidden">
               ${avatarHtml}
             </div>
-            <div class="text-left truncate">
+            <div class="text-left min-w-0">
               <p class="text-sm font-black text-gray-800 truncate flex items-center flex-wrap gap-1">
                 ${medal} ${item.nome} ${badgeGanhou}
               </p>
+              ${linhaDataAposta}
             </div>
           </div>
           <div class="shrink-0 pl-3 flex items-center gap-2">
