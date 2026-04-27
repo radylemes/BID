@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
+import { MatchService } from '../../services/match.service';
 import { AuthService } from '../../services/auth.service';
 import { GuestService } from '../../services/guest.service';
 import { ThemeService, AppTheme, APP_THEMES } from '../../services/theme.service';
@@ -321,9 +322,11 @@ import { environment } from '../../../environments/environment';
   template: `
     <div class="min-h-full w-full flex flex-col min-h-0 bg-[var(--app-bg)]">
       <div class="flex-1 flex flex-col min-h-0 w-full px-4 sm:px-4 lg:px-0 space-y-4 lg:space-y-6 pb-4 lg:pb-0">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 flex-shrink-0">
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 flex-shrink-0 lg:flex-1 lg:min-h-0 lg:items-stretch"
+        >
           <div
-            class="lg:col-span-3 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] overflow-hidden flex flex-col relative pb-6 lg:pb-8"
+            class="lg:col-span-3 lg:h-full lg:min-h-0 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] overflow-hidden flex flex-col relative pb-6 lg:pb-8"
           >
             <div class="h-24 sm:h-28 lg:h-32 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
 
@@ -420,7 +423,7 @@ import { environment } from '../../../environments/environment';
             </div>
           </div>
 
-          <div class="lg:col-span-2 flex flex-col sm:flex-row lg:flex-col gap-3 h-full">
+          <div class="lg:col-span-2 lg:h-full lg:min-h-0 flex flex-col sm:flex-row lg:flex-col gap-3 h-full">
             <div
               class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
             >
@@ -485,98 +488,209 @@ import { environment } from '../../../environments/environment';
           </div>
 
           <div
-            class="lg:col-span-7 bg-[var(--color-bg-surface)] p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex flex-col min-w-0"
+            class="lg:col-span-7 lg:h-full lg:min-h-0 bg-[var(--color-bg-surface)] p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex flex-col min-w-0"
           >
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 lg:mb-6">
+            <div
+              class="flex flex-shrink-0 flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3 lg:mb-4"
+            >
               <div class="min-w-0">
                 <h3 class="text-base sm:text-lg font-black text-[var(--app-text)] tracking-tight">Evolução do Saldo</h3>
                 <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
-                  Últimas movimentações reais
+                  Últimos 30 dias · saldo fim do dia (base + movimentos por tipo)
                 </p>
               </div>
 
-              <div
-                class="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-black tracking-wider text-[var(--app-text-muted)] uppercase flex-wrap"
-              >
-                <div class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Créditos
+              <div class="flex flex-col items-end gap-2 min-w-0">
+                <div
+                  class="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-black tracking-wider text-[var(--app-text-muted)] uppercase flex-wrap justify-end"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="h-2.5 w-2.5 rounded-sm bg-slate-400 shadow-sm ring-1 ring-slate-500/20"></span> Base
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="h-2.5 w-2.5 rounded-sm bg-teal-400 shadow-sm ring-1 ring-teal-600/15"></span> Créditos
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="h-2.5 w-2.5 rounded-sm bg-sky-400 shadow-sm ring-1 ring-sky-600/15"></span> Bloqueados
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="h-2.5 w-2.5 rounded-sm bg-rose-300 shadow-sm ring-1 ring-rose-500/15"></span> Gastos
+                  </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Bloqueados
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span> Gastos
+                <div
+                  class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] text-right leading-snug max-w-full space-y-0.5"
+                >
+                  <p class="truncate" title="Saldo em pontos disponível para novos lances">
+                    Saldo disponível:
+                    <span class="text-[var(--app-text)] font-black"
+                      >{{ (user?.pontos ?? 0) | number:'1.0-0':'pt' }} pts</span
+                    >
+                  </p>
+                  <p class="truncate" title="Pontos em lances em partidas abertas (mesmo critério do menu)">
+                    Bloqueado (em jogo):
+                    <span class="text-[var(--app-text)] font-black"
+                      >{{ pontosBloqueadosResumo | number:'1.0-0':'pt' }} pts</span
+                    >
+                  </p>
                 </div>
               </div>
             </div>
 
             <div
               *ngIf="historicoPontos.length === 0"
-              class="flex-1 flex flex-col items-center justify-center text-[var(--app-text-muted)] h-48"
+              class="flex min-h-[12rem] flex-1 flex-col items-center justify-center text-[var(--app-text-muted)] lg:min-h-0"
             >
               <span class="text-4xl mb-2 opacity-50 grayscale">📊</span>
               <span class="text-xs font-bold uppercase tracking-wider"
-                >Nenhuma movimentação recente</span
+                >Carregando histórico…</span
               >
             </div>
 
             <div
               *ngIf="historicoPontos.length > 0"
-              class="relative flex-1 flex items-end justify-between gap-1 sm:gap-2 lg:gap-3 min-h-[180px] sm:h-48 mt-auto border-b border-[var(--app-border)] pb-4 pt-6 sm:pb-6 sm:pt-8"
+              class="flex min-h-0 flex-1 flex-col min-w-0"
             >
-              <div
-                class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-4 pt-6 sm:pb-6 sm:pt-8"
+              <p
+                class="mb-2 flex-shrink-0 text-[9px] font-bold text-[var(--app-text-muted)] text-center sm:text-left"
               >
-                <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
-                <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
-                <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
+                Toque na coluna do dia para ver o detalhe · no computador, passe o mouse · botões ou arraste para os 30
+                dias
+              </p>
+
+              <div
+                *ngIf="historicoDiaHover as h"
+                class="mb-3 flex-shrink-0 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-3 py-2.5 text-[10px] shadow-sm sm:px-4"
+              >
+                <div class="mb-1 flex items-start justify-between gap-2">
+                  <p class="min-w-0 flex-1 text-[9px] font-medium leading-snug text-[var(--app-text-muted)]">
+                    {{ h.eventoResumo || 'Movimentação' }} · {{ h.data }}
+                  </p>
+                  <button
+                    type="button"
+                    (click)="fecharDetalheHistorico(); $event.stopPropagation()"
+                    class="shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--app-text)] active:scale-95"
+                  >
+                    Fechar
+                  </button>
+                </div>
+                <p class="mt-1 text-center text-sm font-black text-[var(--app-text)]">
+                  {{ h.pontosAntes | number:'1.0-0':'pt' }} → {{ h.pontosDepois | number:'1.0-0':'pt' }}
+                  <span class="block text-[9px] font-bold text-[var(--app-text-muted)]"
+                    >Mov. no dia {{ h.totalDia | number:'1.0-0':'pt' }} pts</span
+                  >
+                </p>
+                <div
+                  class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-[var(--app-border)] pt-2 text-[9px] text-[var(--app-text-muted)] sm:grid-cols-4"
+                >
+                  <span>Base <b class="text-[var(--app-text)]">{{ h.pontosAntes | number:'1.0-0':'pt' }}</b></span>
+                  <span
+                    >Créd. <b class="text-teal-700 dark:text-teal-300">{{ (h.volumeCredito ?? 0) | number:'1.0-0':'pt' }}</b></span
+                  >
+                  <span
+                    >Bloq. <b class="text-sky-700 dark:text-sky-300">{{ (h.volumeBloqueado ?? 0) | number:'1.0-0':'pt' }}</b></span
+                  >
+                  <span
+                    >Gasto <b class="text-rose-700 dark:text-rose-300">{{ (h.volumeGasto ?? 0) | number:'1.0-0':'pt' }}</b></span
+                  >
+                </div>
               </div>
 
-              <div
-                *ngFor="let item of historicoPontos"
-                class="relative w-full rounded-t-lg sm:rounded-t-xl group transition-all duration-300 cursor-pointer z-10 min-w-0"
-                [ngClass]="{
-                  'bg-emerald-200 hover:bg-emerald-400': item.tipo === 'credito',
-                  'bg-amber-200 hover:bg-amber-400': item.tipo === 'bloqueado',
-                  'bg-rose-200 hover:bg-rose-400': item.tipo === 'gasto',
-                }"
-                [style.height]="(item.valor / maxPonto) * 100 + '%'"
-              >
-                <div
-                  class="absolute -top-5 sm:-top-6 left-1/2 -translate-x-1/2 text-[9px] sm:text-[11px] font-black tracking-tight"
-                  [ngClass]="{
-                    'text-emerald-600': item.tipo === 'credito',
-                    'text-amber-600': item.tipo === 'bloqueado',
-                    'text-rose-600': item.tipo === 'gasto',
-                  }"
+              <div class="flex min-h-0 w-full flex-1 items-stretch gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  (click)="historicoVerDiasMaisAntigos()"
+                  [disabled]="historicoScrollNoInicio"
+                  class="flex w-9 shrink-0 items-center justify-center self-stretch rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] text-lg font-black text-[var(--app-text)] shadow-sm transition-all hover:bg-[var(--app-nav-hover-bg)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--color-bg-surface)] sm:w-10"
+                  title="Dias mais antigos"
+                  aria-label="Rolar para dias mais antigos"
                 >
-                  {{ item.valor }}
-                </div>
-
+                  ‹
+                </button>
                 <div
-                  class="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-2 px-3 rounded-lg font-bold pointer-events-none transition-opacity whitespace-nowrap shadow-xl flex flex-col items-center z-50"
+                  #historicoScroll
+                  (scroll)="atualizarEstadoScrollHistorico()"
+                  class="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface-alt)]/40 px-0 pt-1 pb-2 scroll-smooth sm:px-0.5"
                 >
-                  <span class="text-[9px] text-[var(--app-text-muted)] font-medium mb-1 truncate max-w-[150px]">{{
-                    item.evento || 'Movimentação'
-                  }}</span>
-                  <span
-                    [ngClass]="{
-                      'text-emerald-400': item.tipo === 'credito',
-                      'text-amber-400': item.tipo === 'bloqueado',
-                      'text-rose-400': item.tipo === 'gasto',
-                    }"
-                    class="text-xs"
+                <div
+                  class="relative flex h-full min-h-[12rem] w-max max-w-none min-w-0 items-end justify-start gap-2 border-b border-[var(--app-border)] px-2 pb-12 pt-8 sm:min-h-0 sm:gap-2.5 sm:pb-14 sm:pt-10"
+                  [style.minWidth.px]="larguraHistoricoGraficoPx()"
+                >
+                  <div
+                    class="pointer-events-none absolute inset-0 flex flex-col justify-between px-2 pb-12 pt-8 sm:pb-14 sm:pt-10"
                   >
-                    {{ item.tipo === 'credito' ? '+' : '-' }}{{ item.valor }} pts
-                  </span>
-                  <span class="text-[8px] text-[var(--app-text-muted)] font-normal mt-0.5">{{ item.data }}</span>
-                </div>
+                    <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
+                    <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
+                    <div class="w-full border-t border-dashed border-[var(--app-border)]"></div>
+                  </div>
 
-                <div
-                  class="absolute -bottom-5 sm:-bottom-6 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] font-bold text-[var(--app-text-muted)] whitespace-nowrap"
-                >
-                  {{ item.data }}
+                  <div
+                    *ngFor="let item of historicoPontos; trackBy: trackHistoricoDia"
+                    role="button"
+                    tabindex="0"
+                    (mouseenter)="onHistoricoColunaEnter(item)"
+                    (mouseleave)="onHistoricoColunaLeave()"
+                    (click)="onHistoricoColunaTap(item, $event)"
+                    (keydown.enter)="onHistoricoColunaTap(item, $event)"
+                    (keydown.space)="$event.preventDefault(); onHistoricoColunaTap(item, $event)"
+                    class="group relative z-10 flex h-full w-[52px] shrink-0 cursor-pointer flex-col justify-end touch-manipulation transition-all hover:brightness-[1.02] active:opacity-90"
+                    [class.ring-2]="historicoDiaHover?.dataChave === item.dataChave"
+                    [class.ring-teal-500/40]="historicoDiaHover?.dataChave === item.dataChave"
+                    [class.rounded-t-md]="historicoDiaHover?.dataChave === item.dataChave"
+                    [attr.title]="historicoBarTitle(item)"
+                  >
+                    <div
+                      class="absolute -top-5 left-1/2 z-20 max-w-[min(100%,3.25rem)] -translate-x-1/2 truncate px-0.5 text-center text-[7px] font-black tracking-tight text-[var(--app-text)] sm:-top-6 sm:text-[9px]"
+                    >
+                      {{ item.pontosDepois | number:'1.0-0':'pt' }}
+                    </div>
+
+                    <div
+                      class="relative z-10 flex min-h-0 w-full flex-1 flex-col justify-end"
+                    >
+                      <div
+                        class="relative w-full min-h-[3px]"
+                        [ngStyle]="{ height: alturaColunaSaldoDepois(item) + '%' }"
+                      >
+                        <div
+                          class="flex h-full w-full flex-col overflow-hidden rounded-t-lg border border-[var(--app-border)]/60 bg-[var(--color-bg-surface)]/50 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+                        >
+                          <div
+                            *ngFor="let seg of historicoSegmentosEmpilhados(item)"
+                            [style.flex-grow]="seg.weight"
+                            class="min-h-[1px] w-full shrink-0"
+                            [ngClass]="seg.klass"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="absolute -bottom-8 left-1/2 w-full max-w-full -translate-x-1/2 px-0.5 text-center sm:-bottom-9"
+                    >
+                      <div
+                        class="truncate text-[7px] font-bold leading-tight text-[var(--app-text-muted)] sm:text-[9px]"
+                      >
+                        {{ item.data }}
+                      </div>
+                      <div
+                        class="mt-0.5 truncate text-[6px] font-black leading-tight text-[var(--app-text)] sm:text-[8px]"
+                      >
+                        {{ item.pontosDepois | number:'1.0-0':'pt' }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+                </div>
+                <button
+                  type="button"
+                  (click)="historicoVerDiasMaisRecentes()"
+                  [disabled]="historicoScrollNoFim"
+                  class="flex w-9 shrink-0 items-center justify-center self-stretch rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] text-lg font-black text-[var(--app-text)] shadow-sm transition-all hover:bg-[var(--app-nav-hover-bg)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--color-bg-surface)] sm:w-10"
+                  title="Dias mais recentes"
+                  aria-label="Rolar para dias mais recentes"
+                >
+                  ›
+                </button>
               </div>
             </div>
           </div>
@@ -679,17 +793,41 @@ export class ProfileComponent implements OnInit {
 
   stats = { bidsVencidos: 0, mediaPontos: 0 };
 
-  // Atualizado para receber os 3 tipos
+  /** Um item por dia: saldo fim + volumes por tipo (empilhado). */
   historicoPontos: Array<{
-    valor: number;
-    tipo: 'credito' | 'gasto' | 'bloqueado';
     data: string;
-    evento?: string;
+    dataChave: string;
+    totalDia: number;
+    pontosAntes: number;
+    pontosDepois: number;
+    volumeCredito?: number;
+    volumeBloqueado?: number;
+    volumeGasto?: number;
+    tipo: 'credito' | 'gasto' | 'bloqueado';
+    eventoResumo?: string;
   }> = [];
   maxPonto: number = 300;
 
+  /** Soma dos lances em partidas ABERTA com ingresso, alinhada ao menu (Em jogo). */
+  pontosBloqueadosResumo = 0;
+
+  @ViewChild('historicoScroll') historicoScrollRef?: ElementRef<HTMLDivElement>;
+
+  /** Desabilita ‹ quando já no primeiro dia; › quando já no último (hoje). */
+  historicoScrollNoInicio = true;
+  historicoScrollNoFim = true;
+
+  /** Dia sob o mouse — detalhe fixo acima do gráfico (evita tooltip cortado). */
+  historicoDiaHover: (typeof this.historicoPontos)[0] | null = null;
+  private historicoHoverLeaveTimer?: ReturnType<typeof setTimeout>;
+
+  /** Largura fixa da coluna de cada dia (px), alinhada ao cálculo de `larguraHistoricoGraficoPx`. */
+  private readonly historicoBarraLarguraPx = 52;
+  private readonly historicoBarraGapPx = 8;
+
   constructor(
     private userService: UserService,
+    private matchService: MatchService,
     private authService: AuthService,
     private guestService: GuestService,
     private themeService: ThemeService,
@@ -747,26 +885,307 @@ export class ProfileComponent implements OnInit {
   carregarEstatisticas() {
     if (!this.user || !this.user.id) return;
 
+    this.matchService.getMatches(this.user.id, true).subscribe({
+      next: (matches: any[]) => {
+        this.pontosBloqueadosResumo = this.calcularPontosBloqueadosEmJogo(matches);
+        this.cd.detectChanges();
+      },
+      error: () => {},
+    });
+
     if (typeof this.userService.getUserStats === 'function') {
       this.userService.getUserStats(this.user.id).subscribe({
         next: (data) => {
           this.stats = data.stats;
 
           if (data.historico && Array.isArray(data.historico)) {
-            this.historicoPontos = data.historico;
+            const h = data.historico as any[];
+            if (h.length && typeof h[0]?.totalDia === 'number') {
+              this.historicoPontos = h.map((row: any) => ({
+                ...row,
+                volumeCredito: Number(row.volumeCredito) || 0,
+                volumeBloqueado: Number(row.volumeBloqueado) || 0,
+                volumeGasto: Number(row.volumeGasto) || 0,
+              }));
+            } else {
+              this.historicoPontos = this.agregarHistoricoPorDia(h);
+            }
+          } else {
+            this.historicoPontos = [];
           }
 
-          if (this.historicoPontos && this.historicoPontos.length > 0) {
-            const valores = this.historicoPontos.map((h) => h.valor);
-            const maiorValor = Math.max(...valores, 50);
-            this.maxPonto = Math.ceil(maiorValor * 1.2);
+          if (this.historicoPontos.length > 0) {
+            const saldosFim = this.historicoPontos.map((x) => Number(x.pontosDepois) || 0);
+            const maiorSaldo = Math.max(...saldosFim, 1);
+            this.maxPonto = Math.max(Math.ceil(maiorSaldo * 1.12), 10);
+          } else {
+            this.maxPonto = 10;
           }
 
           this.cd.detectChanges();
+          this.agendarScrollHistoricoParaDiasRecentes();
         },
         error: (err) => console.error('Erro ao carregar estatísticas do usuário', err),
       });
     }
+  }
+
+  /** Largura mínima da faixa do gráfico (30 dias × coluna fixa + gaps + padding). */
+  larguraHistoricoGraficoPx(): number {
+    const n = this.historicoPontos?.length ?? 0;
+    if (n <= 0) return 0;
+    const padInterno = 8;
+    return padInterno + n * this.historicoBarraLarguraPx + (n - 1) * this.historicoBarraGapPx;
+  }
+
+  /** Alinha a rolagem ao fim: dia atual e dias anteriores visíveis na janela (~6 colunas). */
+  private scrollHistoricoParaFim(): void {
+    const el = this.historicoScrollRef?.nativeElement;
+    if (!el) return;
+    el.scrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+    this.atualizarEstadoScrollHistorico();
+  }
+
+  private agendarScrollHistoricoParaDiasRecentes(): void {
+    queueMicrotask(() => {
+      this.scrollHistoricoParaFim();
+      setTimeout(() => this.scrollHistoricoParaFim(), 60);
+      setTimeout(() => this.scrollHistoricoParaFim(), 200);
+    });
+  }
+
+  atualizarEstadoScrollHistorico(): void {
+    const el = this.historicoScrollRef?.nativeElement;
+    if (!el) {
+      this.historicoScrollNoInicio = true;
+      this.historicoScrollNoFim = true;
+      return;
+    }
+    const eps = 4;
+    this.historicoScrollNoInicio = el.scrollLeft <= eps;
+    this.historicoScrollNoFim = el.scrollLeft + el.clientWidth >= el.scrollWidth - eps;
+  }
+
+  /** Rola para a esquerda (dias mais antigos). */
+  historicoVerDiasMaisAntigos(): void {
+    const el = this.historicoScrollRef?.nativeElement;
+    if (!el) return;
+    const col = this.historicoBarraLarguraPx + this.historicoBarraGapPx;
+    const step = Math.max(col * 3, Math.floor(el.clientWidth * 0.65));
+    el.scrollBy({ left: -step, behavior: 'smooth' });
+    setTimeout(() => {
+      this.atualizarEstadoScrollHistorico();
+      this.cd.markForCheck();
+    }, 320);
+  }
+
+  /** Rola para a direita (dias mais recentes / hoje). */
+  historicoVerDiasMaisRecentes(): void {
+    const el = this.historicoScrollRef?.nativeElement;
+    if (!el) return;
+    const col = this.historicoBarraLarguraPx + this.historicoBarraGapPx;
+    const step = Math.max(col * 3, Math.floor(el.clientWidth * 0.65));
+    el.scrollBy({ left: step, behavior: 'smooth' });
+    setTimeout(() => {
+      this.atualizarEstadoScrollHistorico();
+      this.cd.markForCheck();
+    }, 320);
+  }
+
+  /** Altura da coluna proporcional ao saldo ao fim do dia. */
+  alturaColunaSaldoDepois(item: { pontosDepois: number; totalDia?: number }): number {
+    const pd = Number(item.pontosDepois) || 0;
+    if (pd <= 0 && !(Number(item.totalDia) > 0)) return 2;
+    const pct = this.maxPonto > 0 ? (pd / this.maxPonto) * 100 : 0;
+    return Math.min(100, Math.max(pct, 2.5));
+  }
+
+  /**
+   * Faixas empilhadas (de cima para baixo no DOM = gasto → bloqueado → crédito → saldo início).
+   * Proporções = volume de cada parte em relação à soma (base + movimentos do dia).
+   */
+  historicoSegmentosEmpilhados(item: {
+    pontosAntes: number;
+    volumeCredito?: number;
+    volumeBloqueado?: number;
+    volumeGasto?: number;
+  }): Array<{ weight: number; klass: string }> {
+    const pa = Math.max(0, Number(item.pontosAntes) || 0);
+    const vc = Math.max(0, Number(item.volumeCredito) || 0);
+    const vb = Math.max(0, Number(item.volumeBloqueado) || 0);
+    const vg = Math.max(0, Number(item.volumeGasto) || 0);
+    const sum = pa + vc + vb + vg;
+    if (sum <= 0) return [{ weight: 1, klass: 'bg-slate-200 dark:bg-slate-600' }];
+    const segs: Array<{ weight: number; klass: string }> = [
+      { weight: vg, klass: 'bg-rose-300 dark:bg-rose-500/90' },
+      { weight: vb, klass: 'bg-sky-300 dark:bg-sky-500/90' },
+      { weight: vc, klass: 'bg-teal-400 dark:bg-teal-600/95' },
+      { weight: pa, klass: 'bg-slate-300 dark:bg-slate-600/95' },
+    ].filter((s) => s.weight > 0);
+    return segs.length ? segs : [{ weight: 1, klass: 'bg-slate-200 dark:bg-slate-600' }];
+  }
+
+  onHistoricoColunaEnter(item: (typeof this.historicoPontos)[0]): void {
+    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) {
+      return;
+    }
+    if (this.historicoHoverLeaveTimer) {
+      clearTimeout(this.historicoHoverLeaveTimer);
+      this.historicoHoverLeaveTimer = undefined;
+    }
+    this.historicoDiaHover = item;
+    this.cd.markForCheck();
+  }
+
+  onHistoricoColunaLeave(): void {
+    if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) {
+      return;
+    }
+    this.historicoHoverLeaveTimer = setTimeout(() => {
+      this.historicoDiaHover = null;
+      this.historicoHoverLeaveTimer = undefined;
+      this.cd.markForCheck();
+    }, 220);
+  }
+
+  /** Toque / clique: alterna o dia selecionado (celular e mouse). */
+  onHistoricoColunaTap(item: (typeof this.historicoPontos)[0], ev?: Event): void {
+    if (this.historicoHoverLeaveTimer) {
+      clearTimeout(this.historicoHoverLeaveTimer);
+      this.historicoHoverLeaveTimer = undefined;
+    }
+    if (this.historicoDiaHover?.dataChave === item.dataChave) {
+      this.historicoDiaHover = null;
+    } else {
+      this.historicoDiaHover = item;
+    }
+    ev?.stopPropagation?.();
+    this.cd.markForCheck();
+  }
+
+  fecharDetalheHistorico(): void {
+    if (this.historicoHoverLeaveTimer) {
+      clearTimeout(this.historicoHoverLeaveTimer);
+      this.historicoHoverLeaveTimer = undefined;
+    }
+    this.historicoDiaHover = null;
+    this.cd.markForCheck();
+  }
+
+  trackHistoricoDia(_index: number, item: { dataChave: string }): string {
+    return item.dataChave;
+  }
+
+  /** Título nativo da coluna (saldo fim + composição). */
+  historicoBarTitle(item: {
+    data: string;
+    totalDia: number;
+    pontosAntes: number;
+    pontosDepois: number;
+    volumeCredito?: number;
+    volumeBloqueado?: number;
+    volumeGasto?: number;
+  }): string {
+    const vc = item.volumeCredito ?? 0;
+    const vb = item.volumeBloqueado ?? 0;
+    const vg = item.volumeGasto ?? 0;
+    return `${item.data}: fim ${item.pontosDepois} pts (${item.pontosAntes}→${item.pontosDepois}) · mov. ${item.totalDia} (C${vc} B${vb} G${vg})`;
+  }
+
+  /**
+   * Agrupa movimentos por dia (dataChave). totalDia = soma dos módulos de cada movimento;
+   * pontosAntes/pontosDepois = saldo antes da 1ª e depois da última movimentação do dia.
+   */
+  private agregarHistoricoPorDia(
+    rows: Array<{
+      valor: number;
+      tipo: 'credito' | 'gasto' | 'bloqueado';
+      data: string;
+      dataChave?: string;
+      evento?: string;
+      pontosAntes?: number;
+      pontosDepois?: number;
+    }>,
+  ): Array<{
+    data: string;
+    dataChave: string;
+    totalDia: number;
+    pontosAntes: number;
+    pontosDepois: number;
+    volumeCredito: number;
+    volumeBloqueado: number;
+    volumeGasto: number;
+    tipo: 'credito' | 'gasto' | 'bloqueado';
+    eventoResumo?: string;
+  }> {
+    if (!rows.length) return [];
+    const map = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const key = r.dataChave || r.data;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    const keys = [...map.keys()].sort((a, b) => a.localeCompare(b));
+    return keys.map((key) => {
+      const list = map.get(key)!;
+      let volumeCredito = 0;
+      let volumeBloqueado = 0;
+      let volumeGasto = 0;
+      const totalDia = list.reduce((s, x) => {
+        const v = Number(x.valor) || 0;
+        if (x.tipo === 'credito') volumeCredito += v;
+        else if (x.tipo === 'bloqueado') volumeBloqueado += v;
+        else volumeGasto += v;
+        return s + v;
+      }, 0);
+      const first = list[0];
+      const last = list[list.length - 1];
+      const pa = first.pontosAntes ?? 0;
+      const pd = last.pontosDepois ?? 0;
+      const eventoResumo =
+        list.length > 1
+          ? `${list.length} movimentações neste dia`
+          : first.evento || 'Movimentação';
+      return {
+        dataChave: key,
+        data: first.data,
+        totalDia,
+        pontosAntes: pa,
+        pontosDepois: pd,
+        volumeCredito,
+        volumeBloqueado,
+        volumeGasto,
+        tipo: last.tipo,
+        eventoResumo,
+      };
+    });
+  }
+
+  /**
+   * Mesmo critério de `MainLayoutComponent.carregarEstatisticasGlobais` (raw_lances, data_jogo ≥ hoje).
+   */
+  private calcularPontosBloqueadosEmJogo(matches: any[]): number {
+    let total = 0;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const dadosFiltrados = matches.filter((m: any) => {
+      if (!m.data_jogo) return true;
+      const dataJogo = new Date(m.data_jogo);
+      dataJogo.setHours(0, 0, 0, 0);
+      return dataJogo.getTime() >= hoje.getTime();
+    });
+    dadosFiltrados.forEach((match) => {
+      const comprados = Number(match.tickets_comprados) || 0;
+      if (match.status === 'ABERTA' && comprados > 0 && match.raw_lances) {
+        const lancesArray = match.raw_lances.toString().split(',');
+        const totalNoEvento = lancesArray.reduce((acc: number, lanceStr: string) => {
+          const valor = Number(lanceStr.split(':')[1]) || 0;
+          return acc + valor;
+        }, 0);
+        total += totalNoEvento;
+      }
+    });
+    return total;
   }
 
   carregarConvidados() {

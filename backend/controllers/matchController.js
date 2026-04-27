@@ -1040,15 +1040,29 @@ exports.getMatchWinnersReport = async (req, res) => {
 
 exports.getPublicHistory = async (req, res) => {
   try {
-    const [matches] = await db.execute(
-      `SELECT p.id, p.titulo, p.banner, p.data_jogo, p.quantidade_premios, p.local,
+    const [users] = await db.execute(
+      "SELECT perfil, grupo_id FROM usuarios WHERE id = ?",
+      [req.user.id],
+    );
+    if (users.length === 0) return res.json([]);
+
+    const user = users[0];
+
+    let sql = `SELECT p.id, p.titulo, p.banner, p.data_jogo, p.quantidade_premios, p.local,
               se.nome AS setor_evento_nome
        FROM partidas p
        LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
-       WHERE p.status = 'FINALIZADA' 
-       ORDER BY p.data_jogo DESC 
-       LIMIT 20`,
-    );
+       WHERE p.status = 'FINALIZADA' `;
+    const params = [];
+
+    if (user.perfil !== "ADMIN") {
+      sql += ` AND (p.grupo_id = ? OR p.grupo_id IS NULL) `;
+      params.push(user.grupo_id || 0);
+    }
+
+    sql += ` ORDER BY p.data_jogo DESC LIMIT 20`;
+
+    const [matches] = await db.execute(sql, params);
 
     if (matches.length === 0) {
       return res.json([]);

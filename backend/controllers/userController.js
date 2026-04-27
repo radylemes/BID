@@ -872,6 +872,41 @@ exports.uploadAvatar = async (req, res) => {
   }
 };
 
+/** YYYY-MM-DD a partir de valor DATE/Datetime do MySQL (mysql2). */
+function ymdFromMysqlDate(val) {
+  if (val == null) return "";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) return val.slice(0, 10);
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function addCalendarDaysYmd(ymd, deltaDays) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + deltaDays);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function classificarTipoMovimento(h, titulosAbertos) {
+  const diff = Number(h.pontos_depois) - Number(h.pontos_antes);
+  let tipoFinal = "credito";
+  if (diff < 0) {
+    tipoFinal = "gasto";
+    if (h.motivo && h.motivo.startsWith("BID:")) {
+      const tituloEvento = h.motivo.replace("BID:", "").trim();
+      if (titulosAbertos.includes(tituloEvento)) tipoFinal = "bloqueado";
+    }
+  }
+  return tipoFinal;
+}
+
 exports.getUserStats = async (req, res) => {
   const { id } = req.params;
   try {
@@ -883,45 +918,127 @@ exports.getUserStats = async (req, res) => {
       "SELECT AVG(valor_pago) as media FROM apostas WHERE usuario_id = ?",
       [id],
     );
-    const [historico] = await db.execute(
-      `SELECT pontos_antes, pontos_depois, motivo, data_alteracao FROM historico_pontos WHERE usuario_id = ? ORDER BY data_alteracao DESC LIMIT 10`,
-      [id],
-    );
     const [partidasAbertas] = await db.execute(
       "SELECT titulo FROM partidas WHERE status = 'ABERTA'",
     );
-
     const titulosAbertos = partidasAbertas.map((p) => p.titulo.trim());
 
-    const historicoFormatado = historico.map((h) => {
-      const diff = h.pontos_depois - h.pontos_antes;
-      const dataObj = new Date(h.data_alteracao);
-      const dia = String(dataObj.getDate()).padStart(2, "0");
-      const mes = String(dataObj.getMonth() + 1).padStart(2, "0");
+    const [janelaRows] = await db.execute(
+      "SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 29 DAY), '%Y-%m-%d') AS inicio",
+    );
+    let inicioStr = String(janelaRows[0]?.inicio || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(inicioStr)) {
+      const t = new Date();
+      t.setHours(0, 0, 0, 0);
+      t.setDate(t.getDate() - 29);
+      inicioStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+    }
 
-      let tipoFinal = "credito";
-      if (diff < 0) {
-        tipoFinal = "gasto";
-        if (h.motivo && h.motivo.startsWith("BID:")) {
-          const tituloEvento = h.motivo.replace("BID:", "").trim();
-          if (titulosAbertos.includes(tituloEvento)) tipoFinal = "bloqueado";
-        }
+    const [antesJanela] = await db.execute(
+      `SELECT pontos_depois FROM historico_pontos
+       WHERE usuario_id = ? AND DATE(data_alteracao) < DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+       ORDER BY data_alteracao DESC LIMIT 1`,
+      [id],
+    );
+
+    const [movimentos] = await db.execute(
+      `SELECT pontos_antes, pontos_depois, motivo, data_alteracao,
+              DATE_FORMAT(data_alteracao, '%Y-%m-%d') AS dia_date
+       FROM historico_pontos
+       WHERE usuario_id = ?
+         AND DATE(data_alteracao) >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+       ORDER BY data_alteracao ASC`,
+      [id],
+    );
+
+    const [usuariosRows] = await db.execute("SELECT pontos FROM usuarios WHERE id = ?", [id]);
+    const pontosUsuario = Number(usuariosRows[0]?.pontos) || 0;
+
+    let saldoCarregado;
+    if (antesJanela.length)
+      saldoCarregado = Number(antesJanela[0].pontos_depois);
+    else if (movimentos.length)
+      saldoCarregado = Number(movimentos[0].pontos_antes);
+    else saldoCarregado = pontosUsuario;
+
+    const porDia = new Map();
+    for (const h of movimentos) {
+      const dk =
+        typeof h.dia_date === "string" && /^\d{4}-\d{2}-\d{2}/.test(h.dia_date)
+          ? h.dia_date.slice(0, 10)
+          : ymdFromMysqlDate(h.dia_date || h.data_alteracao);
+      if (!dk) continue;
+      if (!porDia.has(dk)) porDia.set(dk, []);
+      porDia.get(dk).push(h);
+    }
+
+    const historico30 = [];
+    for (let i = 0; i < 30; i++) {
+      const dataChave = addCalendarDaysYmd(inicioStr, i);
+      const [yy, mm, dd] = dataChave.split("-");
+      const dataLabel = `${dd}/${mm}`;
+      const list = porDia.get(dataChave) || [];
+
+      if (list.length === 0) {
+        historico30.push({
+          data: dataLabel,
+          dataChave,
+          totalDia: 0,
+          pontosAntes: saldoCarregado,
+          pontosDepois: saldoCarregado,
+          volumeCredito: 0,
+          volumeBloqueado: 0,
+          volumeGasto: 0,
+          tipo: "credito",
+          eventoResumo: "Sem movimentações neste dia",
+        });
+        continue;
       }
 
-      return {
-        valor: Math.abs(diff),
-        tipo: tipoFinal,
-        evento: h.motivo,
-        data: `${dia}/${mes}`,
-      };
-    });
+      let totalDia = 0;
+      let volumeCredito = 0;
+      let volumeBloqueado = 0;
+      let volumeGasto = 0;
+      for (const h of list) {
+        const delta = Math.abs(Number(h.pontos_depois) - Number(h.pontos_antes));
+        totalDia += delta;
+        const t = classificarTipoMovimento(h, titulosAbertos);
+        if (t === "credito") volumeCredito += delta;
+        else if (t === "bloqueado") volumeBloqueado += delta;
+        else volumeGasto += delta;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const pa = Number(first.pontos_antes);
+      const pd = Number(last.pontos_depois);
+      const tipoUltimo = classificarTipoMovimento(last, titulosAbertos);
+      const eventoResumo =
+        list.length > 1
+          ? `${list.length} movimentações neste dia`
+          : first.motivo || "Movimentação";
+
+      historico30.push({
+        data: dataLabel,
+        dataChave,
+        totalDia,
+        pontosAntes: pa,
+        pontosDepois: pd,
+        volumeCredito,
+        volumeBloqueado,
+        volumeGasto,
+        tipo: tipoUltimo,
+        eventoResumo,
+      });
+      saldoCarregado = pd;
+    }
 
     res.json({
       stats: {
         bidsVencidos: bids[0].vencidos || 0,
         mediaPontos: Math.round(medias[0].media || 0),
       },
-      historico: historicoFormatado.reverse(),
+      historico: historico30,
+      historicoPeriodoDias: 30,
     });
   } catch (error) {
     await logErro("USER_CONTROLLER_GET_USER_STATS", error);
