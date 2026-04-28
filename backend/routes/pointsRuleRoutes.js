@@ -7,6 +7,12 @@ const { authMiddleware, authorizeRoles } = require("../middleware/authMiddleware
 router.get("/", authMiddleware, authorizeRoles("ADMIN"), ruleController.getRules);
 router.post("/", authMiddleware, authorizeRoles("ADMIN"), ruleController.createRule);
 router.put(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  ruleController.updateRule,
+);
+router.put(
   "/:id/toggle",
   authMiddleware,
   authorizeRoles("ADMIN"),

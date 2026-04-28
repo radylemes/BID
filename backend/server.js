@@ -19,6 +19,7 @@ const auditRoutes = require("./routes/auditRoutes");
 const systemMonitorRoutes = require("./routes/systemMonitorRoutes");
 const setoresEventoRoutes = require("./routes/setoresEventoRoutes");
 const emailRoutes = require("./routes/emailRoutes");
+const logErro = require("./utils/errorLogger");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -42,6 +43,14 @@ app.use("/api/audits", auditRoutes);
 app.use("/api/system-errors", systemMonitorRoutes);
 app.use("/api/setores-evento", setoresEventoRoutes);
 app.use("/api/email", emailRoutes);
+
+app.use("/api/*", async (req, res) => {
+  await logErro("API_404_NOT_FOUND", {
+    message: `Rota não encontrada: ${req.method} ${req.originalUrl}`,
+    stack: `API_404 ${req.method} ${req.originalUrl}`,
+  });
+  res.status(404).json({ error: "Rota não encontrada." });
+});
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
