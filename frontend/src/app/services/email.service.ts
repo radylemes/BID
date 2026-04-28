@@ -194,8 +194,14 @@ export class EmailService {
   }
 
   // Log de disparos por partida (para quem foi enviado e status)
-  getDisparosLog(partidaId: number): Observable<DisparoLogEntry[]> {
-    return this.http.get<DisparoLogEntry[]>(`${this.apiUrl}/partida/${partidaId}/disparos-log`);
+  getDisparosLog(partidaId: number, options?: { sort?: 'asc' | 'desc'; q?: string; limit?: number }): Observable<DisparoLogEntry[]> {
+    const params = new URLSearchParams();
+    if (options?.sort) params.set('sort', options.sort);
+    if (options?.q && options.q.trim()) params.set('q', options.q.trim());
+    if (typeof options?.limit === 'number' && Number.isFinite(options.limit)) params.set('limit', String(options.limit));
+    const query = params.toString();
+    const url = `${this.apiUrl}/partida/${partidaId}/disparos-log${query ? `?${query}` : ''}`;
+    return this.http.get<DisparoLogEntry[]>(url);
   }
 
   // PDF lista de ganhadores (preview antes do envio em BID_ENCERRADO)

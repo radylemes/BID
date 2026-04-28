@@ -1077,18 +1077,35 @@ exports.testTemplate = async (req, res) => {
 exports.getDisparosLog = async (req, res) => {
   try {
     const partidaId = req.params.partidaId;
+    const sortRaw = String(req.query.sort || "desc").toLowerCase();
+    const sortDir = sortRaw === "asc" ? "ASC" : "DESC";
+    const q = req.query.q ? String(req.query.q).trim() : "";
+    const limitRaw = Number.parseInt(String(req.query.limit || "50"), 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
     if (!partidaId) {
       return res.status(400).json({ error: "partidaId é obrigatório." });
     }
+    const where = [
+      "a.modulo = 'EMAIL'",
+      "a.acao = 'DISPARO'",
+      "a.registro_id = ?",
+    ];
+    const params = [partidaId];
+    if (q) {
+      where.push("(u.nome_completo LIKE ? OR a.detalhes LIKE ?)");
+      const like = `%${q}%`;
+      params.push(like, like);
+    }
+    params.push(limit);
     const [rows] = await db.query(
       `SELECT a.id, a.modulo, a.acao, a.registro_id, a.detalhes, a.criado_em as data_hora,
               u.nome_completo as admin_nome
        FROM auditoria a
        LEFT JOIN usuarios u ON a.admin_id = u.id
-       WHERE a.modulo = 'EMAIL' AND a.acao = 'DISPARO' AND a.registro_id = ?
-       ORDER BY a.criado_em DESC
-       LIMIT 50`,
-      [partidaId]
+       WHERE ${where.join(" AND ")}
+       ORDER BY a.criado_em ${sortDir}
+       LIMIT ?`,
+      params
     );
     const logs = await Promise.all(
       rows.map(async (row) => {

@@ -1,5 +1,6 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -14,7 +15,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
 @Component({
   selector: 'app-disparo-emails',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-screen">
       <div class="mb-6">
@@ -159,6 +160,14 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
 
         <div class="p-4">
           <p class="text-sm text-[var(--app-text-muted)] mb-4" [innerHTML]="descricaoTipo"></p>
+          <div class="mb-4">
+            <input
+              type="text"
+              [(ngModel)]="filtroDisparo"
+              placeholder="Buscar BID por título, grupo, status ou ID..."
+              class="w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            >
+          </div>
 
           <div *ngIf="loading" class="py-8 text-center text-[var(--app-text-muted)]">
             <span class="animate-pulse">Carregando BIDs...</span>
@@ -277,9 +286,17 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
             <button (click)="novoTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Novo template</button>
           </div>
           <div class="rounded-xl border border-[var(--app-border)] overflow-hidden">
+            <div class="p-3 border-b border-[var(--app-border)] bg-[var(--color-bg-surface-alt)]">
+              <input
+                type="text"
+                [(ngModel)]="filtroTemplates"
+                placeholder="Buscar template por nome, assunto ou tipo..."
+                class="w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              >
+            </div>
             <div *ngIf="templatesLoading" class="p-6 text-center text-[var(--app-text-muted)]">A carregar...</div>
-            <div *ngIf="!templatesLoading && templatesList.length === 0" class="p-6 text-center text-[var(--app-text-muted)]">Nenhum template. Crie um novo template.</div>
-            <table *ngIf="!templatesLoading && templatesList.length > 0" class="min-w-full text-sm">
+            <div *ngIf="!templatesLoading && templatesFiltrados.length === 0" class="p-6 text-center text-[var(--app-text-muted)]">Nenhum template encontrado.</div>
+            <table *ngIf="!templatesLoading && templatesFiltrados.length > 0" class="min-w-full text-sm">
               <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] uppercase font-bold text-xs">
                 <tr>
                   <th class="px-4 py-3 text-left">Nome</th>
@@ -289,7 +306,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 </tr>
               </thead>
               <tbody class="divide-y divide-[var(--app-border)]">
-                <tr *ngFor="let t of templatesList" class="hover:bg-[var(--app-nav-hover-bg)]">
+                <tr *ngFor="let t of templatesFiltrados" class="hover:bg-[var(--app-nav-hover-bg)]">
                   <td class="px-4 py-3 font-medium text-[var(--app-text)]">{{ t.nome }}</td>
                   <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ t.assunto }}</td>
                   <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ getLabelTipoTemplate(t.tipo_disparo) }}</td>
@@ -318,9 +335,17 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
             <button (click)="novaLista()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-sm">+ Nova lista</button>
           </div>
           <div class="rounded-xl border border-[var(--app-border)] overflow-hidden">
+            <div class="p-3 border-b border-[var(--app-border)] bg-[var(--color-bg-surface-alt)]">
+              <input
+                type="text"
+                [(ngModel)]="filtroListas"
+                placeholder="Buscar lista por nome ou descrição..."
+                class="w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              >
+            </div>
             <div *ngIf="listasEmailLoading" class="p-6 text-center text-[var(--app-text-muted)]">A carregar...</div>
-            <div *ngIf="!listasEmailLoading && listasEmail.length === 0" class="p-6 text-center text-[var(--app-text-muted)]">Nenhuma lista. Crie uma nova lista.</div>
-            <table *ngIf="!listasEmailLoading && listasEmail.length > 0" class="min-w-full text-sm">
+            <div *ngIf="!listasEmailLoading && listasEmailFiltradas.length === 0" class="p-6 text-center text-[var(--app-text-muted)]">Nenhuma lista encontrada.</div>
+            <table *ngIf="!listasEmailLoading && listasEmailFiltradas.length > 0" class="min-w-full text-sm">
               <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] uppercase font-bold text-xs">
                 <tr>
                   <th class="px-4 py-3 text-left">Nome</th>
@@ -329,7 +354,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 </tr>
               </thead>
               <tbody class="divide-y divide-[var(--app-border)]">
-                <tr *ngFor="let lista of listasEmail" class="hover:bg-[var(--app-nav-hover-bg)]">
+                <tr *ngFor="let lista of listasEmailFiltradas" class="hover:bg-[var(--app-nav-hover-bg)]">
                   <td class="px-4 py-3 font-medium text-[var(--app-text)]">{{ lista.nome }}</td>
                   <td class="px-4 py-3 text-[var(--app-text-muted)]">{{ lista.descricao || '—' }}</td>
                   <td class="px-4 py-3 text-right">
@@ -366,6 +391,9 @@ export class DisparoEmailsComponent implements OnInit {
   listasEmail: ListaEmail[] = [];
   listasEmailLoading = false;
   pdfLoadingPartidaId: number | null = null;
+  filtroDisparo = '';
+  filtroTemplates = '';
+  filtroListas = '';
 
   get descricaoTipo(): string {
     switch (this.tipoAtivo) {
@@ -381,7 +409,50 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   get matchesFiltrados(): any[] {
-    return this.matches;
+    const termo = this.normalizeText(this.filtroDisparo);
+    return [...this.matches]
+      .sort((a, b) => this.getTimestamp(b?.data_jogo || b?.data_limite_aposta || b?.id) - this.getTimestamp(a?.data_jogo || a?.data_limite_aposta || a?.id))
+      .filter((m) => {
+        if (!termo) return true;
+        const texto = [
+          m?.id,
+          m?.titulo,
+          m?.nome_grupo,
+          m?.status,
+          m?.data_jogo,
+          m?.data_inicio_apostas,
+          m?.data_limite_aposta,
+          m?.data_apuracao,
+        ].map((v) => this.normalizeText(v)).join(' ');
+        return texto.includes(termo);
+      });
+  }
+
+  get templatesFiltrados(): TemplateEmail[] {
+    const termo = this.normalizeText(this.filtroTemplates);
+    return [...this.templatesList]
+      .sort((a, b) => this.getTimestamp(b?.atualizado_em || b?.criado_em || b?.id) - this.getTimestamp(a?.atualizado_em || a?.criado_em || a?.id))
+      .filter((t) => {
+        if (!termo) return true;
+        const texto = [
+          t?.id,
+          t?.nome,
+          t?.assunto,
+          this.getLabelTipoTemplate(t?.tipo_disparo),
+        ].map((v) => this.normalizeText(v)).join(' ');
+        return texto.includes(termo);
+      });
+  }
+
+  get listasEmailFiltradas(): ListaEmail[] {
+    const termo = this.normalizeText(this.filtroListas);
+    return [...this.listasEmail]
+      .sort((a, b) => this.getTimestamp(b?.criado_em || b?.id) - this.getTimestamp(a?.criado_em || a?.id))
+      .filter((lista) => {
+        if (!termo) return true;
+        const texto = [lista?.id, lista?.nome, lista?.descricao].map((v) => this.normalizeText(v)).join(' ');
+        return texto.includes(termo);
+      });
   }
 
   constructor(
@@ -564,6 +635,7 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   private mostrarModalItensLista(lista: ListaEmail, itens: ListaEmailItem[]): void {
+    itens.sort((a, b) => this.getTimestamp(b.criado_em || b.id) - this.getTimestamp(a.criado_em || a.id));
     const listHtml = itens.length
       ? itens
           .map(
@@ -588,6 +660,9 @@ export class DisparoEmailsComponent implements OnInit {
             <button type="button" id="btn-add-item" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium">Adicionar</button>
           </div>
           <div class="mb-3">
+            <input id="item-search" type="text" class="swal2-input w-full m-0 text-sm" placeholder="Buscar por nome ou e-mail...">
+          </div>
+          <div class="mb-3">
             <button type="button" id="btn-importar-banco" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200">Importar do banco</button>
           </div>
           <div id="itens-list" class="rounded-lg border border-gray-100 bg-gray-50/50 p-2">${listHtml}</div>
@@ -603,7 +678,9 @@ export class DisparoEmailsComponent implements OnInit {
         const btnAdd = container.querySelector('#btn-add-item');
         const inputEmail = container.querySelector('#item-email') as HTMLInputElement;
         const inputNome = container.querySelector('#item-nome') as HTMLInputElement;
+        const inputSearch = container.querySelector('#item-search') as HTMLInputElement;
         const listEl = container.querySelector('#itens-list');
+        let termoBuscaItens = '';
 
         const addItem = () => {
           const email = inputEmail?.value?.trim();
@@ -614,15 +691,8 @@ export class DisparoEmailsComponent implements OnInit {
           this.emailService.addListItem(lista.id, email, inputNome?.value?.trim()).subscribe({
             next: (novo) => {
               itens.push(novo);
-              const div = document.createElement('div');
-              div.className = 'flex items-center justify-between py-2 border-b border-gray-100 last:border-0';
-              div.innerHTML = `
-                <span class="text-sm text-gray-800">${novo.email}</span>
-                <span class="text-xs text-gray-500">${novo.nome_opcional || '—'}</span>
-                <button type="button" data-remove-id="${novo.id}" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs">Remover</button>
-              `;
-              div.querySelector('[data-remove-id]')?.addEventListener('click', () => removeItem(novo.id));
-              listEl?.appendChild(div);
+              itens.sort((a, b) => this.getTimestamp(b.criado_em || b.id) - this.getTimestamp(a.criado_em || a.id));
+              renderItensList();
               inputEmail!.value = '';
               if (inputNome) inputNome.value = '';
             },
@@ -634,7 +704,7 @@ export class DisparoEmailsComponent implements OnInit {
           this.emailService.removeListItem(lista.id, itemId).subscribe({
             next: () => {
               itens.splice(itens.findIndex((i) => i.id === itemId), 1);
-              container.querySelectorAll(`[data-remove-id="${itemId}"]`).forEach((btn) => btn.closest('div')?.remove());
+              renderItensList();
             },
             error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao remover.', 'error'),
           });
@@ -642,8 +712,13 @@ export class DisparoEmailsComponent implements OnInit {
 
         const renderItensList = () => {
           if (!listEl) return;
-          listEl.innerHTML = itens.length
-            ? itens
+          const itensFiltrados = itens.filter((i) => {
+            if (!termoBuscaItens) return true;
+            const texto = [i.id, i.email, i.nome_opcional].map((v) => this.normalizeText(v)).join(' ');
+            return texto.includes(termoBuscaItens);
+          });
+          listEl.innerHTML = itensFiltrados.length
+            ? itensFiltrados
                 .map(
                   (i) => `
           <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
@@ -654,7 +729,7 @@ export class DisparoEmailsComponent implements OnInit {
         `
                 )
                 .join('')
-            : '<p class="text-gray-400 text-sm py-2">Nenhum e-mail na lista.</p>';
+            : '<p class="text-gray-400 text-sm py-2">Nenhum e-mail encontrado.</p>';
           listEl.querySelectorAll('[data-remove-id]').forEach((btn) => {
             btn.addEventListener('click', () => removeItem(Number((btn as HTMLElement).getAttribute('data-remove-id'))));
           });
@@ -816,10 +891,15 @@ export class DisparoEmailsComponent implements OnInit {
         };
 
         btnAdd?.addEventListener('click', addItem);
+        inputSearch?.addEventListener('input', () => {
+          termoBuscaItens = this.normalizeText(inputSearch.value);
+          renderItensList();
+        });
         container.querySelector('#btn-importar-banco')?.addEventListener('click', importarDoBanco);
         container.querySelectorAll('[data-remove-id]').forEach((btn) => {
           btn.addEventListener('click', () => removeItem(Number((btn as HTMLElement).getAttribute('data-remove-id'))));
         });
+        renderItensList();
       },
     });
   }
@@ -992,8 +1072,26 @@ export class DisparoEmailsComponent implements OnInit {
       .replace(/"/g, '&quot;');
   }
 
+  private normalizeText(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  private getTimestamp(value: unknown): number {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    const date = new Date(String(value));
+    if (!Number.isNaN(date.getTime())) return date.getTime();
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? asNumber : 0;
+  }
+
   verLogsDisparo(match: any): void {
-    this.emailService.getDisparosLog(match.id).subscribe({
+    this.emailService.getDisparosLog(match.id, { sort: 'desc', limit: 100 }).subscribe({
       next: (logs: DisparoLogEntry[]) => {
         if (!logs || logs.length === 0) {
           Swal.fire('Informação', 'Nenhum disparo registrado para este BID.', 'info');
@@ -1006,49 +1104,98 @@ export class DisparoEmailsComponent implements OnInit {
           if (t === 'USUARIO_CRIADO') return 'Criação de utilizador';
           return t || '—';
         };
-        const blocos = logs.map((log) => {
-          const dataHora = log.data_hora ? new Date(log.data_hora).toLocaleString('pt-BR') : '—';
-          const enviados = log.enviados ?? 0;
-          const total = log.totalDestinatarios ?? 0;
-          const erros = log.erros ?? 0;
-          const dest = log.destinatarios || [];
-          const rows = dest
-            .map(
-              (d) =>
-                `<tr class="border-b border-gray-100 hover:bg-gray-50">
-                  <td class="p-2 text-sm text-gray-800">${this.escapeHtml(d.email)}</td>
-                  <td class="p-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span></td>
-                  <td class="p-2 text-xs text-gray-500">${d.status === 'erro' && d.mensagem ? this.escapeHtml(d.mensagem) : '—'}</td>
-                </tr>`
-            )
-            .join('');
-          return `
-            <div class="mb-4 rounded-lg border border-gray-200 overflow-hidden">
-              <div class="px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-                <span>${dataHora}</span>
-                <span>${labelTipo(log.tipoDisparo ?? '')}</span>
-                <span>${this.escapeHtml(log.admin_nome || 'Sistema')}</span>
-                <span class="text-emerald-600">${enviados}/${total} enviados</span>
-                ${erros > 0 ? `<span class="text-red-600">${erros} erro(s)</span>` : ''}
-              </div>
-              <div class="overflow-x-auto max-h-48 overflow-y-auto">
-                <table class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-gray-50 sticky top-0">
-                    <tr><th class="p-2 border-b font-semibold text-gray-600">E-mail</th><th class="p-2 border-b font-semibold text-gray-600">Status</th><th class="p-2 border-b font-semibold text-gray-600">Mensagem</th></tr>
-                  </thead>
-                  <tbody class="bg-white">${rows || '<tr><td colspan="3" class="p-2 text-gray-400">Nenhum destinatário registrado.</td></tr>'}</tbody>
-                </table>
-              </div>
-            </div>`;
-        });
-        const html = `<div class="overflow-y-auto max-h-[70vh] pr-1">${blocos.join('')}</div>`;
         Swal.fire({
           title: `Log de disparos: ${match.titulo}`,
-          html,
+          html: `
+            <div class="mb-3">
+              <input id="log-search" type="text" class="swal2-input w-full m-0 text-sm" placeholder="Buscar por BID, admin, tipo, e-mail ou mensagem...">
+            </div>
+            <div id="log-results" class="overflow-y-auto max-h-[70vh] pr-1"></div>
+          `,
           width: '900px',
           showConfirmButton: true,
           confirmButtonText: 'Fechar',
           customClass: { popup: 'rounded-xl' },
+          didOpen: () => {
+            const popup = Swal.getPopup();
+            if (!popup) return;
+            const inputSearch = popup.querySelector('#log-search') as HTMLInputElement | null;
+            const logResults = popup.querySelector('#log-results') as HTMLElement | null;
+            let termoBuscaLog = '';
+
+            const renderLogs = () => {
+              if (!logResults) return;
+              const logsFiltrados = [...logs]
+                .sort((a, b) => this.getTimestamp(b.data_hora || b.id) - this.getTimestamp(a.data_hora || a.id))
+                .filter((log) => {
+                  if (!termoBuscaLog) return true;
+                  const dest = log.destinatarios || [];
+                  const textoDest = dest.map((d) => `${d.email || ''} ${d.status || ''} ${d.mensagem || ''}`).join(' ');
+                  const texto = [
+                    match?.id,
+                    match?.titulo,
+                    log?.id,
+                    log?.data_hora,
+                    log?.admin_nome,
+                    log?.tipoDisparo,
+                    log?.totalDestinatarios,
+                    log?.enviados,
+                    log?.erros,
+                    textoDest,
+                  ].map((v) => this.normalizeText(v)).join(' ');
+                  return texto.includes(termoBuscaLog);
+                });
+
+              if (logsFiltrados.length === 0) {
+                logResults.innerHTML = '<p class="text-sm text-gray-500 py-2">Nenhum log encontrado.</p>';
+                return;
+              }
+
+              const blocos = logsFiltrados.map((log) => {
+                const dataHora = log.data_hora ? new Date(log.data_hora).toLocaleString('pt-BR') : '—';
+                const enviados = log.enviados ?? 0;
+                const total = log.totalDestinatarios ?? 0;
+                const erros = log.erros ?? 0;
+                const dest = log.destinatarios || [];
+                const rows = dest
+                  .map(
+                    (d) =>
+                      `<tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="p-2 text-sm text-gray-800">${this.escapeHtml(d.email)}</td>
+                        <td class="p-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span></td>
+                        <td class="p-2 text-xs text-gray-500">${d.status === 'erro' && d.mensagem ? this.escapeHtml(d.mensagem) : '—'}</td>
+                      </tr>`
+                  )
+                  .join('');
+                return `
+                  <div class="mb-4 rounded-lg border border-gray-200 overflow-hidden">
+                    <div class="px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                      <span>${dataHora}</span>
+                      <span>${labelTipo(log.tipoDisparo ?? '')}</span>
+                      <span>${this.escapeHtml(log.admin_nome || 'Sistema')}</span>
+                      <span>BID #${this.escapeHtml(String(match?.id ?? '—'))}</span>
+                      <span class="text-emerald-600">${enviados}/${total} enviados</span>
+                      ${erros > 0 ? `<span class="text-red-600">${erros} erro(s)</span>` : ''}
+                    </div>
+                    <div class="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-gray-50 sticky top-0">
+                          <tr><th class="p-2 border-b font-semibold text-gray-600">E-mail</th><th class="p-2 border-b font-semibold text-gray-600">Status</th><th class="p-2 border-b font-semibold text-gray-600">Mensagem</th></tr>
+                        </thead>
+                        <tbody class="bg-white">${rows || '<tr><td colspan="3" class="p-2 text-gray-400">Nenhum destinatário registrado.</td></tr>'}</tbody>
+                      </table>
+                    </div>
+                  </div>`;
+              });
+              logResults.innerHTML = blocos.join('');
+            };
+
+            inputSearch?.addEventListener('input', () => {
+              termoBuscaLog = this.normalizeText(inputSearch.value);
+              renderLogs();
+            });
+            renderLogs();
+          },
         });
       },
       error: () => Swal.fire('Erro', 'Falha ao carregar log de disparos.', 'error'),
