@@ -1,5 +1,6 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { of, forkJoin } from 'rxjs';
 import { switchMap, map, catchError } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
@@ -15,7 +16,7 @@ import * as XLSX from 'xlsx';
 @Component({
   selector: 'app-match-manager',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="container mx-auto p-4 bg-[var(--app-bg)] min-h-screen">
       <div
@@ -111,6 +112,37 @@ import * as XLSX from 'xlsx';
               </button>
             </li>
           </ul>
+          <div class="mt-3 pt-3 border-t border-[var(--app-border)]">
+            <label for="busca-bids" class="sr-only">Buscar BIDs</label>
+            <div class="relative">
+              <span
+                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--app-text-muted)]"
+                aria-hidden="true"
+              >
+                <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+              </span>
+              <input
+                id="busca-bids"
+                type="search"
+                name="buscaBids"
+                [(ngModel)]="filtroBusca"
+                autocomplete="off"
+                placeholder="Buscar por título, local, grupo, setor, status ou datas…"
+                class="block w-full rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-2.5 pl-10 pr-10 text-sm text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 outline-none"
+              />
+              <button
+                *ngIf="filtroBusca?.trim()"
+                type="button"
+                (click)="filtroBusca = ''"
+                class="absolute inset-y-0 right-0 flex items-center pr-2 text-[var(--app-text-muted)] hover:text-[var(--app-text)] rounded-r-lg px-2 text-xs font-medium"
+                title="Limpar busca"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
         </div>
 
         <div
@@ -341,7 +373,10 @@ import * as XLSX from 'xlsx';
           *ngIf="!loading && matches.length > 0 && displayedMatches.length === 0"
           class="p-8 text-center text-[var(--app-text-muted)]"
         >
-          Nenhum BID nesta aba.
+          <ng-container *ngIf="matchesNaAba.length > 0 && (filtroBusca || '').trim(); else emptyTabMsg">
+            Nenhum BID corresponde à busca.
+          </ng-container>
+          <ng-template #emptyTabMsg>Nenhum BID nesta aba.</ng-template>
         </div>
       </div>
     </div>
@@ -354,6 +389,7 @@ export class MatchManagerComponent implements OnInit {
   currentUser: any = {};
   loading: boolean = false;
   abaAtiva: 'atuais' | 'anteriores' = 'atuais';
+  filtroBusca = '';
 
   setAba(value: string): void {
     this.abaAtiva = value === 'anteriores' ? 'anteriores' : 'atuais';
@@ -365,39 +401,72 @@ export class MatchManagerComponent implements OnInit {
     return h;
   }
 
+  private isMatchAtual(m: any): boolean {
+    if (!m.data_jogo) return true;
+    const d = new Date(m.data_jogo);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() >= this.hojeInicio.getTime();
+  }
+
+  private isMatchAnterior(m: any): boolean {
+    if (!m.data_jogo) return false;
+    const d = new Date(m.data_jogo);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() < this.hojeInicio.getTime();
+  }
+
+  get matchesNaAba(): any[] {
+    return this.matches.filter((m) =>
+      this.abaAtiva === 'anteriores' ? this.isMatchAnterior(m) : this.isMatchAtual(m),
+    );
+  }
+
   get displayedMatches(): any[] {
-    if (this.abaAtiva === 'anteriores') {
-      return this.matches.filter((m) => {
-        if (!m.data_jogo) return false;
-        const d = new Date(m.data_jogo);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() < this.hojeInicio.getTime();
-      });
-    }
-    return this.matches.filter((m) => {
-      if (!m.data_jogo) return true;
-      const d = new Date(m.data_jogo);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() >= this.hojeInicio.getTime();
-    });
+    const base = this.matchesNaAba;
+    const q = (this.filtroBusca || '').trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((m) => this.bidMatchesSearch(m, q));
+  }
+
+  private bidMatchesSearch(m: any, q: string): boolean {
+    return this.textoBuscaBid(m).includes(q);
+  }
+
+  private textoBuscaBid(m: any): string {
+    const fmt = (d: unknown): string => {
+      if (d == null || d === '') return '';
+      try {
+        const date = new Date(d as string);
+        if (Number.isNaN(date.getTime())) return String(d).toLowerCase();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      } catch {
+        return String(d).toLowerCase();
+      }
+    };
+    const parts = [
+      m.titulo,
+      m.nome_grupo,
+      m.local,
+      m.setor_evento_nome,
+      m.status,
+      fmt(m.data_jogo),
+      fmt(m.data_inicio_apostas),
+      fmt(m.data_limite_aposta),
+      m.id != null ? String(m.id) : '',
+    ];
+    return parts
+      .filter((x) => x != null && String(x).length > 0)
+      .map((x) => String(x).toLowerCase())
+      .join(' ');
   }
 
   get matchesAtuaisCount(): number {
-    return this.matches.filter((m) => {
-      if (!m.data_jogo) return true;
-      const d = new Date(m.data_jogo);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() >= this.hojeInicio.getTime();
-    }).length;
+    return this.matches.filter((m) => this.isMatchAtual(m)).length;
   }
 
   get matchesAnterioresCount(): number {
-    return this.matches.filter((m) => {
-      if (!m.data_jogo) return false;
-      const d = new Date(m.data_jogo);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() < this.hojeInicio.getTime();
-    }).length;
+    return this.matches.filter((m) => this.isMatchAnterior(m)).length;
   }
 
   constructor(
