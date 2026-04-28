@@ -568,7 +568,7 @@ exports.importUsers = async (req, res) => {
 
 // ==================== TEMPLATES ====================
 
-const TIPOS_DISPARO_VALIDOS = ["BID_ABERTO", "BID_ENCERRADO", "GANHADORES"];
+const TIPOS_DISPARO_VALIDOS = ["BID_ABERTO", "BID_ENCERRADO", "GANHADORES", "USUARIO_CRIADO"];
 
 exports.getTemplates = async (req, res) => {
   try {
@@ -613,7 +613,10 @@ exports.createTemplate = async (req, res) => {
       return res.status(400).json({ error: "Assunto é obrigatório." });
     }
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
-      return res.status(400).json({ error: "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO ou GANHADORES." });
+      return res.status(400).json({
+        error:
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES ou USUARIO_CRIADO.",
+      });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
     else tipo_disparo = String(tipo_disparo).trim();
@@ -656,7 +659,10 @@ exports.updateTemplate = async (req, res) => {
       return res.status(400).json({ error: "Assunto é obrigatório." });
     }
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
-      return res.status(400).json({ error: "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO ou GANHADORES." });
+      return res.status(400).json({
+        error:
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES ou USUARIO_CRIADO.",
+      });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
     else tipo_disparo = String(tipo_disparo).trim();
@@ -732,7 +738,80 @@ const DEFAULT_EVENTO = {
 const DEFAULT_USUARIO = {
   nome: "João Silva",
   email: "joao.silva@exemplo.com",
+  username: "joao.silva",
+  senha: "••••••••",
   ingressos_ganhos: "0",
+};
+
+/** Contexto de pré-visualização: tags {{usuario.*}} e {{senha}}. */
+function buildPreviewEmailContext(evento) {
+  const usuario = { ...DEFAULT_USUARIO };
+  return {
+    evento,
+    usuario,
+    senha: usuario.senha,
+  };
+}
+
+/**
+ * E-mail de boas-vindas após criação manual de utilizador (usa template tipo_disparo = USUARIO_CRIADO).
+ * Falhas são apenas registadas em log; não deve ser usado para rollback da criação do utilizador.
+ */
+exports.sendNovoUsuarioEmail = async ({ email, nomeCompleto, username, senhaPlano }) => {
+  try {
+    const to = email && String(email).trim();
+    if (!to || !senhaPlano || !String(senhaPlano)) return;
+
+    const [templates] = await db.query(
+      "SELECT assunto, corpo_html FROM templates_email WHERE tipo_disparo = 'USUARIO_CRIADO' ORDER BY id ASC LIMIT 1"
+    );
+    if (templates.length === 0) {
+      await logErro(
+        "EMAIL_SEND_NOVO_USUARIO",
+        new Error("Nenhum template com tipo_disparo USUARIO_CRIADO encontrado.")
+      );
+      return;
+    }
+    const template = templates[0];
+
+    const transporter = await getSmtpTransporter();
+    if (!transporter) {
+      await logErro("EMAIL_SEND_NOVO_USUARIO", new Error("SMTP não configurado."));
+      return;
+    }
+    const [cfgRows] = await db.query(
+      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'"
+    );
+    const smtpFrom = cfgRows[0]?.valor?.trim();
+    if (!smtpFrom) {
+      await logErro("EMAIL_SEND_NOVO_USUARIO", new Error("smtp_from não configurado."));
+      return;
+    }
+
+    const usuario = {
+      nome: nomeCompleto || to,
+      email: to,
+      username: username || "",
+      senha: String(senhaPlano),
+      ingressos_ganhos: "0",
+    };
+    const context = {
+      evento: { ...DEFAULT_EVENTO },
+      usuario,
+      senha: String(senhaPlano),
+    };
+    const assunto = replaceTemplateTags(template.assunto, context);
+    const html = replaceTemplateTags(template.corpo_html, context);
+    await transporter.sendMail({
+      from: smtpFrom,
+      to,
+      subject: assunto,
+      html,
+      text: assunto,
+    });
+  } catch (error) {
+    await logErro("EMAIL_SEND_NOVO_USUARIO", error);
+  }
 };
 
 exports.previewTemplate = async (req, res) => {
@@ -802,7 +881,7 @@ exports.previewTemplate = async (req, res) => {
       }
     }
 
-    const context = { evento, usuario: DEFAULT_USUARIO };
+    const context = buildPreviewEmailContext(evento);
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
 
@@ -872,7 +951,7 @@ exports.previewDraft = async (req, res) => {
         evento.imagem = imagemUrl;
       }
     }
-    const context = { evento, usuario: DEFAULT_USUARIO };
+    const context = buildPreviewEmailContext(evento);
     const assuntoOut = replaceTemplateTags(String(assunto), context);
     const html = replaceTemplateTags(String(corpo_html), context);
     res.json({ assunto: assuntoOut, html });
@@ -965,8 +1044,14 @@ exports.testTemplate = async (req, res) => {
         evento.imagem = imagemUrl;
       }
     }
-    const usuario = { nome: "Destinatário Teste", email: String(to).trim() };
-    const context = { evento, usuario };
+    const usuario = {
+      nome: "Destinatário Teste",
+      email: String(to).trim(),
+      username: DEFAULT_USUARIO.username,
+      senha: DEFAULT_USUARIO.senha,
+      ingressos_ganhos: "0",
+    };
+    const context = { evento, usuario, senha: usuario.senha };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
     await transporter.sendMail({

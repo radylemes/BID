@@ -48,6 +48,7 @@ router.get("/grupos-apostas", userController.getGruposApostas); // <--- A ROTA Q
 // ROTAS PADRÃO (CRUD)
 // ==============================================================================
 router.get("/", userController.getAllUsers);
+router.post("/create", userController.createUser);
 router.post("/", userController.createUser);
 
 // Rotas com ID

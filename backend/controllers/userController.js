@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const qs = require("qs");
 const fs = require("fs");
 const logErro = require("../utils/errorLogger");
+const { sendNovoUsuarioEmail } = require("./emailController");
 const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
 
 const storage = multer.diskStorage({
@@ -454,7 +455,14 @@ exports.bulkUpdate = async (req, res) => {
 
       let grupoIdFinal = null;
       const nomeGrupoExcel =
-        item.grupo || item.Grupo || item.group || item.Group;
+        item.grupo ||
+        item.Grupo ||
+        item.group ||
+        item.Group ||
+        item.grupo_apostas ||
+        item.GrupoApostas ||
+        item["Grupo Apostas"] ||
+        item["GrupoApostas"];
       if (
         nomeGrupoExcel &&
         mapaGrupos[String(nomeGrupoExcel).toUpperCase().trim()]
@@ -731,6 +739,13 @@ exports.createUser = async (req, res) => {
     );
 
     await connection.commit();
+    const senhaPlano = typeof senha === "string" ? senha : senha != null ? String(senha) : "";
+    void sendNovoUsuarioEmail({
+      email,
+      nomeCompleto: nome_completo,
+      username,
+      senhaPlano,
+    });
     res.status(201).json({ message: "Criado com sucesso!" });
   } catch (error) {
     await connection.rollback();

@@ -243,23 +243,46 @@ export class UserListComponent implements OnInit {
       const rawData = XLSX.utils.sheet_to_json(ws);
       const formattedData = rawData
         .map((item: any) => {
+          const normHeader = (k: string) =>
+            k
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/\s+/g, ' ');
           const getVal = (candidates: string[]) => {
-            const key = Object.keys(item).find((k) =>
-              candidates.includes(
-                k
-                  .toLowerCase()
-                  .trim()
-                  .normalize('NFD')
-                  .replace(/[\u0300-\u036f]/g, ''),
-              ),
-            );
+            const key = Object.keys(item).find((k) => candidates.includes(normHeader(k)));
             return key ? item[key] : null;
+          };
+          /** Colunas de exportação / Excel: GrupoApostas, Grupo Apostas, grupo de apostas, etc. */
+          const getGrupoImport = (): string | null => {
+            const grupoCandidates = [
+              'grupo',
+              'group',
+              'grupoapostas',
+              'grupo apostas',
+              'grupo de apostas',
+              'grupoaposta',
+              'grupo aposta',
+              'apostas',
+            ];
+            const direct = getVal(grupoCandidates);
+            if (direct != null && direct !== '') return String(direct).trim();
+            const compact = (s: string) => normHeader(s).replace(/\s/g, '');
+            const key = Object.keys(item).find((k) => {
+              const c = compact(k);
+              if (grupoCandidates.some((g) => compact(g) === c)) return true;
+              return c.includes('grupo') && c.includes('aposta');
+            });
+            if (!key) return null;
+            const v = item[key];
+            return v != null && v !== '' ? String(v).trim() : null;
           };
           return {
             nome_completo: getVal(['nome', 'funcionario', 'name']),
             email: getVal(['email', 'mail']),
             setor: getVal(['setor', 'area', 'departamento']),
-            grupo: getVal(['grupo', 'group', 'apostas']),
+            grupo: getGrupoImport(),
             pontos: getVal(['pontos', 'pts']),
             empresa: getVal(['empresa', 'company']),
             perfil: getVal(['perfil', 'role']),

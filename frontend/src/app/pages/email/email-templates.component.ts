@@ -17,6 +17,9 @@ const TAGS_DISPONIVEIS = [
   { tag: '{{evento.setor_evento_nome}}', desc: 'Setor do evento' },
   { tag: '{{usuario.nome}}', desc: 'Nome do destinatário' },
   { tag: '{{usuario.email}}', desc: 'E-mail do destinatário' },
+  { tag: '{{usuario.username}}', desc: 'Nome de utilizador (login)' },
+  { tag: '{{usuario.senha}}', desc: 'Senha inicial (só no e-mail de criação de utilizador)' },
+  { tag: '{{senha}}', desc: 'Senha inicial — atalho (só no e-mail de criação de utilizador)' },
   { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
 ];
 
@@ -167,6 +170,7 @@ export class EmailTemplatesComponent implements OnInit {
               <option value="BID_ABERTO" ${t?.tipo_disparo === 'BID_ABERTO' ? 'selected' : ''}>Bid aberto</option>
               <option value="BID_ENCERRADO" ${t?.tipo_disparo === 'BID_ENCERRADO' ? 'selected' : ''}>Bid encerrado</option>
               <option value="GANHADORES" ${t?.tipo_disparo === 'GANHADORES' ? 'selected' : ''}>Ganhadores</option>
+              <option value="USUARIO_CRIADO" ${t?.tipo_disparo === 'USUARIO_CRIADO' ? 'selected' : ''}>Criação de utilizador</option>
             </select>
           </div>
           <div>

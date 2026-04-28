@@ -427,6 +427,37 @@ async function initializeDatabase() {
       }
     } catch (e) {}
 
+    // 5. Template de e-mail para criação manual de utilizador (USUARIO_CRIADO)
+    try {
+      const [tplUsu] = await connection.query(
+        "SELECT id FROM templates_email WHERE tipo_disparo = 'USUARIO_CRIADO' LIMIT 1"
+      );
+      if (tplUsu.length === 0) {
+        const nomeTpl = "Boas-vindas (utilizador criado)";
+        const assuntoTpl = "Bem-vindo(a) — a sua conta foi criada";
+        const corpoHtml = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="font-family:system-ui,sans-serif;line-height:1.6;color:#1e293b">
+  <p>Olá, <strong>{{usuario.nome}}</strong>,</p>
+  <p>A sua conta na plataforma de apostas foi criada. Utilize as credenciais abaixo para o primeiro acesso:</p>
+  <ul>
+    <li><strong>E-mail:</strong> {{usuario.email}}</li>
+    <li><strong>Utilizador:</strong> {{usuario.username}}</li>
+    <li><strong>Senha inicial:</strong> {{senha}}</li>
+  </ul>
+  <p><strong>Importante:</strong> por segurança, altere a senha assim que possível após entrar (área de perfil ou definições do utilizador).</p>
+  <p>Cumprimentos,<br/>Equipa</p>
+</body></html>`;
+        await connection.execute(
+          "INSERT INTO templates_email (nome, assunto, corpo_html, tipo_disparo) VALUES (?, ?, ?, 'USUARIO_CRIADO')",
+          [nomeTpl, assuntoTpl, corpoHtml]
+        );
+        console.log("✨ Template de e-mail USUARIO_CRIADO inserido.");
+      }
+    } catch (e) {
+      console.error("Migration template USUARIO_CRIADO:", e);
+    }
+
     // População Básica se estiver vazio
     const [users] = await connection.query("SELECT * FROM usuarios LIMIT 1");
     if (users.length === 0) {

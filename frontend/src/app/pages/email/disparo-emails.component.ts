@@ -1003,6 +1003,7 @@ export class DisparoEmailsComponent implements OnInit {
           if (t === 'BID_ABERTO') return 'Bid Aberto';
           if (t === 'BID_ENCERRADO') return 'Bid Encerrado';
           if (t === 'GANHADORES') return 'Ganhadores';
+          if (t === 'USUARIO_CRIADO') return 'Criação de utilizador';
           return t || '—';
         };
         const blocos = logs.map((log) => {
@@ -1268,6 +1269,8 @@ export class DisparoEmailsComponent implements OnInit {
         return 'Bid encerrado';
       case 'GANHADORES':
         return 'Ganhadores';
+      case 'USUARIO_CRIADO':
+        return 'Criação de utilizador';
       default:
         return tipo;
     }

@@ -4,8 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, EMPTY } from 'rxjs';
-import { filter, switchMap } from 'rxjs/operators';
+import { Subscription, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { EditorComponent } from '@tinymce/tinymce-angular';
 import { EmailService, type TemplateEmail } from '../../services/email.service';
 import { MatchService } from '../../services/match.service';
@@ -40,6 +40,9 @@ const TAGS_TEMPLATE_EMAIL = [
   { tag: '{{evento.link_extra}}', desc: 'Link extra do evento' },
   { tag: '{{usuario.nome}}', desc: 'Nome do destinatário' },
   { tag: '{{usuario.email}}', desc: 'E-mail do destinatário' },
+  { tag: '{{usuario.username}}', desc: 'Nome de utilizador (login)' },
+  { tag: '{{usuario.senha}}', desc: 'Senha inicial (só no e-mail de criação de utilizador)' },
+  { tag: '{{senha}}', desc: 'Senha inicial — atalho (só no e-mail de criação de utilizador)' },
   { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
 ];
 
@@ -62,7 +65,8 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
   nome = '';
   assunto = '';
   corpoHtml = '';
-  tipoDisparo: string | null = null;
+  /** Valor do select: '' = Qualquer; restantes = constantes de tipo_disparo. */
+  tipoDisparo = '';
   loading = false;
   saving = false;
   partidas: { id: number; titulo: string }[] = [];
@@ -118,48 +122,68 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadPartidas();
-    // Subscrever ao paramMap para garantir que o id seja lido quando a rota estiver ativa
     this.paramSub = this.route.paramMap
       .pipe(
-        filter((params) => params.has('id')),
         switchMap((params) => {
+          if (!params.has('id')) {
+            return of({ kind: 'new' } as const);
+          }
           const idParam = params.get('id');
           const numId = idParam ? +idParam : NaN;
           if (!Number.isInteger(numId) || numId < 1) {
-            this.id = null;
-            this.isEdit = false;
-            this.loading = false;
-            this.cdr.markForCheck();
-            return EMPTY;
+            return of({ kind: 'invalid' } as const);
           }
-          this.id = numId;
-          this.isEdit = true;
           this.loading = true;
           this.cdr.markForCheck();
-          return this.emailService.getTemplate(numId);
+          return this.emailService.getTemplate(numId).pipe(
+            map((t) => ({ kind: 'edit' as const, t, numId })),
+            catchError((err) => {
+              this.loading = false;
+              this.cdr.markForCheck();
+              Swal.fire('Erro', err?.error?.error || 'Falha ao carregar template.', 'error').then(() => this.voltar());
+              return of({ kind: 'error' } as const);
+            }),
+          );
         }),
       )
-      .subscribe({
-        next: (t) => {
-          this.nome = t?.nome ?? '';
-          this.assunto = t?.assunto ?? '';
-          this.corpoHtml = (t as any)?.corpo_html ?? t?.corpo_html ?? '';
-          this.tipoDisparo = (t as any)?.tipo_disparo ?? t?.tipo_disparo ?? null;
+      .subscribe((res) => {
+        if (res.kind === 'new') {
+          this.id = null;
+          this.isEdit = false;
+          this.nome = '';
+          this.assunto = '';
+          this.corpoHtml = '';
+          this.tipoDisparo = '';
           this.loading = false;
           this.cdr.markForCheck();
-        },
-        error: (err) => {
+          return;
+        }
+        if (res.kind === 'invalid' || res.kind === 'error') {
+          this.id = null;
+          this.isEdit = false;
           this.loading = false;
           this.cdr.markForCheck();
-          Swal.fire('Erro', err?.error?.error || 'Falha ao carregar template.', 'error').then(() => this.voltar());
-        },
+          return;
+        }
+        const t = res.t;
+        this.id = res.numId;
+        this.isEdit = true;
+        this.nome = t?.nome ?? '';
+        this.assunto = t?.assunto ?? '';
+        this.corpoHtml = (t as any)?.corpo_html ?? t?.corpo_html ?? '';
+        this.tipoDisparo = this.normalizeTipoDisparoForSelect(
+          (t as any)?.tipo_disparo ?? (t as TemplateEmail)?.tipo_disparo,
+        );
+        this.loading = false;
+        this.cdr.markForCheck();
       });
+  }
 
-    // Se não tem id na rota (novo template), garantir estado correto
-    if (!this.route.snapshot.paramMap.has('id')) {
-      this.id = null;
-      this.isEdit = false;
-    }
+  private normalizeTipoDisparoForSelect(raw: unknown): string {
+    const valid = new Set(['BID_ABERTO', 'BID_ENCERRADO', 'GANHADORES', 'USUARIO_CRIADO']);
+    if (raw == null || raw === '') return '';
+    const s = String(raw).trim();
+    return valid.has(s) ? s : '';
   }
 
   ngOnDestroy() {
@@ -255,7 +279,15 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
       Swal.fire('Erro ao salvar', msg, 'error');
     };
     if (this.isEdit && this.id != null) {
-      this.emailService.updateTemplate(this.id, this.nome, this.assunto, this.corpoHtml, this.tipoDisparo ?? undefined).subscribe({
+      this.emailService
+        .updateTemplate(
+          this.id,
+          this.nome,
+          this.assunto,
+          this.corpoHtml,
+          this.tipoDisparo.trim() === '' ? null : this.tipoDisparo.trim(),
+        )
+        .subscribe({
         next: () => {
           Swal.fire({ icon: 'success', title: 'Template atualizado.', timer: 1500, showConfirmButton: false });
           this.voltar();
@@ -265,7 +297,14 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
         this.saving = false;
       });
     } else {
-      this.emailService.createTemplate(this.nome, this.assunto, this.corpoHtml, this.tipoDisparo ?? undefined).subscribe({
+      this.emailService
+        .createTemplate(
+          this.nome,
+          this.assunto,
+          this.corpoHtml,
+          this.tipoDisparo.trim() === '' ? null : this.tipoDisparo.trim(),
+        )
+        .subscribe({
         next: () => {
           Swal.fire({ icon: 'success', title: 'Template criado.', timer: 1500, showConfirmButton: false });
           this.voltar();
