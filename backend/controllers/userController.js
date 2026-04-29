@@ -911,12 +911,23 @@ function addCalendarDaysYmd(ymd, deltaDays) {
 
 function classificarTipoMovimento(h, titulosAbertos) {
   const diff = Number(h.pontos_depois) - Number(h.pontos_antes);
+  const motivo = String(h.motivo || "").toLowerCase();
   let tipoFinal = "credito";
   if (diff < 0) {
     tipoFinal = "gasto";
     if (h.motivo && h.motivo.startsWith("BID:")) {
       const tituloEvento = h.motivo.replace("BID:", "").trim();
       if (titulosAbertos.includes(tituloEvento)) tipoFinal = "bloqueado";
+    }
+  } else if (diff > 0) {
+    // Evita confundir devolução/reembolso com crédito real.
+    if (
+      motivo.includes("reembols") ||
+      motivo.includes("devolu") ||
+      motivo.includes("estorno") ||
+      motivo.includes("cancel")
+    ) {
+      tipoFinal = "devolucao";
     }
   }
   return tipoFinal;
@@ -1002,6 +1013,7 @@ exports.getUserStats = async (req, res) => {
           pontosAntes: saldoCarregado,
           pontosDepois: saldoCarregado,
           volumeCredito: 0,
+          volumeDevolucao: 0,
           volumeBloqueado: 0,
           volumeGasto: 0,
           tipo: "credito",
@@ -1012,6 +1024,7 @@ exports.getUserStats = async (req, res) => {
 
       let totalDia = 0;
       let volumeCredito = 0;
+      let volumeDevolucao = 0;
       let volumeBloqueado = 0;
       let volumeGasto = 0;
       for (const h of list) {
@@ -1019,6 +1032,7 @@ exports.getUserStats = async (req, res) => {
         totalDia += delta;
         const t = classificarTipoMovimento(h, titulosAbertos);
         if (t === "credito") volumeCredito += delta;
+        else if (t === "devolucao") volumeDevolucao += delta;
         else if (t === "bloqueado") volumeBloqueado += delta;
         else volumeGasto += delta;
       }
@@ -1039,6 +1053,7 @@ exports.getUserStats = async (req, res) => {
         pontosAntes: pa,
         pontosDepois: pd,
         volumeCredito,
+        volumeDevolucao,
         volumeBloqueado,
         volumeGasto,
         tipo: tipoUltimo,

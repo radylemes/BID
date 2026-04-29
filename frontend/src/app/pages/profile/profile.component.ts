@@ -502,19 +502,16 @@ import { environment } from '../../../environments/environment';
 
               <div class="flex flex-col items-end gap-2 min-w-0">
                 <div
-                  class="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-black tracking-wider text-[var(--app-text-muted)] uppercase flex-wrap justify-end"
+                  class="grid grid-cols-3 gap-x-2 gap-y-1 text-[8px] sm:text-[9px] font-black tracking-wider text-[var(--app-text-muted)] uppercase justify-items-end"
                 >
                   <div class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-sm bg-slate-400 shadow-sm ring-1 ring-slate-500/20"></span> Base
+                    <span class="h-2.5 w-2.5 rounded-sm bg-slate-400 shadow-sm ring-1 ring-slate-500/20"></span> Total
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-sm bg-teal-400 shadow-sm ring-1 ring-teal-600/15"></span> Créditos
+                    <span class="h-2.5 w-2.5 rounded-sm bg-sky-400 shadow-sm ring-1 ring-sky-600/15"></span> Bloqueado
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-sm bg-sky-400 shadow-sm ring-1 ring-sky-600/15"></span> Bloqueados
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-sm bg-rose-300 shadow-sm ring-1 ring-rose-500/15"></span> Gastos
+                    <span class="h-2.5 w-2.5 rounded-sm bg-teal-400 shadow-sm ring-1 ring-teal-600/15"></span> Crédito
                   </div>
                 </div>
                 <div
@@ -553,7 +550,7 @@ import { environment } from '../../../environments/environment';
               <p
                 class="mb-2 flex-shrink-0 text-[9px] font-bold text-[var(--app-text-muted)] text-center sm:text-left"
               >
-                Toque na coluna do dia para ver o detalhe · no computador, passe o mouse · botões ou arraste para os 30
+                Clique na coluna do dia para ver o detalhe · no celular, toque · botões ou arraste para os 30
                 dias
               </p>
 
@@ -575,23 +572,58 @@ import { environment } from '../../../environments/environment';
                 </div>
                 <p class="mt-1 text-center text-sm font-black text-[var(--app-text)]">
                   {{ h.pontosAntes | number:'1.0-0':'pt' }} → {{ h.pontosDepois | number:'1.0-0':'pt' }}
-                  <span class="block text-[9px] font-bold text-[var(--app-text-muted)]"
-                    >Mov. no dia {{ h.totalDia | number:'1.0-0':'pt' }} pts</span
-                  >
                 </p>
-                <div
-                  class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-[var(--app-border)] pt-2 text-[9px] text-[var(--app-text-muted)] sm:grid-cols-4"
-                >
-                  <span>Base <b class="text-[var(--app-text)]">{{ h.pontosAntes | number:'1.0-0':'pt' }}</b></span>
-                  <span
-                    >Créd. <b class="text-teal-700 dark:text-teal-300">{{ (h.volumeCredito ?? 0) | number:'1.0-0':'pt' }}</b></span
-                  >
-                  <span
-                    >Bloq. <b class="text-sky-700 dark:text-sky-300">{{ (h.volumeBloqueado ?? 0) | number:'1.0-0':'pt' }}</b></span
-                  >
-                  <span
-                    >Gasto <b class="text-rose-700 dark:text-rose-300">{{ (h.volumeGasto ?? 0) | number:'1.0-0':'pt' }}</b></span
-                  >
+                <div class="mt-2 overflow-x-auto border-t border-[var(--app-border)] pt-2">
+                  <div class="grid min-w-[330px] grid-cols-3 gap-2 text-[9px] sm:min-w-0">
+                  <div class="rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-1 text-center min-w-[104px]">
+                    <p class="font-bold uppercase tracking-wide text-[var(--app-text-muted)]">Total</p>
+                    <p class="font-black text-[var(--app-text)]">{{ h.pontosDepois | number:'1.0-0':'pt' }} pts</p>
+                  </div>
+                  <div class="rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-1 text-center min-w-[104px]">
+                    <p class="font-bold uppercase tracking-wide text-[var(--app-text-muted)]">Bloqueado</p>
+                    <p class="font-black text-sky-700 dark:text-sky-300">
+                      {{ (h.volumeBloqueado ?? 0) | number:'1.0-0':'pt' }} pts
+                    </p>
+                  </div>
+                  <div class="rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-1 text-center min-w-[104px]">
+                    <p class="font-bold uppercase tracking-wide text-[var(--app-text-muted)]">Crédito</p>
+                    <p class="font-black text-teal-700 dark:text-teal-300">
+                      {{ (h.volumeCredito ?? 0) | number:'1.0-0':'pt' }} pts
+                    </p>
+                  </div>
+                  </div>
+                </div>
+                <div class="mt-2 border-t border-[var(--app-border)] pt-2">
+                  <p class="mb-1 text-[9px] font-black uppercase tracking-wide text-[var(--app-text-muted)]">
+                    Lista de movimentações
+                  </p>
+                  <ul class="max-h-28 space-y-1 overflow-y-auto pr-1 text-[9px] sm:text-[10px]">
+                    <li
+                      *ngFor="let mov of listarMovimentacoesDia(h)"
+                      class="flex items-center justify-between gap-2 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-1"
+                    >
+                      <span class="min-w-0 truncate font-bold text-[var(--app-text)]">
+                        {{ mov.tipoLabel }} · {{ mov.descricao }}
+                      </span>
+                      <span
+                        class="shrink-0 font-black"
+                        [ngClass]="{
+                          'text-teal-700 dark:text-teal-300': mov.tipo === 'credito',
+                          'text-emerald-700 dark:text-emerald-300': mov.tipo === 'devolucao',
+                          'text-sky-700 dark:text-sky-300': mov.tipo === 'bloqueado',
+                          'text-rose-700 dark:text-rose-300': mov.tipo === 'gasto'
+                        }"
+                      >
+                        {{ mov.valor | number:'1.0-0':'pt' }} pts
+                      </span>
+                    </li>
+                    <li
+                      *ngIf="listarMovimentacoesDia(h).length === 0"
+                      class="rounded-md border border-dashed border-[var(--app-border)] px-2 py-1 text-[var(--app-text-muted)]"
+                    >
+                      Sem movimentações detalhadas neste dia.
+                    </li>
+                  </ul>
                 </div>
               </div>
 
@@ -627,12 +659,10 @@ import { environment } from '../../../environments/environment';
                     *ngFor="let item of historicoPontos; trackBy: trackHistoricoDia"
                     role="button"
                     tabindex="0"
-                    (mouseenter)="onHistoricoColunaEnter(item)"
-                    (mouseleave)="onHistoricoColunaLeave()"
                     (click)="onHistoricoColunaTap(item, $event)"
                     (keydown.enter)="onHistoricoColunaTap(item, $event)"
                     (keydown.space)="$event.preventDefault(); onHistoricoColunaTap(item, $event)"
-                    class="group relative z-10 flex h-full w-[52px] shrink-0 cursor-pointer flex-col justify-end touch-manipulation transition-all hover:brightness-[1.02] active:opacity-90"
+                    class="group relative z-10 flex h-full w-[78px] shrink-0 cursor-pointer flex-col justify-end touch-manipulation transition-all hover:brightness-[1.02] active:opacity-90"
                     [class.ring-2]="historicoDiaHover?.dataChave === item.dataChave"
                     [class.ring-teal-500/40]="historicoDiaHover?.dataChave === item.dataChave"
                     [class.rounded-t-md]="historicoDiaHover?.dataChave === item.dataChave"
@@ -644,23 +674,24 @@ import { environment } from '../../../environments/environment';
                       {{ item.pontosDepois | number:'1.0-0':'pt' }}
                     </div>
 
-                    <div
-                      class="relative z-10 flex min-h-0 w-full flex-1 flex-col justify-end"
-                    >
-                      <div
-                        class="relative w-full min-h-[3px]"
-                        [ngStyle]="{ height: alturaColunaSaldoDepois(item) + '%' }"
-                      >
+                    <div class="relative z-10 flex min-h-0 w-full flex-1 items-end justify-center gap-1">
+                      <div class="flex h-full w-5 flex-col justify-end">
                         <div
-                          class="flex h-full w-full flex-col overflow-hidden rounded-t-lg border border-[var(--app-border)]/60 bg-[var(--color-bg-surface)]/50 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
-                        >
-                          <div
-                            *ngFor="let seg of historicoSegmentosEmpilhados(item)"
-                            [style.flex-grow]="seg.weight"
-                            class="min-h-[1px] w-full shrink-0"
-                            [ngClass]="seg.klass"
-                          ></div>
-                        </div>
+                          class="w-full rounded-t-md border border-[var(--app-border)]/60 bg-slate-300 dark:bg-slate-600"
+                          [style.height.%]="alturaColunaSerie(item.totalDia, maxSerieComparativaDia())"
+                        ></div>
+                      </div>
+                      <div class="flex h-full w-5 flex-col justify-end">
+                        <div
+                          class="w-full rounded-t-md border border-[var(--app-border)]/60 bg-sky-300 dark:bg-sky-500/90"
+                          [style.height.%]="alturaColunaSerie((item.volumeBloqueado ?? 0), maxSerieComparativaDia())"
+                        ></div>
+                      </div>
+                      <div class="flex h-full w-5 flex-col justify-end">
+                        <div
+                          class="w-full rounded-t-md border border-[var(--app-border)]/60 bg-teal-400 dark:bg-teal-600/95"
+                          [style.height.%]="alturaColunaSerie((item.volumeCredito ?? 0), maxSerieComparativaDia())"
+                        ></div>
                       </div>
                     </div>
 
@@ -784,6 +815,13 @@ import { environment } from '../../../environments/environment';
   `,
 })
 export class ProfileComponent implements OnInit {
+  private readonly tipoMovimentoLabel: Record<'credito' | 'bloqueado' | 'gasto' | 'devolucao', string> = {
+    credito: 'Crédito',
+    bloqueado: 'Bloqueio',
+    gasto: 'Gasto',
+    devolucao: 'Devolução',
+  };
+
   user: any = null;
   apiUrl = environment.apiUri.replace('/api', '');
   convidados: any[] = [];
@@ -801,11 +839,20 @@ export class ProfileComponent implements OnInit {
     pontosAntes: number;
     pontosDepois: number;
     volumeCredito?: number;
+    volumeDevolucao?: number;
     volumeBloqueado?: number;
     volumeGasto?: number;
-    tipo: 'credito' | 'gasto' | 'bloqueado';
+    tipo: 'credito' | 'gasto' | 'bloqueado' | 'devolucao';
     eventoResumo?: string;
   }> = [];
+  historicoMovimentosPorDia: Record<
+    string,
+    Array<{
+      tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao';
+      valor: number;
+      descricao: string;
+    }>
+  > = {};
   maxPonto: number = 300;
 
   /** Soma dos lances em partidas ABERTA com ingresso, alinhada ao menu (Em jogo). */
@@ -822,7 +869,7 @@ export class ProfileComponent implements OnInit {
   private historicoHoverLeaveTimer?: ReturnType<typeof setTimeout>;
 
   /** Largura fixa da coluna de cada dia (px), alinhada ao cálculo de `larguraHistoricoGraficoPx`. */
-  private readonly historicoBarraLarguraPx = 52;
+  private readonly historicoBarraLarguraPx = 78;
   private readonly historicoBarraGapPx = 8;
 
   constructor(
@@ -904,14 +951,18 @@ export class ProfileComponent implements OnInit {
               this.historicoPontos = h.map((row: any) => ({
                 ...row,
                 volumeCredito: Number(row.volumeCredito) || 0,
+                volumeDevolucao: Number(row.volumeDevolucao) || 0,
                 volumeBloqueado: Number(row.volumeBloqueado) || 0,
                 volumeGasto: Number(row.volumeGasto) || 0,
               }));
+              this.historicoMovimentosPorDia = this.mapaMovimentosDeHistoricoAgregado(this.historicoPontos);
             } else {
               this.historicoPontos = this.agregarHistoricoPorDia(h);
+              this.historicoMovimentosPorDia = this.mapaMovimentosDeHistoricoBruto(h);
             }
           } else {
             this.historicoPontos = [];
+            this.historicoMovimentosPorDia = {};
           }
 
           if (this.historicoPontos.length > 0) {
@@ -924,6 +975,10 @@ export class ProfileComponent implements OnInit {
 
           this.cd.detectChanges();
           this.agendarScrollHistoricoParaDiasRecentes();
+          this.historicoDiaHover =
+            this.historicoDiaHover && this.historicoPontos.some((x) => x.dataChave === this.historicoDiaHover?.dataChave)
+              ? this.historicoDiaHover
+              : null;
         },
         error: (err) => console.error('Erro ao carregar estatísticas do usuário', err),
       });
@@ -1000,6 +1055,22 @@ export class ProfileComponent implements OnInit {
     return Math.min(100, Math.max(pct, 2.5));
   }
 
+  alturaColunaSerie(valor: number, maximo: number): number {
+    const v = Math.max(0, Number(valor) || 0);
+    if (v <= 0) return 2;
+    const pct = maximo > 0 ? (v / maximo) * 100 : 0;
+    return Math.min(100, Math.max(pct, 2.5));
+  }
+
+  maxSerieComparativaDia(): number {
+    const arr = this.historicoPontos.flatMap((x) => [
+      Number(x.totalDia) || 0,
+      Number(x.volumeBloqueado) || 0,
+      Number(x.volumeCredito) || 0,
+    ]);
+    return Math.max(...arr, 1);
+  }
+
   /**
    * Faixas empilhadas (de cima para baixo no DOM = gasto → bloqueado → crédito → saldo início).
    * Proporções = volume de cada parte em relação à soma (base + movimentos do dia).
@@ -1007,45 +1078,25 @@ export class ProfileComponent implements OnInit {
   historicoSegmentosEmpilhados(item: {
     pontosAntes: number;
     volumeCredito?: number;
+    volumeDevolucao?: number;
     volumeBloqueado?: number;
     volumeGasto?: number;
   }): Array<{ weight: number; klass: string }> {
     const pa = Math.max(0, Number(item.pontosAntes) || 0);
     const vc = Math.max(0, Number(item.volumeCredito) || 0);
+    const vd = Math.max(0, Number(item.volumeDevolucao) || 0);
     const vb = Math.max(0, Number(item.volumeBloqueado) || 0);
     const vg = Math.max(0, Number(item.volumeGasto) || 0);
-    const sum = pa + vc + vb + vg;
+    const sum = pa + vc + vd + vb + vg;
     if (sum <= 0) return [{ weight: 1, klass: 'bg-slate-200 dark:bg-slate-600' }];
     const segs: Array<{ weight: number; klass: string }> = [
       { weight: vg, klass: 'bg-rose-300 dark:bg-rose-500/90' },
       { weight: vb, klass: 'bg-sky-300 dark:bg-sky-500/90' },
+      { weight: vd, klass: 'bg-emerald-300 dark:bg-emerald-500/90' },
       { weight: vc, klass: 'bg-teal-400 dark:bg-teal-600/95' },
       { weight: pa, klass: 'bg-slate-300 dark:bg-slate-600/95' },
     ].filter((s) => s.weight > 0);
     return segs.length ? segs : [{ weight: 1, klass: 'bg-slate-200 dark:bg-slate-600' }];
-  }
-
-  onHistoricoColunaEnter(item: (typeof this.historicoPontos)[0]): void {
-    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) {
-      return;
-    }
-    if (this.historicoHoverLeaveTimer) {
-      clearTimeout(this.historicoHoverLeaveTimer);
-      this.historicoHoverLeaveTimer = undefined;
-    }
-    this.historicoDiaHover = item;
-    this.cd.markForCheck();
-  }
-
-  onHistoricoColunaLeave(): void {
-    if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) {
-      return;
-    }
-    this.historicoHoverLeaveTimer = setTimeout(() => {
-      this.historicoDiaHover = null;
-      this.historicoHoverLeaveTimer = undefined;
-      this.cd.markForCheck();
-    }, 220);
   }
 
   /** Toque / clique: alterna o dia selecionado (celular e mouse). */
@@ -1072,6 +1123,58 @@ export class ProfileComponent implements OnInit {
     this.cd.markForCheck();
   }
 
+  listarMovimentacoesDia(item: {
+    dataChave: string;
+  }): Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; tipoLabel: string; valor: number; descricao: string }> {
+    const movs = this.historicoMovimentosPorDia[item.dataChave] || [];
+    const totalPorTipo: Record<'credito' | 'bloqueado' | 'gasto' | 'devolucao', number> = {
+      credito: 0,
+      bloqueado: 0,
+      gasto: 0,
+      devolucao: 0,
+    };
+    movs.forEach((m) => {
+      totalPorTipo[m.tipo] += Number(m.valor) || 0;
+    });
+
+    const gastoLiquido = Math.max(0, totalPorTipo.gasto - totalPorTipo.devolucao);
+
+    const itens: Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; tipoLabel: string; valor: number; descricao: string }> = [];
+    if (totalPorTipo.credito > 0) {
+      itens.push({
+        tipo: 'credito',
+        tipoLabel: this.tipoMovimentoLabel.credito,
+        valor: totalPorTipo.credito,
+        descricao: 'Créditos no dia',
+      });
+    }
+    if (totalPorTipo.devolucao > 0) {
+      itens.push({
+        tipo: 'devolucao',
+        tipoLabel: this.tipoMovimentoLabel.devolucao,
+        valor: totalPorTipo.devolucao,
+        descricao: 'Devoluções no dia',
+      });
+    }
+    if (gastoLiquido > 0) {
+      itens.push({
+        tipo: 'gasto',
+        tipoLabel: this.tipoMovimentoLabel.gasto,
+        valor: gastoLiquido,
+        descricao: 'Gasto líquido no dia',
+      });
+    }
+    if (totalPorTipo.bloqueado > 0) {
+      itens.push({
+        tipo: 'bloqueado',
+        tipoLabel: this.tipoMovimentoLabel.bloqueado,
+        valor: totalPorTipo.bloqueado,
+        descricao: 'Pontos bloqueados no dia',
+      });
+    }
+    return itens;
+  }
+
   trackHistoricoDia(_index: number, item: { dataChave: string }): string {
     return item.dataChave;
   }
@@ -1083,13 +1186,15 @@ export class ProfileComponent implements OnInit {
     pontosAntes: number;
     pontosDepois: number;
     volumeCredito?: number;
+    volumeDevolucao?: number;
     volumeBloqueado?: number;
     volumeGasto?: number;
   }): string {
     const vc = item.volumeCredito ?? 0;
+    const vd = item.volumeDevolucao ?? 0;
     const vb = item.volumeBloqueado ?? 0;
     const vg = item.volumeGasto ?? 0;
-    return `${item.data}: fim ${item.pontosDepois} pts (${item.pontosAntes}→${item.pontosDepois}) · mov. ${item.totalDia} (C${vc} B${vb} G${vg})`;
+    return `${item.data}: fim ${item.pontosDepois} pts (${item.pontosAntes}→${item.pontosDepois}) · mov. ${item.totalDia} (C${vc} D${vd} B${vb} G${vg})`;
   }
 
   /**
@@ -1099,7 +1204,7 @@ export class ProfileComponent implements OnInit {
   private agregarHistoricoPorDia(
     rows: Array<{
       valor: number;
-      tipo: 'credito' | 'gasto' | 'bloqueado';
+      tipo: 'credito' | 'gasto' | 'bloqueado' | 'devolucao';
       data: string;
       dataChave?: string;
       evento?: string;
@@ -1113,9 +1218,10 @@ export class ProfileComponent implements OnInit {
     pontosAntes: number;
     pontosDepois: number;
     volumeCredito: number;
+    volumeDevolucao: number;
     volumeBloqueado: number;
     volumeGasto: number;
-    tipo: 'credito' | 'gasto' | 'bloqueado';
+    tipo: 'credito' | 'gasto' | 'bloqueado' | 'devolucao';
     eventoResumo?: string;
   }> {
     if (!rows.length) return [];
@@ -1129,12 +1235,15 @@ export class ProfileComponent implements OnInit {
     return keys.map((key) => {
       const list = map.get(key)!;
       let volumeCredito = 0;
+      let volumeDevolucao = 0;
       let volumeBloqueado = 0;
       let volumeGasto = 0;
       const totalDia = list.reduce((s, x) => {
         const v = Number(x.valor) || 0;
-        if (x.tipo === 'credito') volumeCredito += v;
-        else if (x.tipo === 'bloqueado') volumeBloqueado += v;
+        const tipo = this.normalizarTipoMovimento(x.tipo, x.evento);
+        if (tipo === 'credito') volumeCredito += v;
+        else if (tipo === 'devolucao') volumeDevolucao += v;
+        else if (tipo === 'bloqueado') volumeBloqueado += v;
         else volumeGasto += v;
         return s + v;
       }, 0);
@@ -1153,12 +1262,81 @@ export class ProfileComponent implements OnInit {
         pontosAntes: pa,
         pontosDepois: pd,
         volumeCredito,
+        volumeDevolucao,
         volumeBloqueado,
         volumeGasto,
-        tipo: last.tipo,
+        tipo: this.normalizarTipoMovimento(last.tipo, last.evento),
         eventoResumo,
       };
     });
+  }
+
+  private mapaMovimentosDeHistoricoBruto(
+    rows: Array<{
+      valor: number;
+      tipo: 'credito' | 'gasto' | 'bloqueado' | 'devolucao';
+      data: string;
+      dataChave?: string;
+      evento?: string;
+    }>,
+  ): Record<string, Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; valor: number; descricao: string }>> {
+    const map: Record<
+      string,
+      Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; valor: number; descricao: string }>
+    > =
+      {};
+    rows.forEach((r) => {
+      const key = r.dataChave || r.data;
+      if (!map[key]) map[key] = [];
+      map[key].push({
+        tipo: this.normalizarTipoMovimento(r.tipo, r.evento),
+        valor: Number(r.valor) || 0,
+        descricao: r.evento || 'Movimentação',
+      });
+    });
+    return map;
+  }
+
+  private mapaMovimentosDeHistoricoAgregado(
+    rows: Array<{
+      dataChave: string;
+      volumeCredito?: number;
+      volumeDevolucao?: number;
+      volumeBloqueado?: number;
+      volumeGasto?: number;
+    }>,
+  ): Record<string, Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; valor: number; descricao: string }>> {
+    const map: Record<
+      string,
+      Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; valor: number; descricao: string }>
+    > =
+      {};
+    rows.forEach((row) => {
+      const key = row.dataChave;
+      const itens: Array<{ tipo: 'credito' | 'bloqueado' | 'gasto' | 'devolucao'; valor: number; descricao: string }> =
+        [];
+      const credito = Number(row.volumeCredito) || 0;
+      const devolucao = Number(row.volumeDevolucao) || 0;
+      const bloqueado = Number(row.volumeBloqueado) || 0;
+      const gasto = Number(row.volumeGasto) || 0;
+      if (credito > 0) itens.push({ tipo: 'credito', valor: credito, descricao: 'Créditos no dia' });
+      if (devolucao > 0) itens.push({ tipo: 'devolucao', valor: devolucao, descricao: 'Devoluções no dia' });
+      if (bloqueado > 0) itens.push({ tipo: 'bloqueado', valor: bloqueado, descricao: 'Pontos bloqueados no dia' });
+      if (gasto > 0) itens.push({ tipo: 'gasto', valor: gasto, descricao: 'Gastos no dia' });
+      map[key] = itens;
+    });
+    return map;
+  }
+
+  private normalizarTipoMovimento(
+    tipo: 'credito' | 'gasto' | 'bloqueado' | 'devolucao',
+    evento?: string,
+  ): 'credito' | 'gasto' | 'bloqueado' | 'devolucao' {
+    if (tipo === 'devolucao') return 'devolucao';
+    if (tipo !== 'credito') return tipo;
+    const txt = (evento || '').toLowerCase();
+    if (txt.includes('devol') || txt.includes('reembols')) return 'devolucao';
+    return 'credito';
   }
 
   /**

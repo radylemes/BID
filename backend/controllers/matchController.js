@@ -636,12 +636,15 @@ exports.deleteMatch = async (req, res) => {
     const match = matches[0];
 
     const [apostas] = await connection.execute(
-      "SELECT usuario_id, valor_pago FROM apostas WHERE partida_id = ?",
+      "SELECT usuario_id, valor_pago, status FROM apostas WHERE partida_id = ?",
       [id],
     );
     if (apostas.length > 0) {
       const reembolsos = {};
       for (const aposta of apostas) {
+        const status = String(aposta.status || "").toUpperCase();
+        // Aposta PERDEU já foi devolvida no fechamento do BID.
+        if (status === "PERDEU") continue;
         if (!reembolsos[aposta.usuario_id]) reembolsos[aposta.usuario_id] = 0;
         reembolsos[aposta.usuario_id] += Number(aposta.valor_pago);
       }

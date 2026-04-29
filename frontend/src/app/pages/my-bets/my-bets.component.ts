@@ -45,7 +45,8 @@ export class MyBetsComponent implements OnInit {
         let processadas = data.map((match) => {
           let lancesProcessados: any[] = [];
           let ingressosGanhos: any[] = [];
-          let totalGasto = 0;
+          let totalApostado = 0;
+          let gastoReal = 0;
           let totalReembolsado = 0;
 
           if (match.raw_lances) {
@@ -56,7 +57,8 @@ export class MyBetsComponent implements OnInit {
               const valor = Number(parts[1]);
               const status = parts[2];
 
-              if (status === 'GANHOU') totalGasto += valor;
+              totalApostado += valor;
+              if (status === 'GANHOU') gastoReal += valor;
               else if (status === 'PERDEU') totalReembolsado += valor;
 
               return { id: apostaId, valor, status };
@@ -79,13 +81,22 @@ export class MyBetsComponent implements OnInit {
               });
           }
 
+          gastoReal = totalApostado - totalReembolsado;
+          const pontosAntesParticipacao = Number(match.pontos_antes_participacao);
+          const pontosAntesSeguro = Number.isFinite(pontosAntesParticipacao)
+            ? pontosAntesParticipacao
+            : 0;
+          const pontosDepoisLiquido = pontosAntesSeguro - gastoReal;
+
           return {
             ...match,
             lances_detalhados: lancesProcessados,
             ingressos_ganhos_detalhes: ingressosGanhos,
             tickets_ganhos: ingressosGanhos.length,
-            total_gasto: totalGasto,
+            total_apostado: totalApostado,
+            total_gasto: gastoReal,
             total_reembolsado: totalReembolsado,
+            pontos_depois_liquido: pontosDepoisLiquido,
           };
         });
 
