@@ -133,7 +133,7 @@ import * as XLSX from 'xlsx';
                 class="block w-full rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-2.5 pl-10 pr-10 text-sm text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 outline-none"
               />
               <button
-                *ngIf="filtroBusca?.trim()"
+                *ngIf="filtroBusca.trim()"
                 type="button"
                 (click)="filtroBusca = ''"
                 class="absolute inset-y-0 right-0 flex items-center pr-2 text-[var(--app-text-muted)] hover:text-[var(--app-text)] rounded-r-lg px-2 text-xs font-medium"
