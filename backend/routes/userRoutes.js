@@ -11,23 +11,36 @@ const {
   batchPointsSchema,
 } = require("../validations/userSchema");
 
+// Sempre relativo à pasta `backend/` (evita gravar noutro sítio se cwd ≠ backend — 404 em /api/uploads/…)
+const AVATAR_UPLOAD_DIR = path.join(__dirname, "..", "uploads", "avatars");
+
 // Configuração do destino da foto de perfil
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = "uploads/avatars/";
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
+    if (!fs.existsSync(AVATAR_UPLOAD_DIR)) fs.mkdirSync(AVATAR_UPLOAD_DIR, { recursive: true });
+    cb(null, AVATAR_UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, "avatar-" + uniqueSuffix + path.extname(file.originalname));
   },
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 
 // ==============================================================================
 // ⚠️ ATENÇÃO: Rotas específicas DEVEM vir ANTES das rotas com parâmetro (/:id)
 // ==============================================================================
+
+// Foto de perfil (multipart) — deve ficar antes de GET/POST "/" e de "/:id"
+router.post(
+  "/upload-avatar",
+  authMiddleware,
+  upload.single("avatar"),
+  userController.uploadAvatar,
+);
 
 // Diagnóstico de conexão com os tenants Azure AD (ADMIN)
 router.get("/tenants-status", authMiddleware, authorizeRoles("ADMIN"), userController.getTenantsStatus);
@@ -64,12 +77,6 @@ router.put("/:id/grupo", userController.updateUserGroup);
 router.put("/:id/theme", authMiddleware, userController.updateTheme);
 router.get("/:id/historico", userController.getHistorico);
 
-// Adicione junto das suas outras rotas:
-router.post(
-  "/upload-avatar",
-  upload.single("avatar"),
-  userController.uploadAvatar,
-);
 router.get("/:id/stats", userController.getUserStats);
 
 module.exports = router;

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 
 @Component({
   selector: 'app-history',
@@ -182,11 +183,7 @@ export class HistoryComponent implements OnInit {
   }
 
   getFotoUrl(path: string) {
-    if (!path || path === 'db') return '';
-    if (path.startsWith('http')) return path;
-    const base = environment.apiUri.replace(/\/api\/?$/, '');
-    let cleanPath = path.replace(/\\/g, '/').replace(/^\//, '');
-    return `${base}/${cleanPath}`;
+    return uploadsPublicUrl(path);
   }
 
   getBannerUrl(match: { banner?: string; id?: number }): string {

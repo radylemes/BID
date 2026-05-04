@@ -87,6 +87,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
     const base = {
       base_url: '/tinymce',
       suffix: '.min',
+      automatic_uploads: false,
       plugins:
         'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
       toolbar:

@@ -7,6 +7,7 @@ import { SettingsService } from '../../services/settings.service';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -26,7 +27,6 @@ export class UserListComponent implements OnInit {
   gruposApostas: any[] = []; // Grupos de Lances/Eventos
 
   loading = false;
-  apiUrl = environment.apiUri.replace('/api', '');
 
   constructor(
     private userService: UserService,
@@ -359,7 +359,7 @@ export class UserListComponent implements OnInit {
   getFotoUrl(path: string) {
     if (!path) return '';
     if (path === 'db') return '';
-    return path.startsWith('http') ? path : `${this.apiUrl}/${path.replace(/\\/g, '/')}`;
+    return uploadsPublicUrl(path);
   }
 
   getAvatarUrl(user: { foto?: string; id?: number }): string {

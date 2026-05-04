@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { uploadsPublicUrl } from '../utils/uploads-public-url';
 
 export interface ExportFieldConfig {
   key: string;
@@ -136,7 +137,7 @@ export class SettingsService {
   getLetterheadUrl(settings: Record<string, string> | null): string | null {
     const path = settings?.['export_pdf_letterhead_path'];
     if (!path) return null;
-    return `${environment.apiUri.replace(/\/api\/?$/, '')}/uploads/${path}`;
+    return uploadsPublicUrl(path);
   }
 
   /** Obtém o ficheiro do papel timbrado via API (evita CORS e usa o mesmo auth). */

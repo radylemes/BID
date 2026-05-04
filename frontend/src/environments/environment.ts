@@ -9,4 +9,6 @@ export const environment = {
     },
   },
   apiUri: '/api',
+  /** Opcional. Só defina se os uploads forem servidos via API (ex.: '/api' → `/api/uploads/…`). */
+  // uploadsPublicBase: '/api',
 };

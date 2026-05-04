@@ -1067,7 +1067,7 @@ exports.getMatchBetsReport = async (req, res) => {
       FROM apostas a
       JOIN usuarios u ON a.usuario_id = u.id
       WHERE a.partida_id = ?
-      ORDER BY a.data_aposta ASC, a.id ASC
+      ORDER BY a.valor_pago DESC, a.data_aposta ASC, a.id ASC
     `,
       [req.params.id],
     );

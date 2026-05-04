@@ -11,8 +11,12 @@ async function initializeDatabase() {
   try {
     connection = await mysql.createConnection({
       host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 3306,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
+      connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 30000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
     });
 
     await connection.query(

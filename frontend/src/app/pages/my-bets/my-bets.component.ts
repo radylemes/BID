@@ -5,6 +5,7 @@ import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 
 @Component({
   selector: 'app-my-bets',
@@ -33,8 +34,7 @@ export class MyBetsComponent implements OnInit {
     if (!match?.banner) return 'assets/placeholder.jpg';
     if (match.banner.startsWith('http')) return match.banner;
     if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
-    const base = environment.apiUri.replace(/\/api\/?$/, '');
-    return `${base}/${match.banner.replace(/\\/g, '/').replace(/^\//, '')}`;
+    return uploadsPublicUrl(match.banner);
   }
 
   carregarHistorico() {

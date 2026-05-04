@@ -5,6 +5,7 @@ import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 
 @Component({
   selector: 'app-dashboard',
@@ -46,8 +47,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!match?.banner) return 'assets/placeholder.jpg';
     if (match.banner.startsWith('http')) return match.banner;
     if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
-    const base = environment.apiUri.replace(/\/api\/?$/, '');
-    return `${base}/${match.banner.replace(/\\/g, '/').replace(/^\//, '')}`;
+    return uploadsPublicUrl(match.banner);
   }
 
   carregarDados() {
@@ -71,6 +71,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.matches = dadosFiltrados.map((match: any) => {
           let ingressosGanhos: any[] = [];
+          const lanceStatuses = this.extrairStatusLances(match.raw_lances);
 
           // 1. Processa Lances (Financeiro/Compatibilidade)
           if (match.raw_lances) {
@@ -103,10 +104,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
               });
           }
 
+          const ticketsComprados = Number(match.tickets_comprados) || 0;
+          const ticketsGanhos = ingressosGanhos.length;
+          const hasPendente = lanceStatuses.has('PENDENTE');
+          const hasPerdeu = lanceStatuses.has('PERDEU');
+          const resultadoUsuario = this.definirResultadoUsuario({
+            ticketsComprados,
+            ticketsGanhos,
+            hasPendente,
+            hasPerdeu,
+          });
+
           return {
             ...match,
             ingressos_ganhos_detalhes: ingressosGanhos,
-            tickets_ganhos: ingressosGanhos.length,
+            tickets_ganhos: ticketsGanhos,
+            has_pendente: hasPendente,
+            has_perdeu: hasPerdeu,
+            resultado_usuario: resultadoUsuario,
           };
         });
 
@@ -195,6 +210,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
     texto += `${minutos.toString().padStart(2, '0')}m `;
     texto += `${segundos.toString().padStart(2, '0')}s`;
     return texto;
+  }
+
+  private extrairStatusLances(rawLances: any): Set<string> {
+    const statuses = new Set<string>();
+    if (!rawLances) return statuses;
+
+    rawLances
+      .toString()
+      .split(',')
+      .forEach((item: string) => {
+        const parts = item.split(':');
+        const status = (parts[2] || '').trim().toUpperCase();
+        if (status) statuses.add(status);
+      });
+
+    return statuses;
+  }
+
+  private definirResultadoUsuario({
+    ticketsComprados,
+    ticketsGanhos,
+    hasPendente,
+    hasPerdeu,
+  }: {
+    ticketsComprados: number;
+    ticketsGanhos: number;
+    hasPendente: boolean;
+    hasPerdeu: boolean;
+  }): 'ganhou' | 'aguardando_sorteio' | 'reembolsado' | 'sem_participacao' {
+    if (ticketsGanhos > 0) return 'ganhou';
+    if (ticketsComprados <= 0) return 'sem_participacao';
+    if (hasPendente) return 'aguardando_sorteio';
+    if (hasPerdeu) return 'reembolsado';
+    return 'aguardando_sorteio';
   }
 
   calcularTotais() {
@@ -499,7 +548,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             <div id="container-lance-${i + 1}" class="flex items-center gap-3 mb-3 ${isVisible ? '' : 'hidden'}">
               <div class="w-24 text-[11px] font-black text-gray-400 uppercase tracking-tighter">Lance ${lancesJaRealizados + i + 1}</div>
               <div class="relative flex-1">
-                <input id="lance-${i + 1}" type="number" class="swal2-input m-0 px-4 py-2 text-sm font-bold border-gray-200 focus:border-indigo-500 rounded-lg shadow-sm" placeholder="Valor do lance" value="${val}">
+                <input id="lance-${i + 1}" type="number" min="1" step="1" inputmode="numeric" pattern="[0-9]*" class="swal2-input m-0 px-4 py-2 text-sm font-bold border-gray-200 focus:border-indigo-500 rounded-lg shadow-sm" placeholder="Valor do lance" value="${val}">
               </div>
             </div>`;
               }
@@ -516,8 +565,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
           (_, i) => document.getElementById(`lance-${i + 1}`) as HTMLInputElement,
         );
 
+        const normalizarInteiro = (valor: string): string => {
+          const valorNormalizado = valor.replace(',', '.');
+          if (valorNormalizado.includes('.')) {
+            return valorNormalizado.split('.')[0].replace(/\D/g, '');
+          }
+          return valorNormalizado.replace(/\D/g, '');
+        };
+
         const atualizarCalculo = () => {
-          const total = inputs.reduce((acc, input) => acc + (parseFloat(input?.value) || 0), 0);
+          const total = inputs.reduce((acc, input) => {
+            const val = Number(input?.value);
+            if (!Number.isInteger(val) || val < 1) return acc;
+            return acc + val;
+          }, 0);
           const restante = saldoInicial - total;
           if (totalLancesEl) totalLancesEl.innerText = `${total} pts`;
           if (saldoRestanteEl) {
@@ -536,7 +597,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         inputs.forEach((input) => {
           if (input) {
-            input.addEventListener('input', atualizarCalculo);
+            input.addEventListener('input', () => {
+              input.value = normalizarInteiro(input.value);
+              atualizarCalculo();
+            });
             input.addEventListener('keyup', atualizarCalculo);
           }
         });
@@ -557,7 +621,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         for (let i = 1; i <= lancesAtivosNoPopup; i++) {
           const el = document.getElementById(`lance-${i}`) as HTMLInputElement;
           if (el && el.value) {
-            const val = parseFloat(el.value);
+            const val = Number(el.value);
+            if (!Number.isInteger(val)) {
+              Swal.showValidationMessage(`O lance ${i} deve ser um número inteiro.`);
+              return false;
+            }
             if (val > 0) inputsValidos.push(val);
           }
         }
@@ -613,7 +681,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       const partidaId = Number(match.id);
       const usuarioId = Number(this.currentUser.id);
-      const valoresInt = (valores as number[]).map((v) => Math.round(Number(v))).filter((v) => v >= 1);
+      const valoresInt = (valores as number[])
+        .map((v) => Number(v))
+        .filter((v) => Number.isInteger(v) && v >= 1);
 
       if (!Number.isInteger(partidaId) || partidaId < 1) {
         match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;

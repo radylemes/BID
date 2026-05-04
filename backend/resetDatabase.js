@@ -26,6 +26,9 @@ async function resetDatabase() {
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       multipleStatements: true,
+      connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 30000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
     });
 
     console.log(`🔌 Conectado ao banco '${process.env.DB_NAME}'.`);

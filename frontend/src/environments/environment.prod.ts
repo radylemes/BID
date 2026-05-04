@@ -9,4 +9,6 @@ export const environment = {
     },
   },
   apiUri: '/api',
+  /** Opcional. Ver `environment.ts`. */
+  // uploadsPublicBase: '/api',
 };

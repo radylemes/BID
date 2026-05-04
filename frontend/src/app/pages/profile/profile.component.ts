@@ -8,6 +8,8 @@ import { GuestService } from '../../services/guest.service';
 import { ThemeService, AppTheme, APP_THEMES } from '../../services/theme.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { compressImageForAvatar } from '../../utils/avatar-image';
 
 @Component({
   selector: 'app-profile',
@@ -823,7 +825,6 @@ export class ProfileComponent implements OnInit {
   };
 
   user: any = null;
-  apiUrl = environment.apiUri.replace('/api', '');
   convidados: any[] = [];
   selectedTheme: AppTheme = 'claro';
   themeOptions = APP_THEMES;
@@ -1002,11 +1003,12 @@ export class ProfileComponent implements OnInit {
   }
 
   private agendarScrollHistoricoParaDiasRecentes(): void {
-    queueMicrotask(() => {
+    // setTimeout em vez de queueMicrotask: evita NG0100 ao alterar [disabled] no mesmo ciclo que detectChanges()
+    setTimeout(() => {
       this.scrollHistoricoParaFim();
       setTimeout(() => this.scrollHistoricoParaFim(), 60);
       setTimeout(() => this.scrollHistoricoParaFim(), 200);
-    });
+    }, 0);
   }
 
   atualizarEstadoScrollHistorico(): void {
@@ -1495,9 +1497,9 @@ export class ProfileComponent implements OnInit {
   getFotoUrl(path: string) {
     if (!path) return '';
     if (path === 'db') return '';
-    if (path.startsWith('http')) return path;
-    let cleanPath = path.replace(/\\/g, '/').replace(/^\//, '');
-    return `${this.apiUrl}/${cleanPath}?t=${new Date().getTime()}`;
+    const base = uploadsPublicUrl(path);
+    if (!base) return '';
+    return `${base}?t=${new Date().getTime()}`;
   }
 
   getAvatarUrl(user: { foto?: string; id?: number }): string {
@@ -1512,22 +1514,50 @@ export class ProfileComponent implements OnInit {
     if (user.foto === 'db' && user.id) return `${environment.apiUri}/users/${user.id}/avatar`;
     if (user.foto.startsWith('http')) return user.foto;
     if (this.avatarCacheBust === 0) this.avatarCacheBust = Date.now();
-    const cleanPath = user.foto.replace(/\\/g, '/').replace(/^\//, '');
-    return `${this.apiUrl}/${cleanPath}?t=${this.avatarCacheBust}`;
+    const base = uploadsPublicUrl(user.foto);
+    if (!base) return '';
+    return `${base}?t=${this.avatarCacheBust}`;
   }
 
-  onFileSelected(event: any) {
-    const file = event.target.files[0];
-    if (!file || !this.user?.id) return;
+  async onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const raw = input.files?.[0];
+    if (!raw || !this.user?.id) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      Swal.fire('Arquivo muito grande', 'Máximo 2MB.', 'warning');
+    Swal.fire({
+      title: 'A processar imagem…',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    let file: File;
+    try {
+      file = await compressImageForAvatar(raw);
+    } catch (e: unknown) {
+      Swal.close();
+      input.value = '';
+      const msg = e instanceof Error ? e.message : 'Não foi possível preparar a imagem.';
+      Swal.fire('Imagem', msg, 'warning');
       return;
     }
 
+    if (file.size > 2 * 1024 * 1024) {
+      Swal.close();
+      input.value = '';
+      Swal.fire('Arquivo muito grande', 'Máximo 2MB após compressão.', 'warning');
+      return;
+    }
+
+    Swal.fire({
+      title: 'A enviar…',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
     this.userService.uploadAvatar(this.user.id, file).subscribe({
       next: (res: any) => {
-        this.user.foto = res.path;
+        input.value = '';
+        this.user!.foto = res.path;
         localStorage.setItem('currentUser', JSON.stringify(this.user));
         Swal.fire({
           icon: 'success',
@@ -1537,7 +1567,10 @@ export class ProfileComponent implements OnInit {
         });
         setTimeout(() => window.location.reload(), 1500);
       },
-      error: (err) => Swal.fire('Erro', 'Falha no envio.', 'error'),
+      error: () => {
+        input.value = '';
+        Swal.fire('Erro', 'Falha no envio.', 'error');
+      },
     });
   }
 

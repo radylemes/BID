@@ -7,7 +7,8 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class UserService {
-  private apiUrl = `${environment.apiUri}/users`;
+  /** Base `/api/users` sem barra dupla se `apiUri` tiver trailing slash. */
+  private readonly apiUrl = `${String(environment.apiUri).replace(/\/+$/, '')}/users`;
 
   constructor(private http: HttpClient) {}
 

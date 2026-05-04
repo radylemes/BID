@@ -6,6 +6,7 @@ import { MatchService } from '../services/match.service';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { uploadsPublicUrl } from '../utils/uploads-public-url';
 
 @Component({
   selector: 'app-main-layout',
@@ -238,7 +239,6 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   fotoUrlCompleta: string | null = null;
   isAdmin: boolean = false;
   userRole: string = '';
-  apiUrl = environment.apiUri.replace(/\/api\/?$/, '');
 
   // Variáveis para a Carteira do Menu
   saldo: number = 0;
@@ -393,11 +393,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   }
 
   getFotoUrl(path: string): string {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    let cleanPath = path.replace(/\\/g, '/');
-    if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
-    return `${this.apiUrl}/${cleanPath}`;
+    return uploadsPublicUrl(path);
   }
 
   logout() {

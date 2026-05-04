@@ -29,6 +29,17 @@ app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
 
+// POST só em /api ou /api/ (sem recurso) — resposta explícita em vez de 404 genérico
+const apiRootIncomplete = (req, res) => {
+  res.status(400).json({
+    error: "Caminho da API incompleto.",
+    detalhe:
+      "Indique o recurso completo. Ex.: POST /api/users/upload-avatar para foto de perfil; POST /api/auth/login para login.",
+  });
+};
+app.post("/api", apiRootIncomplete);
+app.post("/api/", apiRootIncomplete);
+
 // Rotas
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -43,6 +54,9 @@ app.use("/api/audits", auditRoutes);
 app.use("/api/system-errors", systemMonitorRoutes);
 app.use("/api/setores-evento", setoresEventoRoutes);
 app.use("/api/email", emailRoutes);
+
+// Ficheiros estáticos sob /api/uploads → o proxy Nginx em /api/ encaminha ao Node
+app.use("/api/uploads", express.static(path.join(__dirname, "uploads"), { index: false }));
 
 app.use("/api/*", async (req, res) => {
   await logErro("API_404_NOT_FOUND", {

@@ -126,124 +126,141 @@ exports.assignGuestToTicket = async (req, res) => {
       .status(400)
       .json({ error: "ID do ingresso não foi identificado." });
 
-  let connection;
-  try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
+  const maxAttempts = 3;
 
-    const [ticketData] = await connection.execute(
-      "SELECT checkin FROM ingressos WHERE id = ? AND usuario_id = ? FOR UPDATE",
-      [ingressoId, usuario_id],
-    );
-    if (ticketData.length === 0) {
-      await connection.rollback();
-      return res
-        .status(403)
-        .json({ error: "Ingresso inválido ou não pertence a você." });
-    }
-    if (ticketData[0].checkin === 1) {
-      await connection.rollback();
-      return res.status(403).json({
-        error: "Bloqueado! Este ingresso já foi retirado na portaria.",
-      });
-    }
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let connection;
+    try {
+      connection = await db.getConnection();
+      await connection.beginTransaction();
 
-    await connection.execute(
-      `SELECT i.id FROM ingressos i
-       INNER JOIN apostas a ON i.aposta_id = a.id
-       WHERE i.usuario_id = ?
-         AND a.partida_id = (
-           SELECT a2.partida_id FROM ingressos i2
-           INNER JOIN apostas a2 ON i2.aposta_id = a2.id
-           WHERE i2.id = ?
-         )
-       ORDER BY i.id FOR UPDATE`,
-      [usuario_id, ingressoId],
-    );
-
-    if (!convidado_id) {
-      await connection.rollback();
-      return res.status(400).json({ error: "Convidado não informado." });
-    }
-
-    const [guestOwned] = await connection.execute(
-      "SELECT nome_completo FROM convidados WHERE id = ? AND usuario_id = ?",
-      [convidado_id, usuario_id],
-    );
-    if (guestOwned.length === 0) {
-      await connection.rollback();
-      return res.status(403).json({
-        error: "Convidado inválido ou não pertence à sua conta.",
-      });
-    }
-
-    const [dupOutroIngresso] = await connection.execute(
-      `SELECT i2.id FROM ingressos i2
-       INNER JOIN apostas a2 ON i2.aposta_id = a2.id
-       WHERE i2.convidado_id = ?
-         AND i2.id != ?
-         AND i2.usuario_id = ?
-         AND a2.partida_id = (
-           SELECT a.partida_id FROM ingressos i
-           INNER JOIN apostas a ON i.aposta_id = a.id
-           WHERE i.id = ?
-         )
-       LIMIT 1`,
-      [convidado_id, ingressoId, usuario_id, ingressoId],
-    );
-    if (dupOutroIngresso.length > 0) {
-      await connection.rollback();
-      return res.status(400).json({
-        error:
-          "Cada convidado pode ser indicado em apenas um ingresso deste evento. Escolha outra pessoa ou remova a indicação duplicada.",
-      });
-    }
-
-    const [userRows] = await connection.execute(
-      "SELECT nome_completo FROM usuarios WHERE id = ?",
-      [usuario_id],
-    );
-    const userName =
-      userRows.length > 0 ? userRows[0].nome_completo : "Usuário";
-
-    const guestName = guestOwned[0].nome_completo;
-
-    await connection.execute(
-      "UPDATE ingressos SET convidado_id = ? WHERE id = ?",
-      [convidado_id, ingressoId],
-    );
-
-    await connection.commit();
-
-    if (typeof gravarAuditoria === "function") {
-      await gravarAuditoria(
-        null,
-        usuario_id,
-        "BIDS",
-        "ASSIGN_TICKET",
-        ingressoId,
-        {
-          usuario: userName,
-          convidado: guestName,
-          motivo: `${userName} definiu ${guestName} como retirante do ingresso #${ingressoId}.`,
-        },
+      const [eventTickets] = await connection.execute(
+        `SELECT i.id, i.checkin FROM ingressos i
+         INNER JOIN apostas a ON i.aposta_id = a.id
+         WHERE i.usuario_id = ?
+           AND a.partida_id = (
+             SELECT a2.partida_id FROM ingressos i2
+             INNER JOIN apostas a2 ON i2.aposta_id = a2.id
+             WHERE i2.id = ?
+           )
+         ORDER BY i.id FOR UPDATE`,
+        [usuario_id, ingressoId],
       );
-    }
 
-    res.json({ message: "Retirante vinculado com sucesso!" });
-  } catch (error) {
-    if (connection) {
-      try {
+      const target = eventTickets.find(
+        (r) => String(r.id) === String(ingressoId),
+      );
+      if (!target) {
         await connection.rollback();
-      } catch (_) {
-        /* ignore */
+        connection.release();
+        return res
+          .status(403)
+          .json({ error: "Ingresso inválido ou não pertence a você." });
       }
+      if (target.checkin === 1) {
+        await connection.rollback();
+        connection.release();
+        return res.status(403).json({
+          error: "Bloqueado! Este ingresso já foi retirado na portaria.",
+        });
+      }
+
+      if (!convidado_id) {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({ error: "Convidado não informado." });
+      }
+
+      const [guestOwned] = await connection.execute(
+        "SELECT nome_completo FROM convidados WHERE id = ? AND usuario_id = ?",
+        [convidado_id, usuario_id],
+      );
+      if (guestOwned.length === 0) {
+        await connection.rollback();
+        connection.release();
+        return res.status(403).json({
+          error: "Convidado inválido ou não pertence à sua conta.",
+        });
+      }
+
+      const [dupOutroIngresso] = await connection.execute(
+        `SELECT i2.id FROM ingressos i2
+         INNER JOIN apostas a2 ON i2.aposta_id = a2.id
+         WHERE i2.convidado_id = ?
+           AND i2.id != ?
+           AND i2.usuario_id = ?
+           AND a2.partida_id = (
+             SELECT a.partida_id FROM ingressos i
+             INNER JOIN apostas a ON i.aposta_id = a.id
+             WHERE i.id = ?
+           )
+         LIMIT 1`,
+        [convidado_id, ingressoId, usuario_id, ingressoId],
+      );
+      if (dupOutroIngresso.length > 0) {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({
+          error:
+            "Cada convidado pode ser indicado em apenas um ingresso deste evento. Escolha outra pessoa ou remova a indicação duplicada.",
+        });
+      }
+
+      const [userRows] = await connection.execute(
+        "SELECT nome_completo FROM usuarios WHERE id = ?",
+        [usuario_id],
+      );
+      const userName =
+        userRows.length > 0 ? userRows[0].nome_completo : "Usuário";
+
+      const guestName = guestOwned[0].nome_completo;
+
+      await connection.execute(
+        "UPDATE ingressos SET convidado_id = ? WHERE id = ?",
+        [convidado_id, ingressoId],
+      );
+
+      await connection.commit();
+      connection.release();
+      connection = null;
+
+      if (typeof gravarAuditoria === "function") {
+        await gravarAuditoria(
+          null,
+          usuario_id,
+          "BIDS",
+          "ASSIGN_TICKET",
+          ingressoId,
+          {
+            usuario: userName,
+            convidado: guestName,
+            motivo: `${userName} definiu ${guestName} como retirante do ingresso #${ingressoId}.`,
+          },
+        );
+      }
+
+      return res.json({ message: "Retirante vinculado com sucesso!" });
+    } catch (error) {
+      if (connection) {
+        try {
+          await connection.rollback();
+        } catch (_) {
+          /* ignore */
+        }
+        connection.release();
+      }
+      const isDeadlock =
+        error.errno === 1213 ||
+        error.code === "ER_LOCK_DEADLOCK" ||
+        /Deadlock found/i.test(String(error.message || ""));
+      if (isDeadlock && attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+        continue;
+      }
+      await logErro("GUEST_CONTROLLER_ASSIGN_TICKET", error);
+      return res.status(500).json({
+        error: "Erro interno ao vincular retirante. Verifique os logs.",
+      });
     }
-    await logErro("GUEST_CONTROLLER_ASSIGN_TICKET", error);
-    res.status(500).json({
-      error: "Erro interno ao vincular retirante. Verifique os logs.",
-    });
-  } finally {
-    if (connection) connection.release();
   }
 };

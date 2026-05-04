@@ -873,8 +873,21 @@ exports.uploadAvatar = async (req, res) => {
   try {
     if (!req.file)
       return res.status(400).json({ error: "Nenhuma imagem enviada." });
-    const filePath = req.file.path.replace(/\\/g, "/");
-    const userId = req.body.userId;
+    const targetUserId = Number(req.body.userId);
+    if (!Number.isFinite(targetUserId)) {
+      return res.status(400).json({ error: "userId inválido." });
+    }
+    const requesterId = Number(req.user?.id);
+    const role = String(req.user?.role || "").toUpperCase();
+    if (role !== "ADMIN" && requesterId !== targetUserId) {
+      return res.status(403).json({ error: "Só pode atualizar a sua própria foto." });
+    }
+    // Caminho relativo `uploads/avatars/…` para URLs estáticas e para não depender do cwd absoluto
+    const norm = path.normalize(req.file.path).replace(/\\/g, "/");
+    const marker = "uploads/";
+    const idx = norm.indexOf(marker);
+    const filePath = idx >= 0 ? norm.slice(idx) : `uploads/avatars/${path.basename(norm)}`;
+    const userId = targetUserId;
     await db.execute("UPDATE usuarios SET foto = ? WHERE id = ?", [
       filePath,
       userId,

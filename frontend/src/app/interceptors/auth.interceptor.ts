@@ -22,8 +22,18 @@ export class AuthInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     const token = localStorage.getItem('token');
 
-    // Só adiciona o header para chamadas contra a API do backend configurada
-    const isApiRequest = req.url.startsWith(environment.apiUri);
+    // Chamadas à API (URL relativa ou absoluta com o mesmo prefixo configurado)
+    const apiBase = String(environment.apiUri).replace(/\/+$/, '');
+    let isApiRequest = req.url === apiBase || req.url.startsWith(`${apiBase}/`);
+    if (!isApiRequest && req.url.startsWith('http')) {
+      try {
+        const pathOnly = new URL(req.url).pathname;
+        const norm = pathOnly.replace(/\/+$/, '') || '/';
+        isApiRequest = norm === apiBase || norm.startsWith(`${apiBase}/`);
+      } catch {
+        /* URL inválida */
+      }
+    }
 
     let authReq = req;
     if (token && isApiRequest) {

@@ -4,6 +4,7 @@ import { MatchService } from '../../services/match.service';
 import Swal from 'sweetalert2';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 
 @Component({
   selector: 'app-match-list',
@@ -65,8 +66,7 @@ export class MatchListComponent implements OnInit {
     if (!match?.banner) return 'assets/banner-placeholder.jpg';
     if (match.banner.startsWith('http')) return match.banner;
     if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
-    const base = environment.apiUri.replace(/\/api\/?$/, '');
-    return `${base}/${match.banner.replace(/\\/g, '/').replace(/^\//, '')}`;
+    return uploadsPublicUrl(match.banner);
   }
 
   // --- LÓGICA ATUALIZADA: COMPRA DE TICKET ---
