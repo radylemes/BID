@@ -22,7 +22,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
     SystemMonitorComponent,
   ],
   template: `
-    <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-screen">
+    <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-0">
       <div class="mb-8">
         <h2 class="text-3xl font-extrabold text-[var(--app-text)] tracking-tight">
           Configurações do Sistema

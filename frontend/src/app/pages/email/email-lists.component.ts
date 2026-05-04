@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 md:p-6 bg-gray-50 min-h-0">
       <div class="mb-8">
         <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Listas de e-mail</h2>
         <p class="text-sm text-gray-500 font-medium">Crie listas de destinatários para disparos em massa.</p>

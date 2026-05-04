@@ -17,7 +17,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-screen">
+    <div class="container mx-auto p-4 md:p-6 bg-[var(--app-bg)] min-h-0">
       <div class="mb-6">
         <h2 class="text-3xl font-extrabold text-[var(--app-text)] tracking-tight">Disparo de E-mails</h2>
         <p class="text-sm text-[var(--app-text-muted)] font-medium mt-1">

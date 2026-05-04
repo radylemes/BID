@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="min-h-screen bg-[var(--app-bg)] p-4 md:p-8 font-sans">
+    <div class="min-h-0 bg-[var(--app-bg)] p-4 md:p-8 font-sans">
       <div class="max-w-7xl mx-auto">
         <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

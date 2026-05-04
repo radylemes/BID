@@ -10,7 +10,7 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="history-theme min-h-screen bg-[var(--app-bg)] p-3 sm:p-4 md:p-6 lg:p-8 pb-10 font-sans">
+    <div class="history-theme min-h-0 bg-[var(--app-bg)] p-3 sm:p-4 md:p-6 lg:p-8 pb-10 font-sans">
       <div class="max-w-full mx-auto">
         <div class="mb-4 sm:mb-6 lg:mb-8">
           <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-[var(--app-text)] tracking-tight flex items-center gap-2 sm:gap-3">

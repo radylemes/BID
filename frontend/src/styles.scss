@@ -84,6 +84,51 @@ app-root {
   height: 0;
 }
 
+/* Área principal (layout autenticado): barra visível — o * acima oculta scrollbars por defeito */
+.layout-main-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-secondary) var(--color-bg-surface-alt);
+  -ms-overflow-style: auto;
+}
+
+.layout-main-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.layout-main-scroll::-webkit-scrollbar-track {
+  background: var(--color-bg-surface-alt);
+  border-radius: 8px;
+}
+
+.layout-main-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border-secondary);
+  border-radius: 8px;
+}
+
+.layout-main-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+[data-theme='escuro'],
+[data-theme^='escuro-'] {
+  .layout-main-scroll {
+    scrollbar-color: var(--color-border-secondary) var(--color-bg-primary);
+  }
+
+  .layout-main-scroll::-webkit-scrollbar-track {
+    background: var(--color-bg-primary);
+  }
+
+  .layout-main-scroll::-webkit-scrollbar-thumb {
+    background: var(--color-border-secondary);
+  }
+
+  .layout-main-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
+  }
+}
+
 /* Global dark compatibility for legacy Tailwind classes */
 [data-theme='escuro'], [data-theme^='escuro-'] .bg-white,
 [data-theme='escuro'], [data-theme^='escuro-'] .bg-gray-50,

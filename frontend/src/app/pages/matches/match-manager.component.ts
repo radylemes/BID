@@ -18,7 +18,7 @@ import * as XLSX from 'xlsx';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="container mx-auto p-4 bg-[var(--app-bg)] min-h-screen">
+    <div class="container mx-auto p-4 bg-[var(--app-bg)] min-h-0">
       <div
         class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-[var(--color-bg-surface)] p-6 rounded-xl border border-[var(--app-border)]"
       >

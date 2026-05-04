@@ -16,6 +16,7 @@ import { catchError } from 'rxjs/operators';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './user-list.component.html',
+  host: { class: 'block h-full min-h-0' },
 })
 export class UserListComponent implements OnInit {
   users: any[] = [];

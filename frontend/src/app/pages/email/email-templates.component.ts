@@ -28,7 +28,7 @@ const TAGS_DISPONIVEIS = [
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 md:p-6 bg-gray-50 min-h-0">
       <div class="mb-8">
         <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Templates de e-mail</h2>
         <p class="text-sm text-gray-500 font-medium">Crie templates HTML com tags de evento e usuário para disparos.</p>
