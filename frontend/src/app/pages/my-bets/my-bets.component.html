@@ -115,11 +115,16 @@
               class="flex items-center justify-between gap-2 mb-2 sm:mb-3 border-b border-[var(--app-border)] group-hover/area:border-indigo-200 pb-2 transition-colors flex-wrap"
             >
               <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <h4
-                  class="text-[9px] sm:text-[10px] font-black text-[var(--app-text-muted)] uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors truncate"
-                >
-                  Convidados
-                </h4>
+                <div class="min-w-0">
+                  <h4
+                    class="text-[9px] sm:text-[10px] font-black text-[var(--app-text-muted)] uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors truncate"
+                  >
+                    Convidados
+                  </h4>
+                  <p class="text-[8px] sm:text-[9px] text-[var(--app-text-muted)] font-semibold normal-case truncate">
+                    Prazo: {{ textoLimiteIndicacao(match) }}
+                  </p>
+                </div>
                 <div
                   class="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 bg-[var(--color-bg-surface)] border border-[var(--app-border)] group-hover/area:bg-indigo-100 group-hover/area:text-indigo-700 group-hover/area:border-indigo-300 rounded text-[10px] sm:text-[11px] transition-all shrink-0"
                 >

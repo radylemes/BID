@@ -154,6 +154,12 @@ export class MyBetsComponent implements OnInit {
     }).format(data);
   }
 
+  textoLimiteIndicacao(match: any): string {
+    const limite = this.obterDataLimiteIndicacao(match);
+    if (!limite) return '--';
+    return this.formatarDataHora(limite);
+  }
+
   // =========================================================================
   // MODAL EM MASSA ALINHADO COMO TABELA E COM BLOQUEIO DE SEGURANÇA
   // =========================================================================

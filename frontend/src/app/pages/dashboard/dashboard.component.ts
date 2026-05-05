@@ -50,6 +50,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return uploadsPublicUrl(match.banner);
   }
 
+  private obterDataLimiteIndicacao(match: any): Date | null {
+    if (!match?.data_evento) return null;
+    const dataEvento = new Date(match.data_evento);
+    if (Number.isNaN(dataEvento.getTime())) return null;
+    dataEvento.setHours(0, 0, 0, 0);
+    dataEvento.setMilliseconds(dataEvento.getMilliseconds() - 1);
+    return dataEvento;
+  }
+
+  textoLimiteIndicacao(match: any): string {
+    const limite = this.obterDataLimiteIndicacao(match);
+    if (!limite) return '--';
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(limite);
+  }
+
   carregarDados() {
     if (!localStorage.getItem('token') || !this.currentUser?.id) {
       this.loading = false;
