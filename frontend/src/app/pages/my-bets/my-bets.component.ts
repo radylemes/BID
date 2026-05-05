@@ -129,20 +129,70 @@ export class MyBetsComponent implements OnInit {
     return dataEvento.getTime() < hoje.getTime();
   }
 
+  private obterDataLimiteIndicacao(match: any): Date | null {
+    if (!match?.data_evento) return null;
+    const dataEvento = new Date(match.data_evento);
+    if (Number.isNaN(dataEvento.getTime())) return null;
+    dataEvento.setHours(0, 0, 0, 0);
+    dataEvento.setMilliseconds(dataEvento.getMilliseconds() - 1);
+    return dataEvento;
+  }
+
+  indicacaoConvidadosEncerrada(match: any): boolean {
+    const limite = this.obterDataLimiteIndicacao(match);
+    if (!limite) return false;
+    return Date.now() > limite.getTime();
+  }
+
+  formatarDataHora(data: Date): string {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(data);
+  }
+
   // =========================================================================
   // MODAL EM MASSA ALINHADO COMO TABELA E COM BLOQUEIO DE SEGURANÇA
   // =========================================================================
   async definirRetirantes(match: any) {
-    if (this.eventoAnteriorHoje(match)) {
+    const dataLimiteIndicacao = this.obterDataLimiteIndicacao(match);
+    if (this.indicacaoConvidadosEncerrada(match) && dataLimiteIndicacao) {
       await Swal.fire({
         icon: 'warning',
-        title: 'Evento encerrado',
-        text: 'Não é possível alterar retirantes para eventos cuja data já passou.',
+        title: 'Prazo de indicação encerrado',
+        text: `A indicação de convidados encerrou em ${this.formatarDataHora(dataLimiteIndicacao)}.`,
         confirmButtonColor: '#4f46e5',
       });
       return;
     }
+
+    if (this.eventoAnteriorHoje(match)) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Evento encerrado',
+        text: 'Não é possível alterar convidados para eventos cuja data já passou.',
+        confirmButtonColor: '#4f46e5',
+      });
+      return;
+    }
+
     this.guestService.getGuests(this.currentUser.id).subscribe(async (convidados: any[]) => {
+      const possuiConvidadosDefinidos = match.ingressos_ganhos_detalhes.some(
+        (ticket: any) => Boolean(ticket.nome),
+      );
+      const textoAcaoConvidados = possuiConvidadosDefinidos
+        ? 'Convidados já informados. Para trocar, altere as seleções abaixo.'
+        : `Você possui <strong>${match.ingressos_ganhos_detalhes.length} ingresso(s)</strong>. Selecione quem irá utilizar cada um:`;
+      const botaoNovoConvidadoHtml = possuiConvidadosDefinidos
+        ? ''
+        : `
+            <button id="btn-novo" type="button" class="w-full mt-3 py-2 border-2 border-dashed border-indigo-200 rounded-xl text-indigo-600 text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
+              <span class="text-lg leading-none">+</span> Cadastrar Novo Convidado
+            </button>
+          `;
       const htmlSelects = match.ingressos_ganhos_detalhes
         .map((ticket: any, index: number) => {
           if (ticket.checkin) {
@@ -175,7 +225,7 @@ export class MyBetsComponent implements OnInit {
             </label>
             <div class="flex-1 px-1">
               <select id="select-ticket-${ticket.id}" class="w-full border border-gray-300 rounded-lg p-1.5 text-xs text-gray-700 bg-white focus:border-indigo-500 outline-none shadow-sm cursor-pointer">
-                <option value="">-- Selecione o retirante --</option>
+                <option value="">-- Selecione o convidado --</option>
                 ${optionsHtml}
               </select>
             </div>
@@ -189,19 +239,17 @@ export class MyBetsComponent implements OnInit {
 
       const { value: selecoes } = await Swal.fire({
         title:
-          '<h3 class="text-xl font-black text-gray-800 tracking-tight">Responsáveis pela Retirada</h3>',
+          '<h3 class="text-xl font-black text-gray-800 tracking-tight">Convidados</h3>',
         html: `
           <div class="text-left mt-2">
-            <p class="text-xs text-gray-500 mb-2">Você possui <strong>${match.ingressos_ganhos_detalhes.length} ingresso(s)</strong>. Selecione quem irá utilizar cada um:</p>
+            <p class="text-xs text-gray-500 mb-2">${textoAcaoConvidados}</p>
             <p class="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 leading-snug">
               <strong class="font-black">Importante:</strong> só é possível indicar <strong>1 ingresso por convidado</strong>. A mesma pessoa não pode ser selecionada em mais de um ingresso.
             </p>
             <div class="max-h-80 overflow-y-auto custom-scrollbar pr-1">
                 ${htmlSelects}
             </div>
-            <button id="btn-novo" type="button" class="w-full mt-3 py-2 border-2 border-dashed border-indigo-200 rounded-xl text-indigo-600 text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
-              <span class="text-lg leading-none">+</span> Cadastrar Novo Convidado
-            </button>
+            ${botaoNovoConvidadoHtml}
           </div>
         `,
         showCancelButton: true,
@@ -209,10 +257,12 @@ export class MyBetsComponent implements OnInit {
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#10b981',
         didOpen: () => {
-          document.getElementById('btn-novo')?.addEventListener('click', () => {
-            Swal.close();
-            this.cadastrarNovoConvidado(match);
-          });
+          if (!possuiConvidadosDefinidos) {
+            document.getElementById('btn-novo')?.addEventListener('click', () => {
+              Swal.close();
+              this.cadastrarNovoConvidado(match);
+            });
+          }
         },
         preConfirm: () => {
           const resultados: { ingressoId: number; convidadoId: string }[] = [];
@@ -260,7 +310,7 @@ export class MyBetsComponent implements OnInit {
             Swal.fire({
               icon: 'success',
               title: 'Salvo!',
-              text: 'Retirantes atualizados com sucesso.',
+              text: 'Convidados atualizados com sucesso.',
               timer: 2000,
               showConfirmButton: false,
             });

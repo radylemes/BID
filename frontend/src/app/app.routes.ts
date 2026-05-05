@@ -20,6 +20,7 @@ import { SystemMonitorComponent } from './pages/system-monitor/system-monitor.co
 import { EmailTemplateEditorComponent } from './pages/email/email-template-editor.component';
 import { DisparoEmailsComponent } from './pages/email/disparo-emails.component';
 import { TenantsStatusComponent } from './pages/tenants-status/tenants-status.component';
+import { PolicyAccessComponent } from './pages/policy/policy-access.component';
 
 export const routes: Routes = [
   {
@@ -57,6 +58,7 @@ export const routes: Routes = [
 
       // Tela Inicial (Usuário vê stats e aposta)
       { path: 'dashboard', component: DashboardComponent },
+      { path: 'politica-acesso', component: PolicyAccessComponent },
       { path: 'minhas-apostas', component: MyBetsComponent },
       { path: 'profile', component: ProfileComponent },
 

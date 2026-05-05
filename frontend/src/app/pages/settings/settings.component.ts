@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import Swal from 'sweetalert2';
+import { EditorComponent } from '@tinymce/tinymce-angular';
 import { SettingsService } from '../../services/settings.service';
 import { EmailService, ListaEmail, ListaEmailItem, TemplateEmail } from '../../services/email.service';
 import { MatchService } from '../../services/match.service';
@@ -18,6 +19,7 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
   imports: [
     CommonModule,
     FormsModule,
+    EditorComponent,
     TenantsStatusComponent,
     SystemMonitorComponent,
   ],
@@ -57,6 +59,17 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
             <span class="text-lg">📧</span> Servidor SMTP
+          </button>
+          <button
+            (click)="abaAtual = 'politica'; carregarSettings()"
+            [ngClass]="
+              abaAtual === 'politica'
+                ? 'bg-indigo-100 text-indigo-700 font-bold'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
+            "
+            class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
+          >
+            <span class="text-lg">📜</span> Política de Acesso
           </button>
           <button
             (click)="abaAtual = 'tenants-status'"
@@ -271,6 +284,65 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             </div>
           </div>
 
+          <div *ngIf="abaAtual === 'politica' && !loading" class="space-y-5">
+            <h3 class="text-xl font-black text-gray-800">Política de Acesso aos Lances</h3>
+            <p class="text-sm text-gray-500">
+              Você pode definir o conteúdo no editor abaixo ou enviar um PDF para ser usado como alternativa.
+            </p>
+            <div class="rounded-xl border border-gray-200 p-4 bg-gray-50 space-y-3">
+              <label class="block text-xs font-bold text-gray-500 uppercase">
+                PDF da política (alternativa ao conteúdo HTML)
+              </label>
+              <input
+                type="file"
+                accept="application/pdf"
+                (change)="onBidPolicyPdfSelected($event)"
+                class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-100 file:text-indigo-700 file:font-bold hover:file:bg-indigo-200"
+              />
+              <div class="flex items-center gap-3">
+                <button
+                  (click)="uploadBidPolicyPdf()"
+                  [disabled]="!bidPolicyPdfFile"
+                  class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg"
+                >
+                  Enviar PDF
+                </button>
+                <a
+                  href="/politica-acesso"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+                >
+                  Abrir PDF atual
+                </a>
+              </div>
+            </div>
+            <div class="rounded-xl border border-gray-200 overflow-hidden">
+              <editor
+                [(ngModel)]="bidPolicyHtml"
+                [init]="tinymceInit"
+                licenseKey="gpl"
+                outputFormat="html"
+              ></editor>
+            </div>
+            <div class="flex items-center gap-3">
+              <button
+                (click)="salvarPolitica()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow"
+              >
+                Guardar política
+              </button>
+              <a
+                href="/politica-acesso"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-sm text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+              >
+                Abrir página da política
+              </a>
+            </div>
+          </div>
+
           <div *ngIf="abaAtual === 'tenants-status'">
             <app-tenants-status></app-tenants-status>
           </div>
@@ -299,11 +371,29 @@ export class SettingsComponent implements OnInit {
   smtpPass = '';
   smtpFrom = '';
   appBaseUrl = '';
+  bidPolicyHtml = '';
+  bidPolicyPdfFile: File | null = null;
 
   listas: ListaEmail[] = [];
   templates: TemplateEmail[] = [];
   listasLoading = false;
   templatesLoading = false;
+
+  get tinymceInit(): Record<string, unknown> {
+    return {
+      base_url: '/tinymce',
+      suffix: '.min',
+      plugins:
+        'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
+      toolbar:
+        'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link | code | removeformat | help',
+      toolbar_mode: 'wrap' as const,
+      height: 420,
+      placeholder: 'Descreva aqui a política de acesso aos lances...',
+      content_style:
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }',
+    };
+  }
 
   constructor(
     private http: HttpClient,
@@ -325,12 +415,13 @@ export class SettingsComponent implements OnInit {
       const aba = params['aba'];
       if (
         aba === 'email' ||
+        aba === 'politica' ||
         aba === 'pontos' ||
         aba === 'tenants-status' ||
         aba === 'monitor'
       ) {
         this.abaAtual = aba;
-        if (aba === 'email') this.carregarSettings();
+        if (aba === 'email' || aba === 'politica') this.carregarSettings();
       }
     });
   }
@@ -345,6 +436,7 @@ export class SettingsComponent implements OnInit {
         this.smtpPass = settings['smtp_pass'] ?? '';
         this.smtpFrom = settings['smtp_from'] ?? '';
         this.appBaseUrl = settings['app_base_url'] ?? '';
+        this.bidPolicyHtml = settings['bid_policy_html'] ?? '';
         this.cd.detectChanges();
       },
     });
@@ -372,6 +464,56 @@ export class SettingsComponent implements OnInit {
     this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
       next: () => Swal.fire({ icon: 'success', title: 'Configurações SMTP guardadas.', timer: 1500, showConfirmButton: false }),
       error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao guardar.', 'error'),
+    });
+  }
+
+  salvarPolitica() {
+    const payload: Record<string, string> = {
+      bid_policy_html: this.bidPolicyHtml || '',
+    };
+    this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
+      next: () =>
+        Swal.fire({
+          icon: 'success',
+          title: 'Política guardada com sucesso.',
+          timer: 1500,
+          showConfirmButton: false,
+        }),
+      error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao guardar política.', 'error'),
+    });
+  }
+
+  onBidPolicyPdfSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file) {
+      this.bidPolicyPdfFile = null;
+      return;
+    }
+    if (file.type !== 'application/pdf') {
+      this.bidPolicyPdfFile = null;
+      Swal.fire('Formato inválido', 'Selecione um arquivo PDF.', 'warning');
+      return;
+    }
+    this.bidPolicyPdfFile = file;
+  }
+
+  uploadBidPolicyPdf() {
+    if (!this.bidPolicyPdfFile) {
+      Swal.fire('Atenção', 'Selecione um PDF para enviar.', 'warning');
+      return;
+    }
+    this.settingsService.uploadBidPolicyPdf(this.bidPolicyPdfFile, this.currentUser?.id).subscribe({
+      next: () => {
+        this.bidPolicyPdfFile = null;
+        Swal.fire({
+          icon: 'success',
+          title: 'PDF da política guardado com sucesso.',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      },
+      error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao enviar PDF da política.', 'error'),
     });
   }
 

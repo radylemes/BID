@@ -60,6 +60,47 @@ exports.getExportSettings = async (req, res) => {
   }
 };
 
+exports.getBidPolicy = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT chave, valor FROM configuracoes WHERE chave IN ('bid_policy_html', 'bid_policy_pdf_path')",
+    );
+    const data = rows.reduce((acc, curr) => {
+      acc[curr.chave] = curr.valor;
+      return acc;
+    }, {});
+    res.json({
+      html: data.bid_policy_html || "",
+      hasPdf: Boolean(data.bid_policy_pdf_path),
+    });
+  } catch (error) {
+    await logErro("SETTINGS_CONTROLLER_GET_BID_POLICY", error);
+    res.status(500).json({ error: "Erro ao carregar política de acesso." });
+  }
+};
+
+exports.getBidPolicyDocument = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT valor FROM configuracoes WHERE chave = 'bid_policy_pdf_path' LIMIT 1",
+    );
+    const pathVal = rows[0]?.valor;
+    if (!pathVal) {
+      return res.status(404).json({ error: "PDF da política não configurado." });
+    }
+    const pathValNorm = pathVal.replace(/\\/g, "/").trim();
+    const fullPath = path.join(__dirname, "..", "uploads", ...pathValNorm.split("/"));
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: "Ficheiro PDF da política não encontrado." });
+    }
+    res.setHeader("Content-Type", "application/pdf");
+    res.sendFile(path.resolve(fullPath));
+  } catch (error) {
+    await logErro("SETTINGS_CONTROLLER_GET_BID_POLICY_DOCUMENT", error);
+    res.status(500).json({ error: "Erro ao obter PDF da política." });
+  }
+};
+
 exports.updateSettings = async (req, res) => {
   const { adminId, ...settings } = req.body;
   const connection = await db.getConnection();
@@ -158,6 +199,42 @@ exports.uploadLetterhead = async (req, res) => {
     await connection.rollback();
     await logErro("SETTINGS_CONTROLLER_UPLOAD_LETTERHEAD", error);
     res.status(500).json({ error: "Erro ao guardar papel timbrado." });
+  } finally {
+    connection.release();
+  }
+};
+
+exports.uploadBidPolicyPdf = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Nenhum ficheiro enviado." });
+  }
+  const mimetype = req.file.mimetype || "";
+  const ext = path.extname(req.file.originalname || "").toLowerCase();
+  if (mimetype !== "application/pdf" || ext !== ".pdf") {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({
+      error: "Formato não permitido. Envie um ficheiro PDF.",
+    });
+  }
+  const relativePath = path.join("bid-policy", path.basename(req.file.path)).replace(/\\/g, "/");
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await upsertConfig(connection, "bid_policy_pdf_path", relativePath.replace(/\\/g, "/"));
+    await gravarAuditoria(
+      connection,
+      req.body?.adminId || req.user?.id,
+      "CONFIG_SISTEMA",
+      "UPLOAD_BID_POLICY_PDF",
+      null,
+      { path: relativePath },
+    );
+    await connection.commit();
+    res.json({ path: relativePath, message: "PDF da política atualizado." });
+  } catch (error) {
+    await connection.rollback();
+    await logErro("SETTINGS_CONTROLLER_UPLOAD_BID_POLICY_PDF", error);
+    res.status(500).json({ error: "Erro ao guardar PDF da política." });
   } finally {
     connection.release();
   }

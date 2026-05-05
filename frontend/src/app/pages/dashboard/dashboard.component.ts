@@ -315,7 +315,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       const { value: selecoes, dismiss } = await Swal.fire({
         title:
-          '<h3 class="text-xl font-black text-gray-800 tracking-tight">Responsáveis pela Retirada</h3>',
+          '<h3 class="text-xl font-black text-gray-800 tracking-tight">Convidados</h3>',
         html: `
           <div class="text-left mt-2">
             <p class="text-xs text-gray-500 mb-2">Você possui <strong>${match.ingressos_ganhos_detalhes.length} ingresso(s)</strong>. Selecione quem irá utilizar cada um:</p>
@@ -553,7 +553,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             )
             .join('')}
         </div>
-        ${lancesQuePodeDar > lancesAtivosNoPopup ? `<button id="add-lance-btn" type="button" class="w-full mt-2 py-2 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-[10px] font-bold hover:border-indigo-300 hover:text-indigo-500 transition-all">+ Adicionar outro lance (${lancesQuePodeDar - lancesAtivosNoPopup} vaga(s) restante(s))</button>` : ''}
+        ${lancesQuePodeDar > lancesAtivosNoPopup ? `<button id="add-lance-btn" type="button" class="w-full mt-2 py-2 border-2 border-dashed border-gray-200 rounded-lg text-black text-[10px] font-black hover:border-indigo-300 transition-all">+ Adicionar outro lance (${lancesQuePodeDar - lancesAtivosNoPopup} vaga(s) restante(s))</button>` : ''}
       </div>`,
       didOpen: () => {
         const btn = document.getElementById('add-lance-btn');
@@ -659,6 +659,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
               Esta é uma ação definitiva! Após confirmar, você NÃO poderá alterar, adicionar novos lances ou cancelar sua participação neste evento.
             </p>
           </div>
+          <div class="mt-4 text-left bg-[var(--color-bg-surface)] border border-gray-200 rounded-xl p-3">
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input id="aceite-politica-lances" type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300" />
+              <span class="text-sm text-gray-700">
+                Li e aceito a
+                <a href="/politica-acesso" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-bold hover:underline">
+                  política de acesso
+                </a>.
+              </span>
+            </label>
+          </div>
         `,
         icon: 'warning',
         showCancelButton: true,
@@ -666,7 +677,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
         cancelButtonColor: '#6b7280',
         confirmButtonText: 'Estou ciente, registrar lances',
         cancelButtonText: 'Voltar para revisar',
-        reverseButtons: true
+        reverseButtons: true,
+        preConfirm: () => {
+          const aceite = document.getElementById(
+            'aceite-politica-lances',
+          ) as HTMLInputElement | null;
+          if (!aceite?.checked) {
+            Swal.showValidationMessage('Você deve aceitar a política de acesso para continuar.');
+            return false;
+          }
+          return true;
+        },
       });
 
       if (!isConfirmed) {

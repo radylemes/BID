@@ -19,12 +19,28 @@ const letterheadStorage = multer.diskStorage({
   },
 });
 const uploadLetterhead = multer({ storage: letterheadStorage });
+const bidPolicyStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "..", "uploads", "bid-policy");
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "bid-policy-" + uniqueSuffix + ".pdf");
+  },
+});
+const uploadBidPolicy = multer({ storage: bidPolicyStorage });
 
 // Busca as configurações atuais (ADMIN)
 router.get("/", authMiddleware, authorizeRoles("ADMIN"), settingsController.getSettings);
 
 // Configurações de exportação (qualquer utilizador autenticado - para PDF/Excel e timbrado)
 router.get("/export", authMiddleware, settingsController.getExportSettings);
+
+// Política de acesso dos lances (qualquer utilizador autenticado)
+router.get("/bid-policy", authMiddleware, settingsController.getBidPolicy);
+router.get("/bid-policy/document", authMiddleware, settingsController.getBidPolicyDocument);
 
 // Atualiza as configurações (ADMIN)
 router.post(
@@ -41,6 +57,14 @@ router.post(
   authorizeRoles("ADMIN"),
   uploadLetterhead.single("letterhead_file"),
   settingsController.uploadLetterhead,
+);
+
+router.post(
+  "/bid-policy/pdf",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  uploadBidPolicy.single("bid_policy_file"),
+  settingsController.uploadBidPolicyPdf,
 );
 
 // Obter ficheiro do papel timbrado (qualquer utilizador autenticado, para usar na exportação PDF)

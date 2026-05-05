@@ -112,7 +112,7 @@
         />
         <div class="absolute inset-0 bg-black/20"></div>
 
-        <div class="absolute top-3 right-3">
+        <div class="absolute top-3 right-3 flex flex-col items-end gap-1.5">
           <span
             *ngIf="match.estado_tempo === 'EM_BREVE'"
             class="bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
@@ -127,6 +127,11 @@
             *ngIf="match.estado_tempo === 'ENCERRADO'"
             class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
             >Encerrado</span
+          >
+          <span
+            *ngIf="match.estado_tempo === 'ENCERRADO' && match.tickets_ganhos > 0"
+            class="bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >🏆 BID vencido</span
           >
         </div>
       </div>
@@ -258,7 +263,7 @@
                       <h4
                         class="text-[10px] font-black text-[var(--app-text-muted)] uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors"
                       >
-                        Responsáveis pela Retirada
+                        Convidados
                       </h4>
                       <div
                         class="flex items-center justify-center w-6 h-6 bg-[var(--color-bg-surface)] border border-[var(--app-border)] group-hover/area:bg-indigo-100 group-hover/area:text-indigo-700 group-hover/area:border-indigo-300 rounded text-[11px] transition-all"

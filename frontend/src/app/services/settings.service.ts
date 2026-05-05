@@ -69,6 +69,21 @@ export class SettingsService {
     return this.http.get<Record<string, string>>(this.apiUrl);
   }
 
+  getBidPolicy(): Observable<{ html: string; hasPdf?: boolean }> {
+    return this.http.get<{ html: string; hasPdf?: boolean }>(`${this.apiUrl}/bid-policy`);
+  }
+
+  uploadBidPolicyPdf(file: File, adminId?: number): Observable<{ path: string; message?: string }> {
+    const form = new FormData();
+    form.append('bid_policy_file', file);
+    if (adminId != null) form.append('adminId', String(adminId));
+    return this.http.post<{ path: string; message?: string }>(`${this.apiUrl}/bid-policy/pdf`, form);
+  }
+
+  getBidPolicyDocumentBlob(): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/bid-policy/document`, { responseType: 'blob' });
+  }
+
   /** Configurações de exportação (campos e timbrado) - acessível a qualquer utilizador autenticado. */
   getExportSettings(): Observable<Record<string, string>> {
     return this.http.get<Record<string, string>>(`${this.apiUrl}/export`);

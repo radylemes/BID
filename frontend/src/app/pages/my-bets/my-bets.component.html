@@ -33,7 +33,7 @@
           (error)="$any($event.target).src = 'https://placehold.co/600x400?text=BID'"
           class="w-full h-full object-cover grayscale opacity-90"
         />
-        <div class="absolute top-2 left-2">
+        <div class="absolute top-2 left-2 flex flex-col items-start gap-1.5">
           <span
             *ngIf="match.status === 'ABERTA'"
             class="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm animate-pulse"
@@ -43,6 +43,11 @@
             *ngIf="match.status !== 'ABERTA'"
             class="bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
             >Encerrado</span
+          >
+          <span
+            *ngIf="match.status !== 'ABERTA' && match.tickets_ganhos > 0"
+            class="bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+            >🏆 BID vencido</span
           >
         </div>
       </div>
@@ -100,10 +105,10 @@
           <div
             *ngIf="match.tickets_ganhos > 0 && match.status !== 'ABERTA'"
             [ngClass]="{
-              'cursor-not-allowed opacity-70': eventoAnteriorHoje(match),
-              'cursor-pointer hover:bg-indigo-50/30 hover:border-indigo-200': !eventoAnteriorHoje(match)
+              'cursor-not-allowed opacity-70': indicacaoConvidadosEncerrada(match),
+              'cursor-pointer hover:bg-indigo-50/30 hover:border-indigo-200': !indicacaoConvidadosEncerrada(match)
             }"
-            (click)="!eventoAnteriorHoje(match) && definirRetirantes(match)"
+            (click)="definirRetirantes(match)"
             class="bg-[var(--color-bg-surface-alt)] rounded-lg sm:rounded-xl p-3 sm:p-4 border border-[var(--app-border)] transition-all flex flex-col w-full min-h-0 justify-center group/area"
           >
             <div
@@ -113,7 +118,7 @@
                 <h4
                   class="text-[9px] sm:text-[10px] font-black text-[var(--app-text-muted)] uppercase tracking-wider group-hover/area:text-indigo-700 transition-colors truncate"
                 >
-                  Responsáveis pela Retirada
+                  Convidados
                 </h4>
                 <div
                   class="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 bg-[var(--color-bg-surface)] border border-[var(--app-border)] group-hover/area:bg-indigo-100 group-hover/area:text-indigo-700 group-hover/area:border-indigo-300 rounded text-[10px] sm:text-[11px] transition-all shrink-0"

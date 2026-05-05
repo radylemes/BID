@@ -50,6 +50,25 @@ async function gravarAuditoria(
   }
 }
 
+function calcularLimiteIndicacao(dataJogo) {
+  const dataEvento = new Date(dataJogo);
+  if (Number.isNaN(dataEvento.getTime())) return null;
+  const limite = new Date(dataEvento);
+  limite.setHours(0, 0, 0, 0);
+  limite.setMilliseconds(limite.getMilliseconds() - 1);
+  return limite;
+}
+
+function formatarDataHoraPtBr(data) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(data);
+}
+
 exports.getGuests = async (req, res) => {
   const { userId } = req.params;
   try {
@@ -177,8 +196,9 @@ exports.assignGuestToTicket = async (req, res) => {
       await connection.beginTransaction();
 
       const [eventTickets] = await connection.execute(
-        `SELECT i.id, i.checkin FROM ingressos i
+        `SELECT i.id, i.checkin, p.data_jogo FROM ingressos i
          INNER JOIN apostas a ON i.aposta_id = a.id
+         INNER JOIN partidas p ON a.partida_id = p.id
          WHERE i.usuario_id = ?
            AND a.partida_id = (
              SELECT a2.partida_id FROM ingressos i2
@@ -204,6 +224,22 @@ exports.assignGuestToTicket = async (req, res) => {
         connection.release();
         return res.status(403).json({
           error: "Bloqueado! Este ingresso já foi retirado na portaria.",
+        });
+      }
+
+      const limiteIndicacao = calcularLimiteIndicacao(target.data_jogo);
+      if (!limiteIndicacao) {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({
+          error: "Não foi possível determinar o prazo de indicação deste evento.",
+        });
+      }
+      if (new Date() > limiteIndicacao) {
+        await connection.rollback();
+        connection.release();
+        return res.status(403).json({
+          error: `O prazo para indicar convidados encerrou em ${formatarDataHoraPtBr(limiteIndicacao)}.`,
         });
       }
 
