@@ -957,6 +957,13 @@ exports.getUserStats = async (req, res) => {
       "SELECT AVG(valor_pago) as media FROM apostas WHERE usuario_id = ?",
       [id],
     );
+    const [ingressosGanhos] = await db.execute(
+      `SELECT COUNT(*) as total
+       FROM ingressos i
+       INNER JOIN apostas a ON a.id = i.aposta_id
+       WHERE a.usuario_id = ? AND a.status = 'GANHOU'`,
+      [id],
+    );
     const [partidasAbertas] = await db.execute(
       "SELECT titulo FROM partidas WHERE status = 'ABERTA'",
     );
@@ -1079,6 +1086,7 @@ exports.getUserStats = async (req, res) => {
       stats: {
         bidsVencidos: bids[0].vencidos || 0,
         mediaPontos: Math.round(medias[0].media || 0),
+        ingressosGanhos: Number(ingressosGanhos[0]?.total) || 0,
       },
       historico: historico30,
       historicoPeriodoDias: 30,

@@ -128,9 +128,40 @@ async function initializeDatabase() {
         email VARCHAR(255),
         telefone VARCHAR(20),
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        UNIQUE KEY uniq_usuario_cpf (usuario_id, cpf)
       );
     `);
+
+    // Migração: UNIQUE (usuario_id, cpf) e normalização de CPF para dígitos
+    try {
+      const [idxRows] = await connection.query(
+        `SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'convidados' AND INDEX_NAME = 'uniq_usuario_cpf'`,
+        [process.env.DB_NAME],
+      );
+      if (idxRows.length === 0) {
+        try {
+          await connection.query(
+            `UPDATE convidados SET cpf = REGEXP_REPLACE(IFNULL(cpf,''), '[^0-9]', '')`,
+          );
+        } catch (normErr) {
+          console.warn("Aviso ao normalizar CPF em convidados:", normErr.message);
+        }
+        try {
+          await connection.query(
+            `ALTER TABLE convidados ADD UNIQUE KEY uniq_usuario_cpf (usuario_id, cpf)`,
+          );
+          console.log("✅ Índice uniq_usuario_cpf adicionado à tabela convidados.");
+        } catch (alterErr) {
+          console.warn(
+            "Aviso ao adicionar UNIQUE (usuario_id, cpf) em convidados:",
+            alterErr.message,
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("Aviso ao verificar/migrar índice convidados:", e.message);
+    }
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS historico_pontos (

@@ -328,7 +328,7 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
           class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 flex-shrink-0 lg:flex-1 lg:min-h-0 lg:items-stretch"
         >
           <div
-            class="lg:col-span-3 lg:h-full lg:min-h-0 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] overflow-hidden flex flex-col relative pb-6 lg:pb-8"
+            class="lg:col-span-3 lg:h-full lg:min-h-0 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] overflow-hidden flex flex-col relative pb-5 lg:pb-6"
           >
             <div class="h-24 sm:h-28 lg:h-32 bg-gradient-to-r from-indigo-600 to-blue-500"></div>
 
@@ -383,7 +383,6 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
               <h1 class="text-lg sm:text-xl lg:text-2xl font-black text-[var(--app-text)] leading-tight truncate max-w-full px-1">
                 {{ user?.nome_completo || 'Carregando...' }}
               </h1>
-              <p class="text-xs sm:text-sm text-[var(--app-text-muted)] mt-0.5 truncate max-w-full px-1">{{ user?.email || user?.username }}</p>
 
               <p
                 class="text-[10px] sm:text-[11px] font-black text-indigo-700 mt-2 uppercase tracking-widest bg-indigo-50 px-2 sm:px-3 py-1 rounded-lg"
@@ -391,22 +390,40 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
                 {{ user?.setor || user?.setor_nome || 'Geral' }}
               </p>
 
-              <div class="mt-4 sm:mt-6 flex flex-wrap justify-center gap-2">
-                <span
-                  class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
-                  [class]="
-                    user?.perfil === 'ADMIN' || user?.role === 'ADMIN'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-indigo-50 text-indigo-700'
-                  "
-                >
-                  {{ user?.perfil || user?.role || 'USER' }}
-                </span>
-                <span
-                  class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700"
-                >
-                  Conta Ativa
-                </span>
+              <div class="mt-4 sm:mt-5 w-full max-w-sm grid grid-cols-1 gap-2 text-left">
+                <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)]/40 px-2.5 sm:px-3 py-2 min-w-0 flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                    <img src="/assets/wtoken_coin.png" alt="Saldo" class="w-5 h-5 object-contain" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">Saldo atual</p>
+                    <p class="mt-1 text-base sm:text-lg lg:text-xl font-black text-[var(--app-text)] leading-none truncate">
+                      {{ user?.pontos ?? 0 | number:'1.0-0':'pt' }} <span class="text-[10px] font-bold text-[var(--app-text-muted)]">pts</span>
+                    </p>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)]/40 px-2.5 sm:px-3 py-2 min-w-0 flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <img src="/assets/wtokenl_trophy.png" alt="Bids vencidos" class="w-5 h-5 object-contain" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">Bids vencidos</p>
+                    <p class="mt-1 text-base sm:text-lg lg:text-xl font-black text-[var(--app-text)] leading-none truncate">
+                      {{ stats.bidsVencidos }}
+                    </p>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)]/40 px-2.5 sm:px-3 py-2 min-w-0 flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-sm shrink-0">
+                    🎫
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">Ingressos ganhos</p>
+                    <p class="mt-1 text-base sm:text-lg lg:text-xl font-black text-[var(--app-text)] leading-none truncate">
+                      {{ stats.ingressosGanhos }}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div class="mt-4 w-full max-w-xs">
@@ -425,72 +442,8 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
             </div>
           </div>
 
-          <div class="lg:col-span-2 lg:h-full lg:min-h-0 flex flex-col sm:flex-row lg:flex-col gap-3 h-full">
-            <div
-              class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
-            >
-              <div
-                class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100"
-              >
-                <img
-                  src="/assets/wtoken_coin.png"
-                  alt="W Token Coin"
-                  class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm"
-                />
-              </div>
-              <div class="min-w-0 flex-1 overflow-hidden">
-                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
-                  Saldo Atual
-                </p>
-                <p class="text-base sm:text-xl md:text-2xl lg:text-3xl font-black text-[var(--app-text)] leading-none mt-1 break-words">
-                  {{ user?.pontos ?? 0 | number:'1.0-0':'pt' }} <span class="text-xs sm:text-sm font-bold text-[var(--app-text-muted)]">pts</span>
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
-            >
-              <div
-                class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100"
-              >
-                <img
-                  src="/assets/wtokenl_trophy.png"
-                  alt="Troféu"
-                  class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm"
-                />
-              </div>
-              <div class="min-w-0">
-                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
-                  Bids Vencidos
-                </p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-[var(--app-text)] leading-none mt-1">
-                  {{ stats.bidsVencidos }}
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="bg-[var(--color-bg-surface)] p-4 sm:p-5 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
-            >
-              <div
-                class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center text-2xl sm:text-3xl border border-blue-100"
-              >
-                📊
-              </div>
-              <div class="min-w-0 flex-1 overflow-hidden">
-                <p class="text-[9px] sm:text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">
-                  Média / Lance
-                </p>
-                <p class="text-base sm:text-xl md:text-2xl lg:text-3xl font-black text-[var(--app-text)] leading-none mt-1 break-words">
-                  {{ stats.mediaPontos | number:'1.0-0':'pt' }} <span class="text-xs sm:text-sm font-bold text-[var(--app-text-muted)]">pts</span>
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div
-            class="lg:col-span-7 lg:h-full lg:min-h-0 bg-[var(--color-bg-surface)] p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex flex-col min-w-0"
+            class="lg:col-span-9 lg:h-full lg:min-h-0 bg-[var(--color-bg-surface)] p-4 sm:p-5 lg:p-6 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex flex-col min-w-0"
           >
             <div
               class="flex flex-shrink-0 flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3 lg:mb-4"
@@ -732,23 +685,25 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
         <div
           class="bg-[var(--color-bg-surface)] p-4 sm:p-5 md:p-6 lg:p-8 rounded-xl lg:rounded-[2rem] border border-[var(--app-border)] flex-1 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0"
         >
-          <div
-            class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 lg:mb-6 flex-shrink-0"
-          >
-            <div class="min-w-0 flex-1">
+          <div class="mb-4 lg:mb-6 flex-shrink-0">
+            <div class="flex items-center justify-between gap-3">
               <h2 class="text-xl sm:text-2xl font-black text-[var(--app-text)] tracking-tight leading-tight break-words">
-                Meus Convidados (Retirantes)
+                Meus convidados
               </h2>
-              <p class="text-xs sm:text-sm text-[var(--app-text-muted)] mt-1 leading-snug break-words">
-                Pessoas autorizadas a retirar seus ingressos ganhos na portaria do evento.
-              </p>
+              <button
+                (click)="abrirFormularioConvidado()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2 w-auto shrink-0"
+              >
+                <span class="text-lg leading-none">+</span> Convidado
+              </button>
             </div>
-            <button
-              (click)="abrirFormularioConvidado()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2 w-full sm:w-auto"
-            >
-              <span class="text-lg leading-none">+</span> Adicionar Convidado
-            </button>
+            <p class="text-xs sm:text-sm text-[var(--app-text-muted)] mt-2 leading-snug break-words">
+              Pessoas autorizadas a retirar seus ingressos ganhos na portaria do evento.
+              <span class="block mt-1 font-semibold text-[var(--app-text)]">
+                Atenção: cadastrar o convidado aqui não vincula automaticamente.
+                Após ser contemplado, é necessário associar o convidado ao ingresso ganho.
+              </span>
+            </p>
           </div>
 
           <div class="overflow-x-auto overflow-y-auto flex-1 min-h-[200px] rounded-xl lg:rounded-2xl border border-[var(--app-border)] -mx-1 px-1 sm:mx-0 sm:px-0 bg-[var(--color-bg-surface-alt)]">
@@ -779,7 +734,7 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
                       {{ conv.email || 'Sem e-mail' }} | {{ conv.telefone || 'Sem telefone' }}
                     </p>
                   </td>
-                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-mono text-[10px] sm:text-xs font-medium hidden md:table-cell">{{ conv.cpf }}</td>
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-mono text-[10px] sm:text-xs font-medium hidden md:table-cell">{{ mascararCpf(conv.cpf) }}</td>
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">
                     <span
                       *ngIf="conv.eventos_participados"
@@ -830,7 +785,7 @@ export class ProfileComponent implements OnInit {
   themeOptions = APP_THEMES;
   themeSaving = false;
 
-  stats = { bidsVencidos: 0, mediaPontos: 0 };
+  stats = { bidsVencidos: 0, mediaPontos: 0, ingressosGanhos: 0 };
 
   /** Um item por dia: saldo fim + volumes por tipo (empilhado). */
   historicoPontos: Array<{
@@ -1368,6 +1323,51 @@ export class ProfileComponent implements OnInit {
     return total;
   }
 
+  /** Exibe CPF com os 6 dígitos centrais ocultos (ex.: 298.***.***-20). */
+  mascararCpf(cpf: string | null | undefined): string {
+    const d = String(cpf ?? '')
+      .replace(/\D/g, '')
+      .slice(0, 11);
+    if (d.length !== 11) {
+      return cpf ? String(cpf) : '—';
+    }
+    return `${d.slice(0, 3)}.***.***-${d.slice(9)}`;
+  }
+
+  /** Valida dígitos verificadores do CPF (11 dígitos). */
+  validarCpf(cpfDigits: string): boolean {
+    const digits = String(cpfDigits)
+      .replace(/\D/g, '')
+      .slice(0, 11);
+    if (digits.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(digits)) return false;
+    let s = 0;
+    for (let i = 0; i < 9; i++) s += Number(digits[i]) * (10 - i);
+    let d1 = (s * 10) % 11;
+    if (d1 === 10) d1 = 0;
+    if (d1 !== Number(digits[9])) return false;
+    s = 0;
+    for (let i = 0; i < 10; i++) s += Number(digits[i]) * (11 - i);
+    let d2 = (s * 10) % 11;
+    if (d2 === 10) d2 = 0;
+    return d2 === Number(digits[10]);
+  }
+
+  /** Máscara visual para telefone BR (10 ou 11 dígitos); entrada só aceita números na prática. */
+  aplicarMascaraTelefone(raw: string): string {
+    let v = String(raw ?? '').replace(/\D/g, '');
+    if (v.length > 11) v = v.slice(0, 11);
+    if (v.length === 0) return '';
+    const ddd = v.slice(0, 2);
+    const rest = v.slice(2);
+    if (v.length <= 2) return `(${v}`;
+    if (rest.length <= 4) return `(${ddd}) ${rest}`;
+    if (v.length <= 10) {
+      return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    }
+    return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+  }
+
   carregarConvidados() {
     if (!this.user || !this.user.id) return;
     this.guestService.getGuests(this.user.id).subscribe({
@@ -1382,7 +1382,7 @@ export class ProfileComponent implements OnInit {
   async abrirFormularioConvidado(convidado: any = null) {
     const isEdit = !!convidado;
     const { value: formValues } = await Swal.fire({
-      title: `<h3 class="text-xl font-black text-gray-800">${isEdit ? 'Editar Retirante' : 'Novo Retirante'}</h3>`,
+      title: `<h3 class="text-xl font-black text-gray-800">${isEdit ? 'Editar convidado' : 'Novo convidado'}</h3>`,
       width: '450px',
       html: `
         <div class="space-y-4 text-left px-1 mt-4">
@@ -1392,7 +1392,7 @@ export class ProfileComponent implements OnInit {
           </div>
           <div>
             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">CPF (Obrigatório para portaria)</label>
-            <input id="swal-cpf" maxlength="14" class="swal2-input !m-0 !mt-1 w-full text-sm rounded-lg font-mono" value="${convidado?.cpf || ''}" placeholder="000.000.000-00">
+            <input id="swal-cpf" maxlength="14" class="swal2-input !m-0 !mt-1 w-full text-sm rounded-lg font-mono ${isEdit ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}" value="${isEdit ? this.mascararCpf(convidado?.cpf) : ''}" placeholder="000.000.000-00" ${isEdit ? 'readonly disabled' : ''}>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
@@ -1413,8 +1413,8 @@ export class ProfileComponent implements OnInit {
       confirmButtonColor: '#4f46e5',
       didOpen: () => {
         const cpfInput = document.getElementById('swal-cpf') as HTMLInputElement;
-        if (cpfInput) {
-          const aplicarMascara = () => {
+        if (cpfInput && !isEdit) {
+          const aplicarMascaraCpf = () => {
             let v = cpfInput.value.replace(/\D/g, '');
             if (v.length > 11) v = v.slice(0, 11);
             v = v.replace(/(\d{3})(\d)/, '$1.$2');
@@ -1422,21 +1422,54 @@ export class ProfileComponent implements OnInit {
             v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
             cpfInput.value = v;
           };
-          aplicarMascara();
-          cpfInput.addEventListener('input', aplicarMascara);
+          aplicarMascaraCpf();
+          cpfInput.addEventListener('input', aplicarMascaraCpf);
+        }
+        const telInput = document.getElementById('swal-telefone') as HTMLInputElement;
+        if (telInput) {
+          telInput.value = this.aplicarMascaraTelefone(telInput.value || '');
+          const onTel = () => {
+            telInput.value = this.aplicarMascaraTelefone(telInput.value);
+          };
+          telInput.addEventListener('input', onTel);
         }
       },
       preConfirm: () => {
-        const nome = (document.getElementById('swal-nome') as HTMLInputElement).value;
-        const cpf = (document.getElementById('swal-cpf') as HTMLInputElement).value;
-        const email = (document.getElementById('swal-email') as HTMLInputElement).value;
-        const telefone = (document.getElementById('swal-telefone') as HTMLInputElement).value;
+        const nome = (document.getElementById('swal-nome') as HTMLInputElement).value.trim();
+        const email = (document.getElementById('swal-email') as HTMLInputElement).value.trim();
+        const telefoneRaw = (document.getElementById('swal-telefone') as HTMLInputElement).value;
+        const telefoneDigits = telefoneRaw.replace(/\D/g, '') || '';
 
-        if (!nome || !cpf) {
-          Swal.showValidationMessage('Os campos Nome e CPF são obrigatórios.');
+        if (!nome) {
+          Swal.showValidationMessage('O campo Nome é obrigatório.');
           return false;
         }
-        return { usuario_id: this.user.id, nome_completo: nome, cpf, email, telefone };
+
+        if (!isEdit) {
+          const cpfRaw = (document.getElementById('swal-cpf') as HTMLInputElement).value;
+          const cpfDigits = cpfRaw.replace(/\D/g, '');
+          if (!cpfDigits) {
+            Swal.showValidationMessage('O CPF é obrigatório.');
+            return false;
+          }
+          if (!this.validarCpf(cpfDigits)) {
+            Swal.showValidationMessage('CPF inválido.');
+            return false;
+          }
+          return {
+            usuario_id: this.user.id,
+            nome_completo: nome,
+            cpf: cpfDigits,
+            email,
+            telefone: telefoneDigits || null,
+          };
+        }
+
+        return {
+          nome_completo: nome,
+          email,
+          telefone: telefoneDigits || null,
+        };
       },
     });
 
@@ -1452,7 +1485,12 @@ export class ProfileComponent implements OnInit {
             });
             this.carregarConvidados();
           },
-          error: () => Swal.fire('Erro', 'Não foi possível atualizar.', 'error'),
+          error: (err: any) =>
+            Swal.fire(
+              'Erro',
+              err?.error?.error || 'Não foi possível atualizar.',
+              'error',
+            ),
         });
       } else {
         this.guestService.createGuest(formValues).subscribe({
@@ -1460,7 +1498,12 @@ export class ProfileComponent implements OnInit {
             Swal.fire({ icon: 'success', title: 'Salvo!', timer: 1500, showConfirmButton: false });
             this.carregarConvidados();
           },
-          error: () => Swal.fire('Erro', 'Não foi possível salvar.', 'error'),
+          error: (err: any) =>
+            Swal.fire(
+              'Erro',
+              err?.error?.error || 'Não foi possível salvar.',
+              'error',
+            ),
         });
       }
     }

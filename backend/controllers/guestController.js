@@ -2,6 +2,29 @@ const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 
+/** Normaliza CPF para 11 dígitos ou string vazia. */
+function normalizarCpfDigits(cpf) {
+  if (cpf == null || cpf === undefined) return "";
+  return String(cpf).replace(/\D/g, "").slice(0, 11);
+}
+
+/** Valida dígitos verificadores do CPF brasileiro. */
+function validarCpf(cpf) {
+  const digits = normalizarCpfDigits(cpf);
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += Number(digits[i]) * (10 - i);
+  let d1 = (s * 10) % 11;
+  if (d1 === 10) d1 = 0;
+  if (d1 !== Number(digits[9])) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += Number(digits[i]) * (11 - i);
+  let d2 = (s * 10) % 11;
+  if (d2 === 10) d2 = 0;
+  return d2 === Number(digits[10]);
+}
+
 async function gravarAuditoria(
   connection,
   adminId,
@@ -45,7 +68,22 @@ exports.getGuests = async (req, res) => {
 
 exports.createGuest = async (req, res) => {
   const { usuario_id, nome_completo, cpf, email, telefone } = req.body;
+  const cpfDigits = normalizarCpfDigits(cpf);
+  if (!validarCpf(cpfDigits)) {
+    return res.status(400).json({ error: "CPF inválido." });
+  }
   try {
+    // Fallback de regra de negócio: evita duplicidade mesmo sem índice UNIQUE aplicado.
+    const [dupRows] = await db.execute(
+      "SELECT id FROM convidados WHERE usuario_id = ? AND cpf = ? LIMIT 1",
+      [usuario_id, cpfDigits],
+    );
+    if (dupRows.length > 0) {
+      return res.status(409).json({
+        error: "Você já cadastrou um convidado com este CPF.",
+      });
+    }
+
     const [userRows] = await db.execute(
       "SELECT nome_completo FROM usuarios WHERE id = ?",
       [usuario_id],
@@ -55,7 +93,7 @@ exports.createGuest = async (req, res) => {
 
     const [result] = await db.execute(
       "INSERT INTO convidados (usuario_id, nome_completo, cpf, email, telefone) VALUES (?, ?, ?, ?, ?)",
-      [usuario_id, nome_completo, cpf, email || null, telefone || null],
+      [usuario_id, nome_completo, cpfDigits, email || null, telefone || null],
     );
 
     await gravarAuditoria(
@@ -67,13 +105,18 @@ exports.createGuest = async (req, res) => {
       {
         usuario: userName,
         convidado_cadastrado: nome_completo,
-        cpf,
+        cpf: cpfDigits,
         motivo: `${userName} cadastrou o acompanhante/retirante: ${nome_completo}.`,
       },
     );
 
     res.json({ message: "Convidado salvo com sucesso!", id: result.insertId });
   } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        error: "Você já cadastrou um convidado com este CPF.",
+      });
+    }
     await logErro("GUEST_CONTROLLER_CREATE_GUEST", error);
     res.status(500).json({ error: "Erro ao salvar convidado." });
   }
@@ -81,15 +124,14 @@ exports.createGuest = async (req, res) => {
 
 exports.updateGuest = async (req, res) => {
   const { id } = req.params;
-  const { nome_completo, cpf, email, telefone } = req.body;
+  const { nome_completo, email, telefone } = req.body;
   try {
     await db.execute(
-      "UPDATE convidados SET nome_completo = ?, cpf = ?, email = ?, telefone = ? WHERE id = ?",
-      [nome_completo, cpf, email || null, telefone || null, id],
+      "UPDATE convidados SET nome_completo = ?, email = ?, telefone = ? WHERE id = ?",
+      [nome_completo, email || null, telefone || null, id],
     );
     await gravarAuditoria(null, req.user?.id, "CONVIDADOS", "UPDATE", id, {
       nome_completo,
-      cpf,
     });
     res.json({ message: "Convidado atualizado!" });
   } catch (error) {
