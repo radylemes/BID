@@ -405,7 +405,8 @@
                 (click)="definirRetirantes(match)"
                 class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
-                <span>🎟️</span> Informar Convidados
+                <span>🎟️</span>
+                {{ hasConvidadoIndicado(match) ? 'Alterar Convidados' : 'Informar Convidados' }}
               </button>
 
               <button

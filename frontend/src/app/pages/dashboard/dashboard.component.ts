@@ -285,6 +285,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  hasConvidadoIndicado(match: any): boolean {
+    const ingressos = match?.ingressos_ganhos_detalhes;
+    if (!Array.isArray(ingressos) || ingressos.length === 0) return false;
+
+    return ingressos.some((ticket: any) => {
+      const nomeConvidado = (ticket?.nome || '').toString().trim();
+      return nomeConvidado.length > 0;
+    });
+  }
+
   // =========================================================================
   // MODAL EM MASSA ALINHADO E COM BLOQUEIO DE SEGURANÇA (IGUAL MY-BETS)
   // =========================================================================
