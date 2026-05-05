@@ -136,10 +136,35 @@
           <h3 class="text-xl font-black text-[var(--app-text)] leading-tight line-clamp-2 pr-2">
             {{ match.titulo }}
           </h3>
-          <span
-            class="text-[11px] font-bold text-[var(--app-text-muted)] bg-[var(--color-bg-surface-alt)] px-2 py-1 rounded-md whitespace-nowrap shrink-0 border border-[var(--app-border)]"
-            ><img src="assets/allianz_ticket_blue_cartoon.png" alt="" class="w-4 h-4 object-contain inline-block align-middle" /> {{ match.quantidade_premios_efetiva ?? match.quantidade_premios }} Ingresso(s)</span
-          >
+          <div class="flex flex-col items-end gap-1.5 shrink-0">
+            <span
+              class="text-[11px] font-bold text-[var(--app-text-muted)] bg-[var(--color-bg-surface-alt)] px-2 py-1 rounded-md whitespace-nowrap border border-[var(--app-border)]"
+              ><img src="assets/allianz_ticket_blue_cartoon.png" alt="" class="w-4 h-4 object-contain inline-block align-middle" /> {{ match.quantidade_premios_restante ?? match.quantidade_premios_efetiva ?? match.quantidade_premios }} Ingresso(s)</span
+            >
+            <div
+              *ngIf="(match.ingressos_recebidos || 0) > 0 || (match.ingressos_acrescimos || 0) > 0 || (match.ingressos_transferidos || 0) > 0"
+              class="flex flex-wrap justify-end gap-1"
+            >
+              <span
+                *ngIf="(match.ingressos_recebidos || 0) > 0"
+                class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"
+              >
+                +{{ match.ingressos_recebidos }} receb.
+              </span>
+              <span
+                *ngIf="(match.ingressos_acrescimos || 0) > 0"
+                class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200"
+              >
+                +{{ match.ingressos_acrescimos }} acr.
+              </span>
+              <span
+                *ngIf="(match.ingressos_transferidos || 0) > 0"
+                class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-rose-50 text-rose-700 border border-rose-200"
+              >
+                -{{ match.ingressos_transferidos }} transf.
+              </span>
+            </div>
+          </div>
         </div>
 
         <div

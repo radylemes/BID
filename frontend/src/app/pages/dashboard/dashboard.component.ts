@@ -127,14 +127,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.atualizarTimers();
 
-        // ORDENAÇÃO
+        // ORDENAÇÃO: data do evento (mais próximo primeiro)
         this.matches.sort((a, b) => {
-          const pesoA = a.estado_tempo === 'ENCERRADO' ? 1 : 0;
-          const pesoB = b.estado_tempo === 'ENCERRADO' ? 1 : 0;
-          if (pesoA !== pesoB) return pesoA - pesoB;
-          return (
-            new Date(a.data_limite_aposta).getTime() - new Date(b.data_limite_aposta).getTime()
-          );
+          const dataEventoA = new Date(a.data_evento || a.data_jogo).getTime();
+          const dataEventoB = new Date(b.data_evento || b.data_jogo).getTime();
+          if (dataEventoA !== dataEventoB) return dataEventoA - dataEventoB;
+          return new Date(a.data_limite_aposta).getTime() - new Date(b.data_limite_aposta).getTime();
         });
 
         this.calcularTotais();

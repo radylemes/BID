@@ -121,9 +121,32 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
               <div class="text-center mb-3 sm:mb-4">
                 <span class="text-3xl sm:text-4xl block mb-1.5 sm:mb-2">🏆</span>
                 <h4 class="text-[10px] sm:text-xs font-black text-[var(--app-text-muted)] uppercase tracking-widest">
-                  {{ match.quantidade_premios }} Ingressos
+                  {{ match.quantidade_premios_restante ?? match.quantidade_premios_efetiva ?? match.quantidade_premios }} Ingressos
                 </h4>
                 <p class="text-[9px] sm:text-[10px] text-[var(--app-text-muted)] font-medium">Distribuídos</p>
+                <div
+                  *ngIf="(match.ingressos_recebidos || 0) > 0 || (match.ingressos_acrescimos || 0) > 0 || (match.ingressos_transferidos || 0) > 0"
+                  class="mt-2 flex flex-wrap items-center justify-center gap-1.5"
+                >
+                  <span
+                    *ngIf="(match.ingressos_recebidos || 0) > 0"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  >
+                    +{{ match.ingressos_recebidos }} receb.
+                  </span>
+                  <span
+                    *ngIf="(match.ingressos_acrescimos || 0) > 0"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200"
+                  >
+                    +{{ match.ingressos_acrescimos }} acr.
+                  </span>
+                  <span
+                    *ngIf="(match.ingressos_transferidos || 0) > 0"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-rose-50 text-rose-700 border border-rose-200"
+                  >
+                    -{{ match.ingressos_transferidos }} transf.
+                  </span>
+                </div>
               </div>
 
               <button
@@ -291,7 +314,22 @@ export class HistoryComponent implements OnInit {
     const placeholderImg = 'https://placehold.co/800x200?text=Evento+Encerrado';
     const localEvento = match.local ? String(match.local).trim() : '';
     const setorEvento = match.setor_evento_nome ? String(match.setor_evento_nome).trim() : '';
-    const qtdIngressos = match.quantidade_premios ?? 0;
+    const qtdIngressos =
+      match.quantidade_premios_restante ?? match.quantidade_premios_efetiva ?? match.quantidade_premios ?? 0;
+
+    const detalhesIngressos = `
+      <div class="flex flex-wrap gap-2 mt-2">
+        ${(Number(match.ingressos_recebidos || 0) > 0)
+          ? `<span class="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">+${Number(match.ingressos_recebidos || 0)} recebidos</span>`
+          : ''}
+        ${(Number(match.ingressos_acrescimos || 0) > 0)
+          ? `<span class="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">+${Number(match.ingressos_acrescimos || 0)} acréscimos</span>`
+          : ''}
+        ${(Number(match.ingressos_transferidos || 0) > 0)
+          ? `<span class="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">-${Number(match.ingressos_transferidos || 0)} transferidos</span>`
+          : ''}
+      </div>
+    `;
 
     const eventoInfoHtml = `
       <div class="flex gap-6 mb-5 pb-5 border-b border-gray-100">
@@ -306,6 +344,7 @@ export class HistoryComponent implements OnInit {
             ${setorEvento ? `<p class="text-gray-600">🏷️ ${setorEvento}</p>` : ''}
             <p class="text-indigo-600 font-semibold">🎫 ${qtdIngressos} ingresso${qtdIngressos !== 1 ? 's' : ''}</p>
           </div>
+          ${detalhesIngressos}
         </div>
       </div>
     `;

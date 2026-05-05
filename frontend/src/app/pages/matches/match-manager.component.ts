@@ -149,7 +149,7 @@ import * as XLSX from 'xlsx';
           *ngIf="!loading && matches.length > 0 && displayedMatches.length > 0"
           class="overflow-x-auto overflow-y-visible border-t border-[var(--app-border)] -mx-2 sm:mx-0 px-2 sm:px-0"
         >
-          <table class="min-w-[700px] sm:min-w-[900px] w-full text-sm">
+          <table class="min-w-[760px] sm:min-w-[980px] w-full text-sm">
             <thead class="sticky top-0 z-20">
               <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
                 <th
@@ -158,28 +158,28 @@ import * as XLSX from 'xlsx';
                   BID
                 </th>
                 <th
-                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle"
-                  title="Ingressos disponíveis / Não sorteados"
+                  class="w-[200px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle leading-tight"
+                  title="Ingressos disponíveis / Apostas realizadas (após apuração)"
                 >
-                  Ingr. / Não sort.
+                  Ingr. / Apostas
                 </th>
                 <th
-                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
+                  class="w-[170px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
                 >
                   Datas
                 </th>
                 <th
-                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle"
+                  class="w-[110px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle"
                 >
                   Status
                 </th>
                 <th
-                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
+                  class="w-[210px] px-3 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
                 >
                   Ações
                 </th>
                 <th
-                  class="px-2 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
+                  class="w-[260px] px-3 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
                 >
                   Relatórios
                 </th>
@@ -208,8 +208,8 @@ import * as XLSX from 'xlsx';
                     </div>
                   </div>
                 </td>
-                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
-                  <div class="flex items-center justify-center min-h-[52px] gap-1.5 flex-wrap">
+                <td class="px-3 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-center min-h-[52px] gap-2 flex-wrap">
                     <span
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shrink-0"
                       [title]="
@@ -235,20 +235,26 @@ import * as XLSX from 'xlsx';
                     >
                     <span class="text-[var(--app-text-muted)] text-xs shrink-0">/</span>
                     <span
-                      *ngIf="m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
+                      *ngIf="!isApuracaoEncerrada(m) && m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
                       title="Não sorteados"
                       ><span aria-hidden="true">🎟️</span> {{ m.ingressos_nao_sorteados }}</span
                     >
                     <span
-                      *ngIf="m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0"
+                      *ngIf="isApuracaoEncerrada(m)"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
+                      title="Apostas realizadas"
+                      ><span aria-hidden="true">🧾</span> {{ m.total_apostas_realizadas }}</span
+                    >
+                    <span
+                      *ngIf="!isApuracaoEncerrada(m) && (m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0)"
                       class="text-[var(--app-text-muted)] text-xs shrink-0"
                       title="Não sorteados"
                       >—</span
                     >
                   </div>
                 </td>
-                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                <td class="px-3 sm:px-4 py-3 sm:py-4 align-middle">
                   <div class="flex items-center justify-center min-h-[52px]">
                   <div class="flex flex-col gap-0.5 text-xs whitespace-nowrap items-center">
                     <span
@@ -260,10 +266,16 @@ import * as XLSX from 'xlsx';
                       ><span aria-hidden="true">🔴</span>
                       {{ m.data_limite_aposta | date: 'dd/MM HH:mm' }}</span
                     >
+                    <span
+                      class="text-violet-600 font-medium flex items-center justify-center gap-1"
+                      [title]="m.data_apuracao ? 'Data de apuração' : 'Data de apuração não definida'"
+                      ><span aria-hidden="true">🟣</span>
+                      {{ m.data_apuracao ? (m.data_apuracao | date: 'dd/MM HH:mm') : 'Sem apuração' }}</span
+                    >
                   </div>
                   </div>
                 </td>
-                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
+                <td class="px-3 sm:px-4 py-3 sm:py-4 align-middle">
                   <div class="flex items-center justify-center min-h-[52px]">
                   <span
                     [ngClass]="{
@@ -276,15 +288,15 @@ import * as XLSX from 'xlsx';
                   >
                   </div>
                 </td>
-                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
-                  <div class="flex items-center justify-end min-h-[52px] gap-1.5 flex-nowrap">
+                <td class="px-3 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-end min-h-[52px] gap-2 flex-wrap">
                     <button
-                      (click)="m.status === 'ABERTA' && editarJogo(m)"
-                      [disabled]="m.status !== 'ABERTA'"
-                      [class.opacity-50]="m.status !== 'ABERTA'"
-                      [class.cursor-not-allowed]="m.status !== 'ABERTA'"
+                      (click)="canEditMatch(m) && editarJogo(m)"
+                      [disabled]="!canEditMatch(m)"
+                      [class.opacity-50]="!canEditMatch(m)"
+                      [class.cursor-not-allowed]="!canEditMatch(m)"
                       class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 transition disabled:hover:bg-blue-50 shrink-0"
-                      [title]="m.status === 'ABERTA' ? 'Editar' : 'Edição não permitida'"
+                      [title]="getEditTooltip(m)"
                     >
                       ✏️
                     </button>
@@ -329,8 +341,8 @@ import * as XLSX from 'xlsx';
                     </button>
                   </div>
                 </td>
-                <td class="px-2 sm:px-4 py-3 sm:py-4 align-middle">
-                  <div class="flex items-center justify-end min-h-[52px] gap-1.5 flex-nowrap">
+                <td class="px-3 sm:px-4 py-3 sm:py-4 align-middle">
+                  <div class="flex items-center justify-end min-h-[52px] gap-2 flex-wrap">
                     <button
                       (click)="dispararEmail(m)"
                       class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition shrink-0"
@@ -415,6 +427,28 @@ export class MatchManagerComponent implements OnInit {
     return d.getTime() < this.hojeInicio.getTime();
   }
 
+  private parseDate(value: unknown): Date | null {
+    if (!value) return null;
+    const d = new Date(value as string);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  isApuracaoEncerrada(m: any): boolean {
+    const apuracao = this.parseDate(m?.data_apuracao);
+    if (!apuracao) return false;
+    return Date.now() > apuracao.getTime();
+  }
+
+  canEditMatch(m: any): boolean {
+    return m?.status === 'ABERTA' && !this.isApuracaoEncerrada(m);
+  }
+
+  getEditTooltip(m: any): string {
+    if (this.isApuracaoEncerrada(m)) return 'Edição bloqueada: data de apuração encerrada';
+    if (m?.status !== 'ABERTA') return 'Edição não permitida';
+    return 'Editar';
+  }
+
   get matchesNaAba(): any[] {
     return this.matches.filter((m) =>
       this.abaAtiva === 'anteriores' ? this.isMatchAnterior(m) : this.isMatchAtual(m),
@@ -453,6 +487,7 @@ export class MatchManagerComponent implements OnInit {
       fmt(m.data_jogo),
       fmt(m.data_inicio_apostas),
       fmt(m.data_limite_aposta),
+      fmt(m.data_apuracao),
       m.id != null ? String(m.id) : '',
     ];
     return parts
@@ -866,7 +901,12 @@ export class MatchManagerComponent implements OnInit {
     this.loading = true;
     this.matchService.getMatches(this.currentUser.id).subscribe({
       next: (data) => {
-        this.matches = data;
+        this.matches = data.map((m: any) => ({
+          ...m,
+          total_apostas_realizadas: Number(
+            m?.total_apostas_realizadas ?? m?.tickets_comprados ?? 0,
+          ),
+        }));
         this.loading = false;
         this.cdr.detectChanges();
       },

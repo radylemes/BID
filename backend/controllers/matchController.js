@@ -75,6 +75,7 @@ exports.getMatches = async (req, res) => {
         (SELECT COALESCE(SUM(quantidade), 0) FROM transferencias_ingressos WHERE partida_origem_id = p.id) as ingressos_transferidos,
         (SELECT COALESCE(SUM(quantidade), 0) FROM transferencias_ingressos WHERE partida_destino_id = p.id) as ingressos_recebidos,
         (SELECT COALESCE(SUM(quantidade), 0) FROM acrescimos_ingressos WHERE partida_id = p.id) as ingressos_acrescimos,
+        (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) as total_apostas_realizadas,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ?) as tickets_comprados,
         (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id AND a.usuario_id = ? AND a.status = 'GANHOU') as tickets_ganhos,
         (SELECT GROUP_CONCAT(CONCAT(a.id, ':', a.valor_pago, ':', a.status) ORDER BY a.valor_pago DESC) 
@@ -142,6 +143,7 @@ exports.getMatches = async (req, res) => {
         ingressos_recebidos: recebidos,
         ingressos_sorteados: sorteados,
         ingressos_nao_sorteados: Math.max(0, qtdPremiosEfetiva - sorteados - transferidosOut),
+        total_apostas_realizadas: Number(row.total_apostas_realizadas || 0),
         raw_lances: row.meus_lances_detalhados,
         raw_ingressos: row.raw_ingressos,
         status: row.status || "ABERTA",
@@ -335,7 +337,7 @@ exports.updateMatch = async (req, res) => {
   const connection = await db.getConnection();
   try {
     const [statusRows] = await connection.execute(
-      "SELECT status FROM partidas WHERE id = ?",
+      "SELECT status, data_apuracao FROM partidas WHERE id = ?",
       [id],
     );
     if (statusRows.length === 0)
@@ -344,6 +346,19 @@ exports.updateMatch = async (req, res) => {
       return res.status(403).json({
         error: "Não é permitido editar BID encerrado.",
       });
+    const dataApuracaoAtual = statusRows[0].data_apuracao;
+    if (dataApuracaoAtual) {
+      const apuracaoUtc = new Date(
+        String(dataApuracaoAtual).trim().replace(" ", "T").endsWith("Z")
+          ? String(dataApuracaoAtual).trim().replace(" ", "T")
+          : String(dataApuracaoAtual).trim().replace(" ", "T") + "Z",
+      );
+      if (!Number.isNaN(apuracaoUtc.getTime()) && Date.now() > apuracaoUtc.getTime()) {
+        return res.status(403).json({
+          error: "Não é permitido editar BID após o término da data de apuração.",
+        });
+      }
+    }
 
     const bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;
     const subtituloVal = subtitulo && String(subtitulo).trim() ? String(subtitulo).trim() : null;
@@ -1104,7 +1119,11 @@ exports.getPublicHistory = async (req, res) => {
     const user = users[0];
 
     let sql = `SELECT p.id, p.titulo, p.banner, p.data_jogo, p.quantidade_premios, p.local,
-              se.nome AS setor_evento_nome
+              se.nome AS setor_evento_nome,
+              (SELECT COALESCE(SUM(quantidade), 0) FROM transferencias_ingressos WHERE partida_origem_id = p.id) as ingressos_transferidos,
+              (SELECT COALESCE(SUM(quantidade), 0) FROM transferencias_ingressos WHERE partida_destino_id = p.id) as ingressos_recebidos,
+              (SELECT COALESCE(SUM(quantidade), 0) FROM acrescimos_ingressos WHERE partida_id = p.id) as ingressos_acrescimos,
+              (SELECT COUNT(*) FROM ingressos i INNER JOIN apostas a ON i.aposta_id = a.id WHERE a.partida_id = p.id) as ingressos_sorteados
        FROM partidas p
        LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
        WHERE p.status = 'FINALIZADA' `;
@@ -1225,17 +1244,29 @@ exports.getPublicHistory = async (req, res) => {
       });
     }
 
-    const history = matches.map((match) => ({
-      ...match,
-      stats: statsMap.get(match.id) || {
-        total_lances: 0,
-        total_participantes: 0,
-        total_pontos: 0,
-        media_pontos: 0,
-      },
-      winners: winnersMap.get(match.id) || [],
-      apostas: apostasMap.get(match.id) || [],
-    }));
+    const history = matches.map((match) => {
+      const qtdPremiosBase = Number(match.quantidade_premios || 0);
+      const ingressosRecebidos = Number(match.ingressos_recebidos || 0);
+      const ingressosAcrescimos = Number(match.ingressos_acrescimos || 0);
+      const ingressosTransferidos = Number(match.ingressos_transferidos || 0);
+      const qtdPremiosEfetiva = qtdPremiosBase + ingressosRecebidos + ingressosAcrescimos;
+      const qtdPremiosRestante = Math.max(0, qtdPremiosEfetiva - ingressosTransferidos);
+
+      return {
+        ...match,
+        quantidade_premios_efetiva: qtdPremiosEfetiva,
+        quantidade_premios_restante: qtdPremiosRestante,
+        ingressos_sorteados: Number(match.ingressos_sorteados || 0),
+        stats: statsMap.get(match.id) || {
+          total_lances: 0,
+          total_participantes: 0,
+          total_pontos: 0,
+          media_pontos: 0,
+        },
+        winners: winnersMap.get(match.id) || [],
+        apostas: apostasMap.get(match.id) || [],
+      };
+    });
 
     res.json(history);
   } catch (error) {
