@@ -56,7 +56,7 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
                 <span
                   class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm mb-1.5 sm:mb-2 inline-block"
                 >
-                  Encerrado em {{ match.data_jogo | date: 'dd/MM/yyyy' }}
+                  Encerrado em {{ (match.data_limite_aposta || match.data_jogo) | date: 'dd/MM/yyyy HH:mm' }}
                 </span>
                 <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words">
                   {{ match.titulo }}
@@ -82,10 +82,10 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
                   class="bg-amber-50/50 border border-amber-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
                   <span class="text-[9px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest"
-                    >Média / Lance</span
+                    >Aposta máxima</span
                   >
                   <span class="text-lg sm:text-xl lg:text-2xl font-black text-amber-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
-                    {{ match.stats.media_pontos }}
+                    {{ match.stats.aposta_maxima }}
                     <span class="text-[9px] sm:text-[10px] text-amber-400">pts</span>
                   </span>
                 </div>
@@ -301,12 +301,18 @@ export class HistoryComponent implements OnInit {
       })
       .join('');
 
-    const dataEncerrado = match.data_jogo
-      ? new Date(match.data_jogo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const dataEncerrado = (match.data_limite_aposta || match.data_jogo)
+      ? new Date(match.data_limite_aposta || match.data_jogo).toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : '';
     const stats = match.stats || {};
     const totalPontos = stats.total_pontos ?? 0;
-    const mediaPontos = stats.media_pontos ?? 0;
+    const apostaMaxima = stats.aposta_maxima ?? 0;
     const totalParticipantes = stats.total_participantes ?? 0;
     const notaCorte = match.nota_corte ?? 0;
 
@@ -356,8 +362,8 @@ export class HistoryComponent implements OnInit {
           <span class="text-xl font-black text-indigo-700 leading-none mt-1">${totalPontos}<span class="text-[10px] text-indigo-400"> pts</span></span>
         </div>
         <div class="bg-amber-50/80 border border-amber-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
-          <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Média / Lance</span>
-          <span class="text-xl font-black text-amber-600 leading-none mt-1">${mediaPontos}<span class="text-[10px] text-amber-400"> pts</span></span>
+          <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Aposta máxima</span>
+          <span class="text-xl font-black text-amber-600 leading-none mt-1">${apostaMaxima}<span class="text-[10px] text-amber-400"> pts</span></span>
         </div>
         <div class="bg-emerald-50/80 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
           <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Participantes</span>

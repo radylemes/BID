@@ -1118,7 +1118,7 @@ exports.getPublicHistory = async (req, res) => {
 
     const user = users[0];
 
-    let sql = `SELECT p.id, p.titulo, p.banner, p.data_jogo, p.quantidade_premios, p.local,
+    let sql = `SELECT p.id, p.titulo, p.banner, p.data_jogo, p.data_limite_aposta, p.quantidade_premios, p.local,
               se.nome AS setor_evento_nome,
               (SELECT COALESCE(SUM(quantidade), 0) FROM transferencias_ingressos WHERE partida_origem_id = p.id) as ingressos_transferidos,
               (SELECT COALESCE(SUM(quantidade), 0) FROM transferencias_ingressos WHERE partida_destino_id = p.id) as ingressos_recebidos,
@@ -1159,7 +1159,8 @@ exports.getPublicHistory = async (req, res) => {
           COUNT(id) as total_lances,
           COUNT(DISTINCT usuario_id) as total_participantes,
           SUM(valor_pago) as total_pontos,
-          AVG(valor_pago) as media_pontos
+          AVG(valor_pago) as media_pontos,
+          MAX(valor_pago) as aposta_maxima
         FROM apostas
         WHERE partida_id IN (${matchIds.map(() => "?").join(",")})
         GROUP BY partida_id
@@ -1212,6 +1213,7 @@ exports.getPublicHistory = async (req, res) => {
         total_participantes: row.total_participantes || 0,
         total_pontos: row.total_pontos || 0,
         media_pontos: Math.round(row.media_pontos || 0),
+        aposta_maxima: Number(row.aposta_maxima || 0),
       });
     }
 
@@ -1257,11 +1259,13 @@ exports.getPublicHistory = async (req, res) => {
         quantidade_premios_efetiva: qtdPremiosEfetiva,
         quantidade_premios_restante: qtdPremiosRestante,
         ingressos_sorteados: Number(match.ingressos_sorteados || 0),
+        data_limite_aposta: dbUtcToISO(match.data_limite_aposta),
         stats: statsMap.get(match.id) || {
           total_lances: 0,
           total_participantes: 0,
           total_pontos: 0,
           media_pontos: 0,
+          aposta_maxima: 0,
         },
         winners: winnersMap.get(match.id) || [],
         apostas: apostasMap.get(match.id) || [],
