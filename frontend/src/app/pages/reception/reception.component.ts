@@ -33,6 +33,20 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
         <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div *ngIf="events.length > 0" class="hidden sm:flex items-center gap-2 min-w-[220px] max-w-[340px]">
+            <label class="text-[9px] font-black uppercase tracking-widest text-indigo-200 shrink-0">
+              Evento
+            </label>
+            <select
+              [ngModel]="selectedEventId"
+              (ngModelChange)="onSelectEvent($event)"
+              class="flex-1 min-w-0 bg-indigo-900/70 text-white border border-indigo-700 rounded-lg px-2.5 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option *ngFor="let ev of events" [ngValue]="ev.id">
+                {{ ev.titulo }} - {{ (ev.data_evento || ev.data_jogo) | date: 'dd/MM HH:mm' }}
+              </option>
+            </select>
+          </div>
           <a
             routerLink="/reception/confirmados"
             class="text-emerald-200 hover:text-white flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold transition-colors bg-indigo-800 hover:bg-emerald-700/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-600 hover:border-emerald-500 active:scale-95"
@@ -51,9 +65,12 @@ import { environment } from '../../../environments/environment';
           </button>
 
           <span
-            class="text-[10px] sm:text-xs font-bold text-indigo-200 hidden sm:block border-l border-indigo-700 pl-2 sm:pl-4"
+            *ngIf="events.length > 0"
+            class="text-[10px] sm:text-xs font-bold text-indigo-200 hidden sm:flex flex-col border-l border-indigo-700 pl-2 sm:pl-4 max-w-[200px] lg:max-w-xs text-right leading-tight"
+            [title]="tituloEventoSelecionado()"
           >
-            {{ events.length }} Evento(s)
+            <span class="text-indigo-300/90">{{ events.length }} evento(s)</span>
+            <span class="truncate text-white">{{ tituloEventoSelecionado() }}</span>
           </span>
           <div
             class="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-700 rounded-full flex items-center justify-center font-bold text-xs sm:text-base border border-indigo-500 shadow-inner shrink-0"
@@ -64,6 +81,22 @@ import { environment } from '../../../environments/environment';
       </header>
 
       <main class="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-4 lg:space-y-6">
+        <div
+          *ngIf="!loading && events.length === 0"
+          class="bg-white p-6 sm:p-8 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 text-center"
+        >
+          <span class="text-4xl block mb-2">📅</span>
+          <h3 class="font-black text-gray-800 text-sm sm:text-base">Nenhum evento hoje</h3>
+        </div>
+
+        <div
+          *ngIf="!loading && events.length > 0 && allGuests.length === 0"
+          class="bg-amber-50 p-4 sm:p-5 rounded-xl border border-amber-200 text-center"
+        >
+          <p class="text-amber-900 font-bold text-sm">Nenhum ingresso na lista para este evento</p>
+          <p class="text-amber-800/80 text-xs mt-1">Não há apostas ganhas com convidados para a partida selecionada.</p>
+        </div>
+
         <div
           *ngIf="!loading && allGuests.length > 0"
           class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200"
@@ -163,7 +196,7 @@ import { environment } from '../../../environments/environment';
             class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-indigo-600 mx-auto mb-3 sm:mb-4"
           ></div>
           <p class="text-gray-500 font-bold uppercase tracking-widest text-[10px] sm:text-xs px-2">
-            Carregando e agrupando listas...
+            Carregando lista de convidados...
           </p>
         </div>
 
@@ -173,7 +206,7 @@ import { environment } from '../../../environments/environment';
           class="md:hidden space-y-2"
         >
           <div
-            *ngFor="let group of filteredGroupedGuests()"
+            *ngFor="let group of filteredGuests()"
             (click)="openDetailModal(group)"
             class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 active:bg-gray-50 transition-colors cursor-pointer flex items-center gap-3"
           >
@@ -228,7 +261,7 @@ import { environment } from '../../../environments/environment';
               </thead>
               <tbody class="divide-y divide-gray-100">
                 <tr
-                  *ngFor="let group of filteredGroupedGuests()"
+                  *ngFor="let group of filteredGuests()"
                   class="hover:bg-gray-50 transition-colors group"
                 >
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-bold text-gray-700 text-xs hidden md:table-cell">{{ group.titular_nome }}</td>
@@ -257,12 +290,6 @@ import { environment } from '../../../environments/environment';
                       <div class="min-w-0">
                         <div class="font-black text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 flex-wrap">
                           <span class="truncate">{{ group.retirante_nome }}</span>
-                          <span
-                            *ngIf="group.quantidade_ingressos > 1"
-                            class="bg-indigo-100 text-indigo-700 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md border border-indigo-200 shadow-sm shrink-0"
-                          >
-                            🎟️ {{ group.quantidade_ingressos }}
-                          </span>
                         </div>
                         <div class="text-[9px] sm:text-[10px] text-gray-400 font-mono mt-0.5 truncate">
                           CPF: {{ group.retirante_cpf }}
@@ -284,20 +311,20 @@ import { environment } from '../../../environments/environment';
                       class="bg-emerald-50 text-emerald-600 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-emerald-100 flex items-center justify-center gap-1 w-max mx-auto"
                     >
                       <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
-                      Liberado ({{ group.ingressos_liberados }}/{{ group.quantidade_ingressos }})
+                      Liberado
                     </span>
                     <span
                       *ngIf="!group.checkin"
                       class="bg-amber-50 text-amber-600 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-amber-100 flex items-center justify-center gap-1 w-max mx-auto"
                     >
                       <span class="w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0"></span>
-                      Pendente ({{ group.quantidade_ingressos - group.ingressos_liberados }})
+                      Pendente
                     </span>
                   </td>
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">
                     <button
                       *ngIf="!group.checkin"
-                      (click)="abrirAssinatura(group)"
+                      (click)="abrirAssinatura(group); $event.stopPropagation()"
                       class="w-full min-w-[120px] sm:min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
                     >
                       <span>✍️</span> Liberar
@@ -337,7 +364,7 @@ import { environment } from '../../../environments/environment';
               Identificação na Portaria
             </h3>
             <p class="text-[10px] sm:text-xs text-indigo-600 mt-1 font-medium">
-              Liberação de <strong>{{ ingressosParaAssinar.length }} ingresso(s)</strong>
+              Identificação do convidado
             </p>
           </div>
 
@@ -454,7 +481,7 @@ import { environment } from '../../../environments/environment';
               (click)="confirmarCheckinLote()"
               class="flex-[2] sm:w-2/3 py-2.5 sm:py-3 rounded-xl font-black text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wide"
             >
-              Liberar Entradas
+              Liberar entrada
             </button>
           </div>
         </div>
@@ -496,9 +523,6 @@ import { environment } from '../../../environments/environment';
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Convidado (Retirante)</p>
               <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.retirante_nome }}</p>
               <p class="text-xs text-gray-500 font-mono mt-0.5">CPF: {{ selectedGroupForModal.retirante_cpf }}</p>
-              <p *ngIf="selectedGroupForModal.quantidade_ingressos > 1" class="text-[10px] text-indigo-600 font-bold mt-1">
-                🎟️ {{ selectedGroupForModal.quantidade_ingressos }} ingressos
-              </p>
             </div>
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Evento</p>
@@ -514,14 +538,14 @@ import { environment } from '../../../environments/environment';
                 class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-black uppercase border border-emerald-100"
               >
                 <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                Liberado ({{ selectedGroupForModal.ingressos_liberados }}/{{ selectedGroupForModal.quantidade_ingressos }})
+                Liberado
               </span>
               <span
                 *ngIf="!selectedGroupForModal.checkin"
                 class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-600 px-3 py-1.5 rounded-lg text-xs font-black uppercase border border-amber-100"
               >
                 <span class="w-2 h-2 bg-amber-400 rounded-full"></span>
-                Pendente ({{ selectedGroupForModal.quantidade_ingressos - selectedGroupForModal.ingressos_liberados }})
+                Pendente
               </span>
             </div>
           </div>
@@ -565,8 +589,11 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   currentUser: any = {};
   loading = false;
   events: any[] = [];
+  /** ID da partida selecionada nas abas (auto: primeiro evento do dia). */
+  selectedEventId: number | null = null;
   allGuests: any[] = [];
-  groupedGuests: any[] = [];
+  /** Uma linha por ingresso (sem agrupar por retirante). */
+  guestsList: any[] = [];
   searchTerm = '';
 
   totalConvidados = 0;
@@ -628,44 +655,40 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       next: (eventsRes) => {
         this.events = Array.isArray(eventsRes) ? eventsRes : [];
         if (this.events.length === 0) {
+          this.selectedEventId = null;
+          this.allGuests = [];
           if (!silencioso) this.loading = false;
           this.agruparEAtualizar();
           this.cd.detectChanges();
           return;
         }
 
-        // Variável temporária para não piscar a tela caso seja silencioso
-        let novosGuests: any[] = [];
-        let completedRequests = 0;
+        const ids = new Set(this.events.map((e) => e.id));
+        if (this.selectedEventId == null || !ids.has(this.selectedEventId)) {
+          this.selectedEventId = this.events[0].id;
+        }
 
-        this.events.forEach((ev) => {
-          this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).subscribe({
-            next: (guestsRes) => {
-              const mappedGuests = (Array.isArray(guestsRes) ? guestsRes : []).map((g) => ({
-                ...g,
-                evento_titulo: ev.titulo,
-                data_evento: ev.data_evento || ev.data_jogo,
-              }));
-              novosGuests = [...novosGuests, ...mappedGuests];
-              completedRequests++;
+        const ev = this.events.find((e) => e.id === this.selectedEventId) ?? this.events[0];
 
-              if (completedRequests === this.events.length) {
-                this.allGuests = novosGuests;
-                if (!silencioso) this.loading = false;
-                this.agruparEAtualizar();
-                this.cd.detectChanges();
-              }
-            },
-            error: () => {
-              completedRequests++;
-              if (completedRequests === this.events.length) {
-                this.allGuests = novosGuests;
-                if (!silencioso) this.loading = false;
-                this.agruparEAtualizar();
-                this.cd.detectChanges();
-              }
-            },
-          });
+        this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).subscribe({
+          next: (guestsRes) => {
+            const raw = Array.isArray(guestsRes) ? guestsRes : [];
+            this.allGuests = raw.map((g) => ({
+              ...g,
+              checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
+              evento_titulo: ev.titulo,
+              data_evento: ev.data_evento || ev.data_jogo,
+            }));
+            if (!silencioso) this.loading = false;
+            this.agruparEAtualizar();
+            this.cd.detectChanges();
+          },
+          error: () => {
+            this.allGuests = [];
+            if (!silencioso) this.loading = false;
+            this.agruparEAtualizar();
+            this.cd.detectChanges();
+          },
         });
       },
       error: () => {
@@ -675,8 +698,21 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     });
   }
 
+  onSelectEvent(eventId: number | string | null) {
+    const parsedId = Number(eventId);
+    if (!Number.isFinite(parsedId)) return;
+    if (this.selectedEventId === parsedId) return;
+    this.selectedEventId = parsedId;
+    this.carregarTudoUnificado(false);
+  }
+
+  tituloEventoSelecionado(): string {
+    if (this.selectedEventId == null) return '';
+    const ev = this.events.find((e) => e.id === this.selectedEventId);
+    return ev?.titulo ?? '';
+  }
+
   agruparEAtualizar() {
-    const mapaGrupos = new Map<string, any>();
     const mapaEmpresas = new Map<string, any>();
 
     this.totalConvidados = 0;
@@ -696,50 +732,35 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       stat.total++;
       if (guest.checkin) stat.liberados++;
       else stat.pendentes++;
-
-      // Agrupa por titular (ganhador) + retirante + evento, para não juntar ingressos de ganhadores diferentes
-      const key = `${guest.titular_id ?? guest.titular_nome}-${guest.retirante_cpf}-${guest.evento_titulo}`;
-
-      const infoIngresso = {
-        ingresso_id: guest.ingresso_id,
-        aposta_id: guest.aposta_id,
-        checkin: guest.checkin,
-        recebedor_nome: guest.recebedor_nome || '',
-        recebedor_cpf: guest.recebedor_cpf || '',
-      };
-
-      if (!mapaGrupos.has(key)) {
-        mapaGrupos.set(key, {
-          ...guest,
-          documento: guest.documento ?? null,
-          ingressos_detalhes: [infoIngresso],
-          quantidade_ingressos: 1,
-          ingressos_liberados: guest.checkin ? 1 : 0,
-        });
-      } else {
-        const grupo = mapaGrupos.get(key);
-        grupo.ingressos_detalhes.push(infoIngresso);
-        grupo.quantidade_ingressos++;
-        if (guest.checkin) {
-          grupo.ingressos_liberados++;
-          grupo.assinatura = grupo.assinatura || guest.assinatura;
-          grupo.documento = grupo.documento || guest.documento;
-        }
-        grupo.checkin = grupo.ingressos_liberados === grupo.quantidade_ingressos;
-      }
     });
 
     this.estatisticasEmpresas = Array.from(mapaEmpresas.values()).sort((a, b) =>
       a.nome.localeCompare(b.nome),
     );
-    this.groupedGuests = Array.from(mapaGrupos.values());
+
+    // Uma linha por ingresso (sem consolidar múltiplos ingressos do mesmo retirante).
+    this.guestsList = this.allGuests.map((guest) => ({
+      ...guest,
+      documento: guest.documento ?? null,
+      quantidade_ingressos: 1,
+      ingressos_liberados: guest.checkin ? 1 : 0,
+      ingressos_detalhes: [
+        {
+          ingresso_id: guest.ingresso_id,
+          aposta_id: guest.aposta_id,
+          checkin: guest.checkin,
+          recebedor_nome: guest.recebedor_nome || '',
+          recebedor_cpf: guest.recebedor_cpf || '',
+        },
+      ],
+    }));
   }
 
-  filteredGroupedGuests() {
-    if (!this.searchTerm) return this.groupedGuests;
+  filteredGuests() {
+    if (!this.searchTerm) return this.guestsList;
     const term = this.searchTerm.toLowerCase();
 
-    return this.groupedGuests.filter(
+    return this.guestsList.filter(
       (g) =>
         (g.retirante_nome && g.retirante_nome.toLowerCase().includes(term)) ||
         (g.retirante_cpf && g.retirante_cpf.includes(term)) ||
@@ -749,19 +770,21 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     );
   }
 
-  abrirAssinatura(group: any) {
-    this.selectedGroup = group;
+  abrirAssinatura(guest: any) {
+    if (guest.checkin) return;
 
-    const ingressosPendentes = group.ingressos_detalhes.filter((t: any) => !t.checkin);
+    this.selectedGroup = guest;
 
-    this.ingressosParaAssinar = ingressosPendentes.map((t: any, index: number) => {
-      return {
-        ...t,
-        recebedor_nome: index === 0 ? group.retirante_nome : '',
-        recebedor_cpf: index === 0 ? group.retirante_cpf : '',
+    this.ingressosParaAssinar = [
+      {
+        ingresso_id: guest.ingresso_id,
+        aposta_id: guest.aposta_id,
+        checkin: guest.checkin,
+        recebedor_nome: guest.retirante_nome || '',
+        recebedor_cpf: guest.retirante_cpf || '',
         recebedor_documento: null as string | null,
-      };
-    });
+      },
+    ];
 
     this.showSignatureModal = true;
     this.isCanvasEmpty = true;
@@ -857,7 +880,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     if (semDocumento.length > 0) {
       Swal.fire(
         'Atenção',
-        'Por favor, anexe o documento de todas as pessoas que vão entrar.',
+        'Por favor, anexe o documento (foto) da pessoa que vai entrar.',
         'warning',
       );
       return;
@@ -869,7 +892,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     if (inputsInvalidos.length > 0) {
       Swal.fire(
         'Atenção',
-        'Por favor, preencha o Nome e o CPF de todas as pessoas que vão entrar.',
+        'Por favor, preencha o Nome e o CPF de quem vai entrar.',
         'warning',
       );
       return;
@@ -898,8 +921,8 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       next: () => {
         Swal.fire({
           icon: 'success',
-          title: 'Entradas Liberadas!',
-          text: `Todos os acompanhantes foram registrados.`,
+          title: 'Entrada liberada!',
+          text: 'O check-in foi registrado com sucesso.',
           timer: 2000,
           showConfirmButton: false,
         });

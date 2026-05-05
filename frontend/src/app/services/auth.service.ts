@@ -33,6 +33,11 @@ export class AuthService {
     }
   }
 
+  private getPostLoginRoute(response: any): string {
+    const role = String(response?.user?.role || response?.user?.perfil || '').toUpperCase();
+    return role === 'PORTARIA' ? '/reception' : '/dashboard';
+  }
+
   // LOGIN MANUAL - Perfeito como está
   loginManual(credentials: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/login`, credentials).pipe(
@@ -84,7 +89,7 @@ export class AuthService {
       next: (res: any) => {
         console.log('✅ Servidor autorizou o acesso!');
         this.saveSession(res);
-        this.router.navigate(['/dashboard']);
+        this.router.navigate([this.getPostLoginRoute(res)]);
       },
       error: (err) => {
         console.error('❌ Erro 401 no Backend. O servidor não aceitou o token da MS.', err);

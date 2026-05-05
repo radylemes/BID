@@ -74,6 +74,7 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
             Principal
           </p>
           <a
+            *ngIf="!isPortaria"
             routerLink="/dashboard"
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
@@ -82,6 +83,7 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
           </a>
 
           <a
+            *ngIf="!isPortaria"
             routerLink="/profile"
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
@@ -90,6 +92,7 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
           </a>
 
           <a
+            *ngIf="!isPortaria"
             routerLink="/minhas-apostas"
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
@@ -98,11 +101,21 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
           </a>
 
           <a
+            *ngIf="!isPortaria"
             routerLink="/historico"
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
             <span class="mr-3 text-lg">🏛️</span> Histórico
+          </a>
+
+          <a
+            *ngIf="isAdmin || isPortaria"
+            routerLink="/reception"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
+          >
+            <span class="mr-3 text-lg">📱</span> App Portaria
           </a>
 
           <div *ngIf="isAdmin">
@@ -130,14 +143,6 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
               class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">🎫</span> Gerenciar Bids
-            </a>
-            <a
-              *ngIf="isAdmin || userRole === 'PORTARIA'"
-              routerLink="/reception"
-              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
-              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
-            >
-              <span class="mr-3 text-lg">📱</span> App Portaria
             </a>
             <a
               *ngIf="isAdmin"
@@ -194,7 +199,7 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
 
           <div class="flex items-center gap-4 flex-shrink-0">
             <a
-              routerLink="/profile"
+              [routerLink]="isPortaria ? '/reception' : '/profile'"
               class="flex items-center gap-3 group hover:bg-[var(--app-surface-muted)] px-3 py-1.5 rounded-lg transition-all cursor-pointer"
             >
               <div class="text-right hidden md:block">
@@ -207,7 +212,7 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
                 <p
                   class="text-[10px] text-[var(--color-primary-light)] font-bold uppercase tracking-wider group-hover:text-[var(--color-primary)]"
                 >
-                  Ver Perfil
+                  {{ isPortaria ? 'Abrir Portaria' : 'Ver Perfil' }}
                 </p>
               </div>
 
@@ -240,6 +245,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   userName: string | null = null;
   fotoUrlCompleta: string | null = null;
   isAdmin: boolean = false;
+  isPortaria: boolean = false;
   userRole: string = '';
 
   // Variáveis para a Carteira do Menu
@@ -319,7 +325,9 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
       const u = JSON.parse(user);
       this.userId = u.id;
       this.userName = u.nome_completo || u.username;
-      this.isAdmin = u.role === 'ADMIN' || u.role === 'admin';
+      this.userRole = String(u.role || u.perfil || '').toUpperCase();
+      this.isAdmin = this.userRole === 'ADMIN';
+      this.isPortaria = this.userRole === 'PORTARIA';
       this.saldo = u.pontos || 0;
 
       if (u.foto) {

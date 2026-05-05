@@ -168,11 +168,13 @@
               class="mt-1 w-full text-[10px] font-extrabold uppercase tracking-wider py-2 pl-2 pr-7 rounded-lg cursor-pointer outline-none appearance-none border border-[var(--app-border)]"
               [ngClass]="{
                 'bg-rose-50 text-rose-700': user.perfil === 'ADMIN',
-                'bg-[var(--color-bg-surface-alt)] text-[var(--app-text)]': user.perfil !== 'ADMIN',
+                'bg-blue-50 text-blue-700': user.perfil === 'PORTARIA',
+                'bg-[var(--color-bg-surface-alt)] text-[var(--app-text)]': user.perfil !== 'ADMIN' && user.perfil !== 'PORTARIA',
               }"
             >
               <option value="USER">Usuário</option>
               <option value="ADMIN">Admin</option>
+              <option value="PORTARIA">Portaria</option>
             </select>
           </div>
         </div>
@@ -321,7 +323,8 @@
               class="text-[10px] font-extrabold uppercase tracking-wider py-1 pl-2 pr-7 rounded-lg cursor-pointer transition-all outline-none appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px] border border-[var(--app-border)] focus:ring-2 focus:border-transparent"
               [ngClass]="{
                 'bg-rose-50 text-rose-700 focus:ring-rose-200': user.perfil === 'ADMIN',
-                'bg-[var(--color-bg-surface-alt)] text-[var(--app-text)] focus:ring-indigo-200': user.perfil !== 'ADMIN',
+                'bg-blue-50 text-blue-700 focus:ring-blue-200': user.perfil === 'PORTARIA',
+                'bg-[var(--color-bg-surface-alt)] text-[var(--app-text)] focus:ring-indigo-200': user.perfil !== 'ADMIN' && user.perfil !== 'PORTARIA',
               }"
               style="
                 background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
@@ -329,6 +332,7 @@
             >
               <option value="USER">Usuário</option>
               <option value="ADMIN">🛡️ Admin</option>
+              <option value="PORTARIA">📱 Portaria</option>
             </select>
           </td>
 

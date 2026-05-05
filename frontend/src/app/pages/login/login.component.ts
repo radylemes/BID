@@ -159,7 +159,9 @@ export class LoginComponent implements OnInit {
     this.authService.loginManual(this.credentials).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/dashboard']);
+        const user = this.authService.getCurrentUser();
+        const role = String(user?.role || user?.perfil || '').toUpperCase();
+        this.router.navigate([role === 'PORTARIA' ? '/reception' : '/dashboard']);
       },
       error: (err) => {
         this.loading = false;

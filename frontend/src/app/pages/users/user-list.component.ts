@@ -697,7 +697,7 @@ export class UserListComponent implements OnInit {
                 <div>
                     <label class="text-xs font-bold text-gray-500 uppercase">Perfil</label>
                     <select id="swal-perfil" class="swal2-select m-0 w-full" style="display:flex;">
-                        <option value="USER">Usuário</option><option value="ADMIN">Admin</option>
+                        <option value="USER">Usuário</option><option value="ADMIN">Admin</option><option value="PORTARIA">Portaria</option>
                     </select>
                 </div>
             </div>

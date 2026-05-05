@@ -24,8 +24,8 @@ export const AuthGuard: CanActivateFn = (route, state) => {
     const hasRole = requiredRoles.map((r) => r.toUpperCase()).includes(userRole);
 
     if (!hasRole) {
-      // Sem permissão para a rota, redireciona para o dashboard
-      router.navigate(['/dashboard']);
+      // Perfil PORTARIA só pode acessar o App Portaria.
+      router.navigate([userRole === 'PORTARIA' ? '/reception' : '/dashboard']);
       return false;
     }
   }

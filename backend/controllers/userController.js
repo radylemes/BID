@@ -443,10 +443,10 @@ exports.bulkUpdate = async (req, res) => {
       )
         ativoFinal = 0;
 
-      let perfilFinal =
-        item.perfil && String(item.perfil).trim().toUpperCase() === "ADMIN"
-          ? "ADMIN"
-          : "USER";
+      const perfilNormalizado = String(item.perfil || "").trim().toUpperCase();
+      let perfilFinal = "USER";
+      if (perfilNormalizado === "ADMIN") perfilFinal = "ADMIN";
+      else if (perfilNormalizado === "PORTARIA") perfilFinal = "PORTARIA";
       const { empId, setId } = await getOrCreateEmpresaSetor(
         connection,
         item.empresa,

@@ -31,9 +31,15 @@ exports.getTodayEvents = async (req, res) => {
   try {
     const [rows] = await db.execute(
       `SELECT id, titulo, data_jogo as data_evento
-       FROM partidas
-       WHERE DATE(data_jogo) = CURDATE()
-       ORDER BY data_jogo ASC`,
+       FROM partidas p
+       WHERE EXISTS (
+         SELECT 1
+         FROM apostas a
+         WHERE a.partida_id = p.id
+           AND a.status = 'GANHOU'
+       )
+       AND DATE(p.data_jogo) >= CURDATE()
+       ORDER BY data_jogo DESC`,
     );
     res.json(rows);
   } catch (error) {

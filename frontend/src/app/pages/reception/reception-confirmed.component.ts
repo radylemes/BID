@@ -1,15 +1,16 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, of } from 'rxjs';
+import { of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-reception-confirmed',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   template: `
     <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
@@ -32,6 +33,20 @@ import { environment } from '../../../environments/environment';
             </p>
           </div>
         </div>
+        <div *ngIf="events.length > 0" class="hidden sm:flex items-center gap-2 min-w-[220px] max-w-[340px]">
+          <label class="text-[9px] font-black uppercase tracking-widest text-emerald-200 shrink-0">
+            Evento
+          </label>
+          <select
+            [ngModel]="selectedEventId"
+            (ngModelChange)="onSelectEvent($event)"
+            class="flex-1 min-w-0 bg-emerald-900/70 text-white border border-emerald-700 rounded-lg px-2.5 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-emerald-400"
+          >
+            <option *ngFor="let ev of events" [ngValue]="ev.id">
+              {{ ev.titulo }} - {{ (ev.data_evento || ev.data_jogo) | date: 'dd/MM HH:mm' }}
+            </option>
+          </select>
+        </div>
         <div
           class="flex items-center gap-2 bg-emerald-700/50 px-3 py-1.5 rounded-xl border border-emerald-600"
         >
@@ -51,12 +66,21 @@ import { environment } from '../../../environments/environment';
         </div>
 
         <div
-          *ngIf="!loading && confirmedList.length === 0"
+          *ngIf="!loading && events.length === 0"
+          class="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-200 mb-4"
+        >
+          <span class="text-4xl block mb-2 opacity-50">📅</span>
+          <h3 class="text-gray-700 font-bold text-sm">Nenhum evento hoje</h3>
+          <p class="text-gray-500 text-xs mt-1">Não há partidas para a data de hoje.</p>
+        </div>
+
+        <div
+          *ngIf="!loading && confirmedList.length === 0 && events.length > 0"
           class="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-200"
         >
           <span class="text-5xl block mb-3 opacity-50">📋</span>
           <h3 class="text-gray-600 font-bold text-sm sm:text-base">
-            Nenhum convidado confirmado ainda
+            Nenhum convidado confirmado neste evento
           </h3>
           <p class="text-gray-400 text-xs sm:text-sm mt-1">
             As liberações aparecerão aqui quando forem feitas na portaria.
@@ -97,7 +121,7 @@ import { environment } from '../../../environments/environment';
               <span
                 class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border border-emerald-100"
               >
-                {{ group.ingressos_liberados }}/{{ group.quantidade_ingressos }} ingresso(s)
+                Ingresso confirmado
               </span>
               <span class="text-[10px] font-bold text-gray-400 hidden sm:inline">
                 {{ group.empresa }}
@@ -112,6 +136,8 @@ import { environment } from '../../../environments/environment';
 export class ReceptionConfirmedComponent implements OnInit {
   apiUrl = `${environment.apiUri}/reception`;
   loading = true;
+  events: any[] = [];
+  selectedEventId: number | null = null;
   confirmedList: any[] = [];
 
   constructor(
@@ -133,16 +159,25 @@ export class ReceptionConfirmedComponent implements OnInit {
     ).subscribe({
       next: (eventsRes) => {
         const rawEvents = Array.isArray(eventsRes) ? eventsRes : (eventsRes as any)?.data;
-        const events = Array.isArray(rawEvents) ? rawEvents : [];
-        if (events.length === 0) {
+        this.events = Array.isArray(rawEvents) ? rawEvents : [];
+        if (this.events.length === 0) {
+          this.selectedEventId = null;
           this.confirmedList = [];
           this.loading = false;
           this.cd.detectChanges();
           return;
         }
 
-        const requests = events.map((ev: any) =>
-          this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).pipe(
+        const ids = new Set(this.events.map((e) => e.id));
+        if (this.selectedEventId == null || !ids.has(this.selectedEventId)) {
+          this.selectedEventId = this.events[0].id;
+        }
+
+        const ev = this.events.find((e) => e.id === this.selectedEventId) ?? this.events[0];
+
+        this.http
+          .get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`)
+          .pipe(
             map((guestsRes) => {
               const raw = Array.isArray(guestsRes) ? guestsRes : ((guestsRes as any)?.data ?? []);
               return raw.map((g: any) => ({
@@ -153,55 +188,43 @@ export class ReceptionConfirmedComponent implements OnInit {
               }));
             }),
             catchError(() => of([])),
-          ),
-        );
-
-        forkJoin(requests).subscribe({
-          next: (arrays) => {
-            const allGuests = (arrays || []).reduce((acc: any[], arr) => acc.concat(arr), []);
-            this.montarListaConfirmados(allGuests);
-            this.loading = false;
-            this.cd.detectChanges();
-          },
-          error: () => {
-            this.confirmedList = [];
-            this.loading = false;
-            this.cd.detectChanges();
-          },
-        });
+          )
+          .subscribe({
+            next: (guests) => {
+              this.montarListaConfirmados(guests);
+              this.loading = false;
+              this.cd.detectChanges();
+            },
+            error: () => {
+              this.confirmedList = [];
+              this.loading = false;
+              this.cd.detectChanges();
+            },
+          });
       },
       error: () => {
         this.loading = false;
         this.confirmedList = [];
+        this.events = [];
         this.cd.detectChanges();
       },
     });
   }
 
+  onSelectEvent(eventId: number | string | null) {
+    const parsedId = Number(eventId);
+    if (!Number.isFinite(parsedId)) return;
+    if (this.selectedEventId === parsedId) return;
+    this.selectedEventId = parsedId;
+    this.carregarConfirmados();
+  }
+
   private montarListaConfirmados(guests: any[]) {
-    const mapa = new Map<string, any>();
+    const liberados = (guests || []).filter(
+      (guest) => guest.checkin === true || guest.checkin === 1 || guest.checkin === '1',
+    );
 
-    guests.forEach((guest) => {
-      const liberado = guest.checkin === true || guest.checkin === 1 || guest.checkin === '1';
-      if (!liberado) return;
-
-      const key = `${guest.titular_id ?? guest.titular_nome ?? ''}-${guest.retirante_cpf ?? ''}-${guest.evento_titulo ?? ''}`;
-
-      if (!mapa.has(key)) {
-        mapa.set(key, {
-          ...guest,
-          checkin: true,
-          quantidade_ingressos: 1,
-          ingressos_liberados: 1,
-        });
-      } else {
-        const g = mapa.get(key);
-        g.quantidade_ingressos++;
-        g.ingressos_liberados++;
-      }
-    });
-
-    this.confirmedList = Array.from(mapa.values()).sort((a, b) => {
+    this.confirmedList = liberados.sort((a, b) => {
       const da = new Date(a.data_evento).getTime();
       const db = new Date(b.data_evento).getTime();
       if (da !== db) return db - da;
