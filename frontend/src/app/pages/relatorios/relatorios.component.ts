@@ -440,12 +440,18 @@ export class RelatoriosComponent implements OnInit {
   get eventosWtFiltrados(): any[] {
     const q = (this.busca || '').trim().toLowerCase();
     const base = this.eventosWt.filter((ev) => this.isWtPassEncerrado(ev));
-    if (!q) return base;
-    return base.filter((ev) => {
-      const t = String(ev.titulo || '').toLowerCase();
-      const l = String(ev.local || '').toLowerCase();
-      const d = String(ev.data_evento || '').toLowerCase();
-      return t.includes(q) || l.includes(q) || d.includes(q);
+    const filtered = !q
+      ? base
+      : base.filter((ev) => {
+          const t = String(ev.titulo || '').toLowerCase();
+          const l = String(ev.local || '').toLowerCase();
+          const d = String(ev.data_evento || '').toLowerCase();
+          return t.includes(q) || l.includes(q) || d.includes(q);
+        });
+    return [...filtered].sort((a, b) => {
+      const ta = this.parseDate(a?.data_evento)?.getTime() ?? 0;
+      const tb = this.parseDate(b?.data_evento)?.getTime() ?? 0;
+      return tb - ta;
     });
   }
 
