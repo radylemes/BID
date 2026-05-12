@@ -295,7 +295,7 @@ exports.createMatch = async (req, res) => {
         },
       );
       await connection.commit();
-      res.json({ message: "Evento criado com sucesso!" });
+      res.json({ message: "Evento criado com sucesso!", id: novoBidId });
     } catch (err) {
       await connection.rollback();
       throw err;

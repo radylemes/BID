@@ -16,6 +16,8 @@ const createEventoSchema = Joi.object({
   vagas: Joi.number().integer().min(1).max(10000).default(1),
   permitir_lista_espera: Joi.boolean().optional(),
   auto_encerrar: Joi.boolean().optional(),
+  /** Partida (BID) associada — recepção unificada e wizard do BID. */
+  partida_id: Joi.number().integer().allow(null).optional(),
   adminId: Joi.number().integer().optional(),
 });
 
@@ -32,6 +34,7 @@ const updateEventoSchema = Joi.object({
   permitir_lista_espera: Joi.boolean().optional(),
   auto_encerrar: Joi.boolean().optional(),
   status: Joi.string().valid("ABERTO", "ENCERRADO", "REALIZADO", "CANCELADO").optional(),
+  partida_id: Joi.number().integer().allow(null).optional(),
   adminId: Joi.number().integer().optional(),
   /** Obrigatório em toda atualização (registo obrigatório de auditoria). */
   motivo: Joi.string().trim().min(3).max(255).required().messages({

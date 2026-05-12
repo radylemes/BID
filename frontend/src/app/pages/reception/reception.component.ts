@@ -93,8 +93,10 @@ import { environment } from '../../../environments/environment';
           *ngIf="!loading && events.length > 0 && allGuests.length === 0"
           class="bg-amber-50 p-4 sm:p-5 rounded-xl border border-amber-200 text-center"
         >
-          <p class="text-amber-900 font-bold text-sm">Nenhum ingresso na lista para este evento</p>
-          <p class="text-amber-800/80 text-xs mt-1">Não há apostas ganhas com convidados para a partida selecionada.</p>
+          <p class="text-amber-900 font-bold text-sm">Nenhum convidado na lista para este evento</p>
+          <p class="text-amber-800/80 text-xs mt-1">
+            Não há ingressos BID (apostas ganhas) nem inscrições WT Pass com vaga vinculadas a esta partida.
+          </p>
         </div>
 
         <div
@@ -145,7 +147,7 @@ import { environment } from '../../../environments/environment';
             <input
               type="text"
               [(ngModel)]="searchTerm"
-              placeholder="Buscar Nome, CPF, Empresa..."
+              placeholder="Buscar nome, CPF, empresa, tipo, setor..."
               class="w-full bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl py-2.5 sm:py-3 pl-10 sm:pl-12 pr-3 sm:pr-4 text-xs sm:text-sm font-bold outline-none transition-all shadow-inner"
             />
           </div>
@@ -218,12 +220,16 @@ import { environment } from '../../../environments/environment';
                   : 'bg-gray-200 text-gray-600'
               "
             >
-              {{ group.checkin ? '✓' : group.retirante_nome.charAt(0) }}
+              {{ group.checkin ? '✓' : inicialRetirante(group) }}
             </div>
             <div class="flex-1 min-w-0">
               <p class="font-black text-gray-900 text-sm truncate">{{ group.retirante_nome }}</p>
               <p class="text-xs text-gray-500 truncate">Titular: {{ group.titular_nome }}</p>
               <p class="text-[10px] text-gray-400 font-mono mt-0.5">CPF {{ cpfRetiranteOuTitular(group) }}</p>
+              <p class="text-[10px] text-violet-600 font-bold mt-0.5">{{ rotuloTipoConvite(group.tipo_convite) }}</p>
+              <p *ngIf="group.setor_evento_nome" class="text-[10px] text-gray-500 truncate mt-0.5">
+                Setor: {{ group.setor_evento_nome }}
+              </p>
             </div>
             <span
               *ngIf="group.checkin"
@@ -253,6 +259,8 @@ import { environment } from '../../../environments/environment';
                 <tr>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">Usuário (Titular)</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell">Empresa</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell">Tipo</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell">Setor</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-indigo-50/50 min-w-[140px] lg:min-w-[180px]">Convidado (Retirante)</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden sm:table-cell">Evento / Data</th>
                   <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Status</th>
@@ -275,6 +283,22 @@ import { environment } from '../../../environments/environment';
                     </div>
                   </td>
 
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell">
+                    <span
+                      class="inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase border"
+                      [ngClass]="
+                        (group.tipo_convite || 'BID') === 'WT_PASS'
+                          ? 'bg-violet-100 text-violet-800 border-violet-200'
+                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                      "
+                    >
+                      {{ rotuloTipoConvite(group.tipo_convite) }}
+                    </span>
+                  </td>
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell text-[10px] font-bold text-gray-600 max-w-[120px] truncate" [title]="group.setor_evento_nome || ''">
+                    {{ group.setor_evento_nome || '—' }}
+                  </td>
+
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]">
                     <div class="flex items-center gap-2 sm:gap-3 min-w-0">
                       <div
@@ -285,14 +309,29 @@ import { environment } from '../../../environments/environment';
                             : 'bg-gray-200 text-gray-600'
                         "
                       >
-                        {{ group.checkin ? '✓' : group.retirante_nome.charAt(0) }}
+                        {{ group.checkin ? '✓' : inicialRetirante(group) }}
                       </div>
                       <div class="min-w-0">
                         <div class="font-black text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 flex-wrap">
                           <span class="truncate">{{ group.retirante_nome }}</span>
+                          <span
+                            class="xl:hidden inline-block px-1.5 py-0.5 rounded text-[8px] font-black uppercase border shrink-0"
+                            [ngClass]="
+                              (group.tipo_convite || 'BID') === 'WT_PASS'
+                                ? 'bg-violet-100 text-violet-800 border-violet-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            "
+                            >{{ rotuloTipoConvite(group.tipo_convite) }}</span
+                          >
                         </div>
                         <div class="text-[9px] sm:text-[10px] text-gray-400 font-mono mt-0.5 truncate">
                           CPF: {{ cpfRetiranteOuTitular(group) }}
+                        </div>
+                        <div
+                          class="xl:hidden text-[9px] text-gray-500 truncate mt-0.5"
+                          *ngIf="group.setor_evento_nome"
+                        >
+                          Setor: {{ group.setor_evento_nome }}
                         </div>
                       </div>
                     </div>
@@ -393,8 +432,9 @@ import { environment } from '../../../environments/environment';
                     >
                     <input
                       [(ngModel)]="ticket.recebedor_nome"
+                      [readonly]="ticket.camposRetiranteReadonly"
                       placeholder="Ex: João da Silva"
-                      class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+                      class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors read-only:bg-gray-100 read-only:text-gray-700"
                     />
                   </div>
                   <div>
@@ -404,9 +444,10 @@ import { environment } from '../../../environments/environment';
                     >
                     <input
                       [(ngModel)]="ticket.recebedor_cpf"
+                      [readonly]="ticket.camposRetiranteReadonly"
                       placeholder="00000000000"
                       maxlength="14"
-                      class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono"
+                      class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono read-only:bg-gray-100 read-only:text-gray-700"
                     />
                   </div>
                 </div>
@@ -512,6 +553,14 @@ import { environment } from '../../../environments/environment';
           </div>
           <div class="p-4 flex-1 overflow-y-auto space-y-4">
             <div>
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Tipo de convite</p>
+              <p class="font-bold text-gray-800 text-sm">{{ rotuloTipoConvite(selectedGroupForModal.tipo_convite) }}</p>
+            </div>
+            <div *ngIf="selectedGroupForModal.setor_evento_nome">
+              <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Setor do evento</p>
+              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.setor_evento_nome }}</p>
+            </div>
+            <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Titular</p>
               <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.titular_nome }}</p>
             </div>
@@ -611,6 +660,16 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     const v = this.cpfRetiranteOuTitular(g);
     if (!v || v === '---') return '';
     return v.replace(/\D/g, '');
+  }
+
+  rotuloTipoConvite(tipo: string | undefined): string {
+    const t = String(tipo || 'BID').toUpperCase().trim();
+    return t === 'WT_PASS' ? 'WT Pass' : 'BID';
+  }
+
+  inicialRetirante(g: any): string {
+    const n = String(g?.retirante_nome || g?.titular_nome || '?').trim();
+    return n ? n.charAt(0).toUpperCase() : '?';
   }
 
   totalConvidados = 0;
@@ -764,6 +823,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       ingressos_detalhes: [
         {
           ingresso_id: guest.ingresso_id,
+          inscricao_rh_id: guest.inscricao_rh_id,
           aposta_id: guest.aposta_id,
           checkin: guest.checkin,
           recebedor_nome: guest.recebedor_nome || '',
@@ -780,12 +840,16 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
     return this.guestsList.filter((g) => {
       const cpf = this.cpfRetiranteOuTitular(g);
+      const tipoLbl = this.rotuloTipoConvite(g.tipo_convite).toLowerCase();
+      const setor = g.setor_evento_nome != null ? String(g.setor_evento_nome).toLowerCase() : '';
       return (
         (g.retirante_nome && g.retirante_nome.toLowerCase().includes(term)) ||
         (cpf !== '---' && (cpf.includes(term) || (termDigits.length > 0 && cpf.includes(termDigits)))) ||
         (g.empresa && g.empresa.toLowerCase().includes(term)) ||
         (g.titular_nome && g.titular_nome.toLowerCase().includes(term)) ||
-        (g.evento_titulo && g.evento_titulo.toLowerCase().includes(term))
+        (g.evento_titulo && g.evento_titulo.toLowerCase().includes(term)) ||
+        tipoLbl.includes(term) ||
+        (setor && setor.includes(term))
       );
     });
   }
@@ -795,14 +859,17 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
     this.selectedGroup = guest;
 
+    const ehWt = String(guest?.tipo_convite || '').toUpperCase().trim() === 'WT_PASS';
+
     this.ingressosParaAssinar = [
       {
-        ingresso_id: guest.ingresso_id,
-        aposta_id: guest.aposta_id,
+        ingresso_id: guest.ingresso_id ?? null,
+        inscricao_rh_id: guest.inscricao_rh_id ?? null,
         checkin: guest.checkin,
-        recebedor_nome: guest.retirante_nome || '',
+        recebedor_nome: guest.retirante_nome || guest.titular_nome || '',
         recebedor_cpf: this.cpfParaCampoCheckin(guest),
         recebedor_documento: null as string | null,
+        camposRetiranteReadonly: ehWt,
       },
     ];
 
@@ -927,14 +994,29 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     const base64Signature = canvas.toDataURL('image/png');
 
     const requests = this.ingressosParaAssinar.map((ticket: any) => {
-      return this.http.post(`${this.apiUrl}/checkin`, {
-        ingressoId: ticket.ingresso_id,
+      const body: {
+        assinaturaBase64: string;
+        documentoBase64: unknown;
+        recebedorNome: string;
+        recebedorCpf: string;
+        adminId: number;
+        inscricaoRhId?: number;
+        partidaId?: number | null;
+        ingressoId?: number;
+      } = {
         assinaturaBase64: base64Signature,
         documentoBase64: ticket.recebedor_documento,
         recebedorNome: ticket.recebedor_nome,
         recebedorCpf: ticket.recebedor_cpf,
         adminId: this.currentUser.id,
-      });
+      };
+      if (ticket.inscricao_rh_id != null && Number(ticket.inscricao_rh_id) > 0) {
+        body.inscricaoRhId = ticket.inscricao_rh_id;
+        body.partidaId = this.selectedEventId;
+      } else {
+        body.ingressoId = ticket.ingresso_id;
+      }
+      return this.http.post(`${this.apiUrl}/checkin`, body);
     });
 
     forkJoin(requests).subscribe({
@@ -950,7 +1032,9 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         // Atualiza a base de dados local para refletir na tela
         this.allGuests.forEach((guest) => {
           const ingressoAtualizado = this.ingressosParaAssinar.find(
-            (t) => t.ingresso_id === guest.ingresso_id,
+            (t) =>
+              (t.ingresso_id != null && t.ingresso_id === guest.ingresso_id) ||
+              (t.inscricao_rh_id != null && t.inscricao_rh_id === guest.inscricao_rh_id),
           );
           if (ingressoAtualizado) {
             guest.checkin = true;

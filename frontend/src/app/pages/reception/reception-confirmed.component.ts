@@ -113,6 +113,16 @@ import { environment } from '../../../environments/environment';
               <p class="text-[10px] text-gray-400 font-mono mt-0.5">
                 CPF {{ cpfRetiranteOuTitular(group) }}
               </p>
+              <p class="text-[10px] text-gray-600 mt-0.5">
+                <span class="font-black text-violet-700">{{
+                  (group.tipo_convite || '').toString().toUpperCase().trim() === 'WT_PASS'
+                    ? 'WT Pass'
+                    : 'BID'
+                }}</span>
+                <span *ngIf="group.setor_evento_nome" class="text-gray-500">
+                  · Setor: {{ group.setor_evento_nome }}</span
+                >
+              </p>
               <p class="text-[10px] text-indigo-600 font-semibold mt-1">
                 {{ group.evento_titulo }} · {{ group.data_evento | date: 'dd/MM/yyyy HH:mm' }}
               </p>
@@ -121,7 +131,7 @@ import { environment } from '../../../environments/environment';
               <span
                 class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border border-emerald-100"
               >
-                Ingresso confirmado
+                Entrada confirmada
               </span>
               <span class="text-[10px] font-bold text-gray-400 hidden sm:inline">
                 {{ group.empresa }}

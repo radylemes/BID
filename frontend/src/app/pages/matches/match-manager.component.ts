@@ -1604,7 +1604,11 @@ export class MatchManagerComponent implements OnInit {
           this.buildMatchFormDataForGrupo(state.dados, t.grupo_id, `${baseMotivo} [${t.label}]`),
         )
         .pipe(
-          map(() => ({ ok: true as const, label: t.label })),
+          map((res: { id?: number }) => ({
+            ok: true as const,
+            label: t.label,
+            matchId: res != null && res.id != null ? Number(res.id) : null,
+          })),
           catchError((err) => of({ ok: false as const, label: t.label, err })),
         ),
     );
@@ -1617,6 +1621,14 @@ export class MatchManagerComponent implements OnInit {
         const failed = results.filter((r) => !r.ok) as { ok: false; label: string; err: unknown }[];
         const okCount = results.filter((r) => r.ok).length;
 
+        let firstPartidaId: number | null = null;
+        for (const r of results) {
+          if (r.ok && r.matchId != null && Number.isFinite(r.matchId) && r.matchId > 0) {
+            firstPartidaId = r.matchId;
+            break;
+          }
+        }
+
         const wtBody = this.buildWtPassBody(state);
         if (state.wtPass.ativo) {
           if (!wtBody) {
@@ -1627,6 +1639,9 @@ export class MatchManagerComponent implements OnInit {
               'Dados do WT Pass inválidos. Verifique as datas.',
             );
             return;
+          }
+          if (firstPartidaId != null) {
+            wtBody['partida_id'] = firstPartidaId;
           }
           this.eventoRhService.createEvento(wtBody).subscribe({
             next: () => this.finishWizardSubmit(okCount, failed, true, null),

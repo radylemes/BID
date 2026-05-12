@@ -352,7 +352,9 @@ async function initializeDatabase() {
         permitir_lista_espera TINYINT(1) NOT NULL DEFAULT 1,
         auto_encerrar TINYINT(1) NOT NULL DEFAULT 1,
         status ENUM('ABERTO','ENCERRADO','REALIZADO','CANCELADO') NOT NULL DEFAULT 'ABERTO',
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        partida_id INT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (partida_id) REFERENCES partidas(id) ON DELETE SET NULL
       );
     `);
 
@@ -365,6 +367,12 @@ async function initializeDatabase() {
         status ENUM('INSCRITO','FILA_ESPERA','PRESENTE','FALTOU','CANCELADO') NOT NULL DEFAULT 'INSCRITO',
         aceitou_politica TINYINT(1) NOT NULL DEFAULT 0,
         data_inscricao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        portaria_checkin TINYINT(1) NOT NULL DEFAULT 0,
+        portaria_assinatura LONGTEXT NULL,
+        portaria_documento LONGTEXT NULL,
+        portaria_recebedor_nome VARCHAR(255) NULL,
+        portaria_recebedor_cpf VARCHAR(20) NULL,
+        portaria_data_checkin DATETIME NULL,
         FOREIGN KEY (evento_id) REFERENCES eventos_rh(id) ON DELETE CASCADE,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
         UNIQUE KEY uniq_evento_usuario (evento_id, usuario_id)
@@ -472,6 +480,51 @@ async function initializeDatabase() {
         "Aviso ao verificar/adicionar coluna auto_encerrar em eventos_rh:",
         e.message,
       );
+    }
+
+    // Migração: WT Pass ligado à partida (BID) para lista unificada na recepção.
+    try {
+      const [cols] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'eventos_rh' AND COLUMN_NAME = 'partida_id'`,
+        [process.env.DB_NAME],
+      );
+      if (cols.length === 0) {
+        await connection.query(
+          `ALTER TABLE eventos_rh ADD COLUMN partida_id INT NULL AFTER status`,
+        );
+        await connection.query(
+          `ALTER TABLE eventos_rh ADD CONSTRAINT fk_eventos_rh_partida FOREIGN KEY (partida_id) REFERENCES partidas(id) ON DELETE SET NULL`,
+        );
+        console.log("✅ Coluna 'partida_id' adicionada à tabela eventos_rh.");
+      }
+    } catch (e) {
+      console.warn("Aviso ao verificar/adicionar coluna partida_id em eventos_rh:", e.message);
+    }
+
+    // Migração: check-in da portaria em inscrições WT (espelho de ingressos).
+    const portariaCols = [
+      ["portaria_checkin", "TINYINT(1) NOT NULL DEFAULT 0"],
+      ["portaria_assinatura", "LONGTEXT NULL"],
+      ["portaria_documento", "LONGTEXT NULL"],
+      ["portaria_recebedor_nome", "VARCHAR(255) NULL"],
+      ["portaria_recebedor_cpf", "VARCHAR(20) NULL"],
+      ["portaria_data_checkin", "DATETIME NULL"],
+    ];
+    for (const [colName, colDef] of portariaCols) {
+      try {
+        const [c] = await connection.query(
+          `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'inscricoes_rh' AND COLUMN_NAME = ?`,
+          [process.env.DB_NAME, colName],
+        );
+        if (c.length === 0) {
+          await connection.query(
+            `ALTER TABLE inscricoes_rh ADD COLUMN ${colName} ${colDef}`,
+          );
+          console.log(`✅ Coluna '${colName}' adicionada à tabela inscricoes_rh.`);
+        }
+      } catch (e) {
+        console.warn(`Aviso ao verificar/adicionar coluna ${colName} em inscricoes_rh:`, e.message);
+      }
     }
 
     // ============================================================

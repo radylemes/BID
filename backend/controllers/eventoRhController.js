@@ -447,10 +447,29 @@ exports.createEvento = async (req, res) => {
       permitir_lista_espera,
       auto_encerrar,
       adminId,
+      partida_id,
     } = req.body;
 
     if (!data_limite_inscricao || !data_evento) {
       return res.status(400).json({ error: "Datas obrigatórias." });
+    }
+
+    const partidaIdOpt =
+      partida_id != null && String(partida_id).trim() !== ""
+        ? Math.floor(Number(partida_id))
+        : null;
+    const partidaIdFinal =
+      partidaIdOpt != null && Number.isFinite(partidaIdOpt) && partidaIdOpt > 0
+        ? partidaIdOpt
+        : null;
+
+    if (partidaIdFinal) {
+      const [pRows] = await db.execute(`SELECT id FROM partidas WHERE id = ? LIMIT 1`, [
+        partidaIdFinal,
+      ]);
+      if (pRows.length === 0) {
+        return res.status(400).json({ error: "Partida (BID) inválida para vínculo." });
+      }
     }
 
     const inicioFormatado = data_inicio_inscricao
@@ -465,8 +484,8 @@ exports.createEvento = async (req, res) => {
     try {
       await connection.beginTransaction();
       const [result] = await connection.execute(
-        `INSERT INTO eventos_rh (titulo, banner, subtitulo, descricao, local, data_inicio_inscricao, data_limite_inscricao, data_evento, vagas, permitir_lista_espera, auto_encerrar, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ABERTO')`,
+        `INSERT INTO eventos_rh (titulo, banner, subtitulo, descricao, local, data_inicio_inscricao, data_limite_inscricao, data_evento, vagas, permitir_lista_espera, auto_encerrar, partida_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ABERTO')`,
         [
           titulo || null,
           bannerUrl,
@@ -479,6 +498,7 @@ exports.createEvento = async (req, res) => {
           Math.max(1, Number(vagas) || 1),
           listaEspera,
           autoEncerrarFlag,
+          partidaIdFinal,
         ],
       );
       const novoId = result.insertId;
@@ -525,6 +545,7 @@ exports.updateEvento = async (req, res) => {
     status,
     adminId,
     motivo,
+    partida_id,
   } = req.body;
 
   const connection = await db.getConnection();
@@ -601,6 +622,22 @@ exports.updateEvento = async (req, res) => {
     if (status !== undefined) {
       fields.push("status = ?");
       vals.push(status);
+    }
+    if (partida_id !== undefined) {
+      let finalPid = null;
+      if (partida_id != null && String(partida_id).trim() !== "") {
+        const n = Math.floor(Number(partida_id));
+        if (!Number.isFinite(n) || n <= 0) {
+          return res.status(400).json({ error: "partida_id inválido." });
+        }
+        const [pr] = await connection.execute(`SELECT id FROM partidas WHERE id = ? LIMIT 1`, [n]);
+        if (pr.length === 0) {
+          return res.status(400).json({ error: "Partida (BID) não encontrada." });
+        }
+        finalPid = n;
+      }
+      fields.push("partida_id = ?");
+      vals.push(finalPid);
     }
 
     if (fields.length === 0) {
