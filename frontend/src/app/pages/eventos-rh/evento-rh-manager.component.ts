@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { EventoRhService } from '../../services/evento-rh.service';
 import { SettingsService } from '../../services/settings.service';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { formatarInputCpf, normalizarCpfDigits } from '../../utils/cpf';
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-evento-rh-manager',
@@ -583,17 +585,97 @@ export class EventoRhManagerComponent implements OnInit {
       .replace(/"/g, '&quot;');
   }
 
+  private textoCpfInscrito(cpf: unknown): string {
+    const d = normalizarCpfDigits(cpf);
+    return d.length === 11 ? formatarInputCpf(d) : '—';
+  }
+
+  private exportarInscritosXlsx(ev: any, rows: any[]): void {
+    const tituloSeguro = String(ev?.titulo || 'evento')
+      .replace(/[\\/:*?"<>|]+/g, '_')
+      .replace(/\s+/g, '_')
+      .slice(0, 50);
+    const head = ['#', 'Nome', 'CPF', 'Setor', 'Estado', 'Chamada'];
+    const dados: unknown[][] = [head];
+    for (const r of rows) {
+      const st = String(r.status || '');
+      let chamada = '—';
+      if (st === 'PRESENTE') chamada = 'Presente';
+      else if (st === 'FALTOU') chamada = 'Faltou';
+      else if (st === 'INSCRITO' || st === 'FILA_ESPERA') chamada = 'Pendente';
+      dados.push([
+        r.posicao_exibicao ?? r.posicao,
+        r.nome_completo ?? '',
+        normalizarCpfDigits(r.cpf) || '',
+        r.setor_nome || '',
+        st,
+        chamada,
+      ]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inscritos');
+    XLSX.writeFile(wb, `WT_Pass_inscritos_${ev.id}_${tituloSeguro}.xlsx`);
+  }
+
+  /** Título do SweetAlert do modal de inscrições. */
+  private tituloModalInscricoes(ev: any): string {
+    const t = String(ev?.titulo ?? '').trim();
+    return t ? `Inscrições do ${t}` : 'Inscrições';
+  }
+
+  /** Banner + resumo (Inscritos / Datas / Status) para o modal de inscrições (HTML escapado). */
+  private htmlCabecalhoEventoInscricoes(ev: any): string {
+    const bannerUrl = this.getBannerThumbUrl(ev);
+    const imgSrc = this.escapeHtml(bannerUrl);
+    const ocup = Number(ev.ocupadas) || 0;
+    const vagas = Number(ev.vagas) || 0;
+    const ini = this.escapeHtml(this.formatarDataHoraCurta(ev.data_inicio_inscricao));
+    const lim = this.escapeHtml(this.formatarDataHoraCurta(ev.data_limite_inscricao));
+    const diaEvt = this.escapeHtml(this.formatarDataApenasDia(ev.data_evento));
+    const tIni = this.escapeHtml(this.formatarDataHoraCompleta(ev.data_inicio_inscricao));
+    const tLim = this.escapeHtml(this.formatarDataHoraCompleta(ev.data_limite_inscricao));
+    const tEvtDia = this.escapeHtml('Data do evento: ' + this.formatarDataApenasDia(ev.data_evento));
+    const pillText = this.escapeHtml(this.textoPillEstado(ev));
+    const pillClass = this.classesPillEstado(ev);
+    const cardBase =
+      'rounded-lg border border-gray-100 bg-gray-50/80 px-2 py-2 sm:px-2.5 sm:py-1.5 sm:h-full sm:min-h-0 sm:flex sm:flex-col sm:justify-center';
+    return (
+      '<div class="mb-4 pb-4 border-b border-gray-200 text-left">' +
+      '<div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">' +
+      '<div class="shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 shadow-sm mx-auto sm:mx-0">' +
+      `<img src="${imgSrc}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.onerror=null;this.src='assets/placeholder.jpg'">` +
+      '</div>' +
+      '<div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2 sm:h-28">' +
+      `<div class="${cardBase}">` +
+      '<div class="text-[10px] uppercase tracking-wide text-gray-500 font-bold mb-0.5 sm:mb-0.5">Inscritos</div>' +
+      `<div class="text-sm font-semibold text-gray-900 leading-tight" title="Confirmados / vagas">🎫 ${ocup} <span class="text-gray-400 font-normal">/</span> ${vagas}</div>` +
+      '</div>' +
+      `<div class="${cardBase}">` +
+      '<div class="text-[10px] uppercase tracking-wide text-gray-500 font-bold mb-0.5">Datas</div>' +
+      '<div class="text-[10px] sm:text-[11px] font-medium leading-tight space-y-0.5">' +
+      `<div class="text-emerald-600" title="Início inscrições: ${tIni}"><span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 align-middle"></span>Inscr. ${ini}</div>` +
+      `<div class="text-rose-600" title="Fim inscrições: ${tLim}"><span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 mr-1 align-middle"></span>Limite ${lim}</div>` +
+      `<div class="text-violet-700" title="${tEvtDia}"><span class="inline-block w-1.5 h-1.5 rounded-full bg-violet-500 mr-1 align-middle"></span>Evento ${diaEvt}</div>` +
+      '</div></div>' +
+      `<div class="${cardBase}">` +
+      '<div class="text-[10px] uppercase tracking-wide text-gray-500 font-bold mb-0.5">Status</div>' +
+      `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full border text-[10px] sm:text-[11px] font-bold tracking-wide uppercase leading-tight ${pillClass}">${pillText}</span>` +
+      '</div></div></div></div>'
+    );
+  }
+
   private htmlTabelaInscritos(ev: any, rows: any[]): string {
-    const sub =
-      '<p class="text-left text-sm text-gray-600 mb-3">' +
-      this.escapeHtml(ev.titulo || '—') +
-      ' <span class="text-gray-400 font-normal">#' +
-      this.escapeHtml(ev.id) +
-      '</span></p>';
+    const cab = this.htmlCabecalhoEventoInscricoes(ev);
+    const toolbar =
+      '<div class="mb-2 flex justify-end">' +
+      '<button type="button" id="rh-inscritos-export-xlsx" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">' +
+      'Exportar XLSX</button></div>';
     const head =
       '<thead><tr class="border-b border-gray-200 text-gray-500 text-xs uppercase">' +
       '<th class="py-2 px-2 text-left">#</th>' +
       '<th class="py-2 px-2 text-left">Nome</th>' +
+      '<th class="py-2 px-2 text-left">CPF</th>' +
       '<th class="py-2 px-2 text-left">Setor</th>' +
       '<th class="py-2 px-2 text-left">Estado</th>' +
       '<th class="py-2 px-2 text-right">Chamada</th>' +
@@ -606,10 +688,12 @@ export class EventoRhManagerComponent implements OnInit {
           ? `<button type="button" id="rh-modal-pres-${uid}-ok" class="text-emerald-600 font-bold text-xs hover:underline mr-2">Presente</button>` +
             `<button type="button" id="rh-modal-pres-${uid}-falta" class="text-red-600 font-bold text-xs hover:underline">Faltou</button>`
           : '—';
+        const cpfTxt = this.textoCpfInscrito(r.cpf);
         return (
           '<tr class="border-t border-gray-100">' +
           `<td class="py-2 px-2">${this.escapeHtml(r.posicao_exibicao ?? r.posicao)}</td>` +
           `<td class="py-2 px-2">${this.escapeHtml(r.nome_completo)}</td>` +
+          `<td class="py-2 px-2 font-mono text-xs whitespace-nowrap">${this.escapeHtml(cpfTxt)}</td>` +
           `<td class="py-2 px-2">${this.escapeHtml(r.setor_nome || '—')}</td>` +
           `<td class="py-2 px-2">${this.escapeHtml(r.status)}</td>` +
           `<td class="py-2 px-2 text-right whitespace-nowrap">${botoes}</td>` +
@@ -618,7 +702,8 @@ export class EventoRhManagerComponent implements OnInit {
       })
       .join('');
     return (
-      sub +
+      cab +
+      toolbar +
       '<div class="overflow-x-auto max-h-[min(60vh,480px)] overflow-y-auto text-left">' +
       '<table class="w-full text-sm">' +
       head +
@@ -657,14 +742,11 @@ export class EventoRhManagerComponent implements OnInit {
         }));
         if (mapped.length === 0) {
           Swal.fire({
-            title: 'Inscrições',
+            title: this.tituloModalInscricoes(ev),
             html:
-              '<p class="text-left text-sm text-gray-600 mb-2">' +
-              this.escapeHtml(ev.titulo || '—') +
-              ' <span class="text-gray-400">#' +
-              this.escapeHtml(ev.id) +
-              '</span></p><p class="text-gray-500 text-sm">Sem inscrições ativas.</p>',
-            width: 520,
+              this.htmlCabecalhoEventoInscricoes(ev) +
+              '<p class="text-gray-500 text-sm text-left mt-1">Sem inscrições ativas.</p>',
+            width: 640,
             showConfirmButton: false,
             showCancelButton: true,
             cancelButtonText: 'Fechar',
@@ -673,13 +755,18 @@ export class EventoRhManagerComponent implements OnInit {
         }
         const html = this.htmlTabelaInscritos(ev, mapped);
         Swal.fire({
-          title: 'Inscrições',
+          title: this.tituloModalInscricoes(ev),
           html,
-          width: 920,
+          width: 1000,
           showConfirmButton: false,
           showCancelButton: true,
           cancelButtonText: 'Fechar',
-          didOpen: () => this.anexarPresencaModal(ev, mapped),
+          didOpen: () => {
+            this.anexarPresencaModal(ev, mapped);
+            document.getElementById('rh-inscritos-export-xlsx')?.addEventListener('click', () => {
+              this.exportarInscritosXlsx(ev, mapped);
+            });
+          },
         });
       },
       error: () => {

@@ -381,7 +381,7 @@ exports.getEvento = async (req, res) => {
     if (role === "ADMIN") {
       const [inscritos] = await db.execute(
         `SELECT i.id, i.evento_id, i.usuario_id, i.posicao, i.status, i.aceitou_politica, i.data_inscricao,
-                u.nome_completo, u.email, u.foto, s.nome AS setor_nome
+                u.nome_completo, u.email, u.foto, u.cpf, s.nome AS setor_nome
          FROM inscricoes_rh i
          INNER JOIN usuarios u ON u.id = i.usuario_id
          LEFT JOIN setores s ON s.id = u.setor_id
@@ -410,7 +410,7 @@ exports.listInscritos = async (req, res) => {
 
     const [inscritos] = await db.execute(
       `SELECT i.id, i.evento_id, i.usuario_id, i.posicao, i.status, i.aceitou_politica, i.data_inscricao,
-              u.nome_completo, u.email, u.foto, s.nome AS setor_nome
+              u.nome_completo, u.email, u.foto, u.cpf, s.nome AS setor_nome
        FROM inscricoes_rh i
        INNER JOIN usuarios u ON u.id = i.usuario_id
        LEFT JOIN setores s ON s.id = u.setor_id
