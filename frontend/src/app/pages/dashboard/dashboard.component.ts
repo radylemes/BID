@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
+import { EventoRhService } from '../../services/evento-rh.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
@@ -22,16 +23,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
   pontosEmJogo: number = 0;
   meusLancesCount: number = 0;
 
+  /** Perfis que não participam do WT Pass (menu e inscrição). */
+  isPortaria = false;
+  wtPassDisponiveisCount = 0;
+  wtPassContagemCarregada = false;
+
   constructor(
     private matchService: MatchService,
     private guestService: GuestService,
+    private eventoRhService: EventoRhService,
     private router: Router,
     private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    this.isPortaria =
+      String(this.currentUser?.role || this.currentUser?.perfil || '').toUpperCase() === 'PORTARIA';
     this.carregarDados();
+    if (!this.isPortaria) this.carregarContagemWtPass();
 
     this.timerInterval = setInterval(() => {
       this.atualizarTimers();
@@ -184,6 +194,53 @@ export class DashboardComponent implements OnInit, OnDestroy {
         },
       });
     }
+  }
+
+  /**
+   * Mesma regra que “Eventos Disponíveis” na lista WT Pass (sem inscrição ativa,
+   * sem bloqueio por falta, período de inscrições aberto). Não exige vaga livre:
+   * o cartão pode aparecer na lista e o backend valida lotação na inscrição.
+   */
+  private contarEventosWtPassDisponiveis(
+    eventos: any[],
+    bloqueio: { eventos_restantes?: number } | null,
+  ): number {
+    const agora = Date.now();
+    const buffer = 60_000;
+    return (eventos || []).filter((ev) => {
+      if (ev.status !== 'ABERTO') return false;
+      if (bloqueio) return false;
+      if (ev.usuario_inscrito) return false;
+      if (ev.meu_status === 'PRESENTE' || ev.meu_status === 'FALTOU') return false;
+      const lim = ev.data_limite_inscricao ? new Date(ev.data_limite_inscricao).getTime() : 0;
+      if (lim && agora > lim + buffer) return false;
+      const ini = ev.data_inicio_inscricao ? new Date(ev.data_inicio_inscricao).getTime() : 0;
+      if (ini && agora < ini - buffer) return false;
+      return true;
+    }).length;
+  }
+
+  private carregarContagemWtPass() {
+    if (!localStorage.getItem('token') || !this.currentUser?.id) {
+      this.wtPassContagemCarregada = true;
+      return;
+    }
+    this.wtPassContagemCarregada = false;
+    this.eventoRhService.listEventos().subscribe({
+      next: (res) => {
+        this.wtPassDisponiveisCount = this.contarEventosWtPassDisponiveis(
+          res.eventos || [],
+          res.bloqueio_ativo ?? null,
+        );
+        this.wtPassContagemCarregada = true;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.wtPassDisponiveisCount = 0;
+        this.wtPassContagemCarregada = true;
+        this.cd.detectChanges();
+      },
+    });
   }
 
   atualizarTimers() {

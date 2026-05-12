@@ -47,6 +47,20 @@
   /* Aba ativa no tema claro: fundo que diferencia da inativa */
   --tab-active-bg: #e0e7ff;
   --tab-active-text: var(--color-text-primary);
+
+  /* Paleta «Nota de corte» / cartões rosa-carmim (referência #FFF0F3, #D11D44, #E97B8D) */
+  --wt-pink-surface: #fff0f3;
+  --wt-pink-border: rgba(233, 123, 141, 0.45);
+  --wt-pink-muted: #e97b8d;
+  --wt-pink-strong: #d11d44;
+}
+
+[data-theme='escuro'],
+[data-theme^='escuro-'] {
+  --wt-pink-surface: rgba(56, 22, 30, 0.72);
+  --wt-pink-border: rgba(233, 123, 141, 0.32);
+  --wt-pink-muted: #f0a0ae;
+  --wt-pink-strong: #ff7b95;
 }
 
 /* Logo WTorre (SVG branco): em temas claros fica escuro para aparecer no fundo claro */
@@ -243,12 +257,26 @@ app-root {
   color: var(--app-text) !important;
 }
 
+/* Evita textarea/inputs a sair para fora do popup (largura calculada + padding). */
+.swal2-html-container {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
 .swal2-input,
 .swal2-select,
 .swal2-textarea {
   background: var(--app-surface-muted) !important;
   color: var(--app-text) !important;
   border: 1px solid var(--app-border) !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+}
+
+.swal2-textarea {
+  width: 100% !important;
+  min-width: 0;
 }
 
 [data-theme='escuro'], [data-theme^='escuro-'] .users-theme thead {

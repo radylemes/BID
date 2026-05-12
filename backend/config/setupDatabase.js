@@ -287,6 +287,146 @@ async function initializeDatabase() {
     `);
 
     // ============================================================
+    // 6b. WT Pass (inscrição por ordem, sem sorteio) — tabelas eventos_rh / inscricoes_rh
+    // ============================================================
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS eventos_rh (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        titulo VARCHAR(255) NULL,
+        banner VARCHAR(500) NULL,
+        subtitulo VARCHAR(255) NULL,
+        descricao TEXT NULL,
+        local VARCHAR(255) NULL,
+        data_inicio_inscricao DATETIME NULL,
+        data_limite_inscricao DATETIME NOT NULL,
+        data_evento DATETIME NOT NULL,
+        vagas INT NOT NULL DEFAULT 1,
+        permitir_lista_espera TINYINT(1) NOT NULL DEFAULT 1,
+        auto_encerrar TINYINT(1) NOT NULL DEFAULT 1,
+        status ENUM('ABERTO','ENCERRADO','REALIZADO','CANCELADO') NOT NULL DEFAULT 'ABERTO',
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inscricoes_rh (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        evento_id INT NOT NULL,
+        usuario_id INT NOT NULL,
+        posicao INT NOT NULL,
+        status ENUM('INSCRITO','FILA_ESPERA','PRESENTE','FALTOU','CANCELADO') NOT NULL DEFAULT 'INSCRITO',
+        aceitou_politica TINYINT(1) NOT NULL DEFAULT 0,
+        data_inscricao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (evento_id) REFERENCES eventos_rh(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        UNIQUE KEY uniq_evento_usuario (evento_id, usuario_id)
+      );
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS bloqueios_eventos_rh (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        evento_origem_id INT NOT NULL,
+        eventos_restantes INT NOT NULL DEFAULT 5,
+        eventos_total INT NOT NULL DEFAULT 5,
+        ativo TINYINT(1) NOT NULL DEFAULT 1,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (evento_origem_id) REFERENCES eventos_rh(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Eventos individualmente bloqueados para um usuário: cada bloqueio gera N vínculos
+    // (um por cada novo evento criado enquanto o bloqueio esteve ativo). Mesmo após o
+    // bloqueio expirar/zerar, esses eventos continuam fora do alcance de inscrição
+    // para o usuário que recebeu a punição.
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS bloqueios_eventos_rh_alvos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        bloqueio_id INT NOT NULL,
+        usuario_id INT NOT NULL,
+        evento_id INT NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_bloqueio_evento (bloqueio_id, evento_id),
+        KEY idx_usuario_evento (usuario_id, evento_id),
+        FOREIGN KEY (bloqueio_id) REFERENCES bloqueios_eventos_rh(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (evento_id) REFERENCES eventos_rh(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Migração: vincula cada FALTA contabilizada ao bloqueio que ela gerou.
+    // Permite contar apenas faltas "não consumidas" para decidir um novo bloqueio.
+    try {
+      const [cols] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'inscricoes_rh' AND COLUMN_NAME = 'bloqueio_consumido_id'`,
+        [process.env.DB_NAME],
+      );
+      if (cols.length === 0) {
+        await connection.query(
+          `ALTER TABLE inscricoes_rh ADD COLUMN bloqueio_consumido_id INT NULL`,
+        );
+        await connection.query(
+          `ALTER TABLE inscricoes_rh ADD CONSTRAINT fk_inscricoes_rh_bloqueio FOREIGN KEY (bloqueio_consumido_id) REFERENCES bloqueios_eventos_rh(id) ON DELETE SET NULL`,
+        );
+        console.log("✅ Coluna 'bloqueio_consumido_id' adicionada à tabela inscricoes_rh.");
+      }
+    } catch (e) {
+      console.warn(
+        "Aviso ao verificar/adicionar coluna bloqueio_consumido_id em inscricoes_rh:",
+        e.message,
+      );
+    }
+
+    // Migração: guarda a duração inicial do bloqueio para permitir exibição
+    // "restantes/total" (ex.: 4/5) na UI mesmo após a primeira decremento.
+    try {
+      const [cols] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'bloqueios_eventos_rh' AND COLUMN_NAME = 'eventos_total'`,
+        [process.env.DB_NAME],
+      );
+      if (cols.length === 0) {
+        await connection.query(
+          `ALTER TABLE bloqueios_eventos_rh ADD COLUMN eventos_total INT NOT NULL DEFAULT 5`,
+        );
+        // Para bloqueios antigos sem essa informação, assume que o total era
+        // pelo menos igual ao que ainda resta — evita exibir progresso inválido.
+        await connection.query(
+          `UPDATE bloqueios_eventos_rh SET eventos_total = GREATEST(eventos_total, eventos_restantes)`,
+        );
+        console.log("✅ Coluna 'eventos_total' adicionada à tabela bloqueios_eventos_rh.");
+      }
+    } catch (e) {
+      console.warn(
+        "Aviso ao verificar/adicionar coluna eventos_total em bloqueios_eventos_rh:",
+        e.message,
+      );
+    }
+
+    // Migração: adiciona o sinalizador de auto-encerramento (ABERTO → ENCERRADO
+    // automático quando data_limite_inscricao expira). Padrão = ligado (1) para
+    // novos registos e também para registos antigos, mantendo o comportamento
+    // de "fechado de facto" coerente com o estado efetivo já exibido pela UI.
+    try {
+      const [cols] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'eventos_rh' AND COLUMN_NAME = 'auto_encerrar'`,
+        [process.env.DB_NAME],
+      );
+      if (cols.length === 0) {
+        await connection.query(
+          `ALTER TABLE eventos_rh ADD COLUMN auto_encerrar TINYINT(1) NOT NULL DEFAULT 1 AFTER permitir_lista_espera`,
+        );
+        console.log("✅ Coluna 'auto_encerrar' adicionada à tabela eventos_rh.");
+      }
+    } catch (e) {
+      console.warn(
+        "Aviso ao verificar/adicionar coluna auto_encerrar em eventos_rh:",
+        e.message,
+      );
+    }
+
+    // ============================================================
     // 7. CONFIGURAÇÕES E REGRAS DE PONTUAÇÃO
     // ============================================================
     await connection.query(`
@@ -297,6 +437,13 @@ async function initializeDatabase() {
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
+
+    // Seeds das configurações do WT Pass (não sobrescreve valores existentes).
+    await connection.query(
+      `INSERT IGNORE INTO configuracoes (chave, valor, descricao) VALUES
+        ('wt_pass_faltas_permitidas', '1', 'Quantidade de faltas no WT Pass antes de gerar bloqueio.'),
+        ('wt_pass_eventos_bloqueio', '5', 'Duração do bloqueio (em número de eventos novos criados) no WT Pass.')`,
+    );
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS regras_pontuacao (

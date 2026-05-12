@@ -222,6 +222,7 @@ Base URL (desenvolvimento): `http://localhost:3005/api`
 | Auditoria | `/audits` | Consulta de logs de auditoria |
 | Monitor de erros | `/system-errors` | Listagem e resolução de erros |
 | E-mail | `/email` | Listas, templates, disparo |
+| WT Pass | `/eventos-rh` | Eventos por ordem de inscrição, lista de espera, bloqueio por falta, presença (admin) |
 
 Uploads estáticos (avatars, banners, papel timbrado): `http://localhost:3005/uploads/...`
 
@@ -272,6 +273,7 @@ O banco é criado e migrado automaticamente ao subir o backend. Principais entid
 - **regras_pontuacao** — Regras de acúmulo de pontos (cron)
 - **auditoria**, **logs_erros** — Auditoria e monitor
 - **configuracoes**, **templates_email**, **listas_email** — Config e e-mail
+- **eventos_rh**, **inscricoes_rh**, **bloqueios_eventos_rh** — WT Pass (inscrição FIFO, penalização por falta)
 
 ---
 

@@ -6,12 +6,53 @@ import { switchMap, map, catchError } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
 import { SettingsService, ExportPdfStyle } from '../../services/settings.service';
 import { EmailService } from '../../services/email.service';
+import { EventoRhService } from '../../services/evento-rh.service';
+import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
+
+/** Dados da Fase 1 do wizard Novo BID / Clonar. */
+interface MatchWizardDadosBid {
+  titulo: string;
+  subtitulo: string;
+  setor_evento_id: string;
+  local: string;
+  banner: string;
+  link_extra: string;
+  informacoes_extras: string;
+  quantidade_premios: number;
+  data_jogo_local: string;
+  data_inicio_apostas_local: string;
+  data_limite_aposta_local: string;
+  data_apuracao_local: string;
+}
+
+interface MatchWizardGruposSel {
+  publico: boolean;
+  ids: number[];
+}
+
+interface MatchWizardWtPass {
+  ativo: boolean;
+  vagas: number;
+  permitir_lista_espera: boolean;
+  data_inicio_inscricao_local: string;
+  data_limite_inscricao_local: string;
+  data_evento_yyyy_mm_dd: string;
+}
+
+interface MatchWizardState {
+  dados: MatchWizardDadosBid;
+  grupos: MatchWizardGruposSel;
+  wtPass: MatchWizardWtPass;
+  /** Se já aplicámos defaults do BID aos campos WT Pass (não sobrescrever ao voltar da Fase 3). */
+  wtPassSeeded: boolean;
+}
 
 @Component({
   selector: 'app-match-manager',
@@ -153,7 +194,7 @@ import * as XLSX from 'xlsx';
             <thead class="sticky top-0 z-20">
               <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
                 <th
-                  class="w-[180px] min-w-[160px] sm:min-w-0 sm:w-auto sticky left-0 z-20 bg-[var(--color-bg-surface-alt)] px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)] align-middle"
+                  class="min-w-[220px] sm:min-w-[280px] sm:w-auto sticky left-0 z-20 bg-[var(--color-bg-surface-alt)] px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)] align-middle"
                 >
                   BID
                 </th>
@@ -187,8 +228,20 @@ import * as XLSX from 'xlsx';
             </thead>
             <tbody class="bg-[var(--color-bg-surface)] divide-y divide-[var(--app-border)]">
               <tr *ngFor="let m of displayedMatches" class="group hover:bg-[var(--app-nav-hover-bg)] transition-colors">
-                <td class="w-[180px] min-w-[160px] sm:min-w-0 sm:w-auto sticky left-0 z-10 bg-[var(--color-bg-surface)] group-hover:bg-[var(--app-nav-hover-bg)] px-3 sm:px-5 py-3 sm:py-4 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)] align-middle">
-                  <div class="flex flex-col justify-center min-h-[52px]">
+                <td class="min-w-[220px] sm:min-w-[280px] sm:w-auto sticky left-0 z-10 bg-[var(--color-bg-surface)] group-hover:bg-[var(--app-nav-hover-bg)] px-3 sm:px-5 py-3 sm:py-4 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)] align-middle">
+                  <div class="flex items-start gap-3 min-w-0">
+                    <div
+                      class="w-14 h-14 rounded-lg overflow-hidden border border-[var(--app-border)] bg-[var(--color-bg-surface)] shrink-0 shadow-sm"
+                    >
+                      <img
+                        [src]="getBannerThumbUrl(m)"
+                        [alt]="m.titulo || 'Banner do BID'"
+                        loading="lazy"
+                        class="w-full h-full object-cover"
+                        (error)="$any($event.target).src = 'assets/banner-placeholder.jpg'"
+                      />
+                    </div>
+                    <div class="flex flex-col justify-center min-h-[52px] min-w-0 flex-1">
                     <div class="font-semibold text-[var(--app-text)] truncate" [title]="m.titulo">{{ m.titulo }}</div>
                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--app-text-muted)] mt-1">
                       <span
@@ -205,6 +258,7 @@ import * as XLSX from 'xlsx';
                         class="inline-flex items-center gap-1 text-indigo-600 font-medium shrink-0"
                         ><span aria-hidden="true">🪑</span> {{ m.setor_evento_nome }}</span
                       >
+                    </div>
                     </div>
                   </div>
                 </td>
@@ -449,6 +503,13 @@ export class MatchManagerComponent implements OnInit {
     return 'Editar';
   }
 
+  getBannerThumbUrl(match: { banner?: string; id?: number }): string {
+    if (!match?.banner) return 'assets/banner-placeholder.jpg';
+    if (String(match.banner).startsWith('http')) return String(match.banner);
+    if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
+    return uploadsPublicUrl(String(match.banner));
+  }
+
   get matchesNaAba(): any[] {
     return this.matches.filter((m) =>
       this.abaAtiva === 'anteriores' ? this.isMatchAnterior(m) : this.isMatchAtual(m),
@@ -456,10 +517,19 @@ export class MatchManagerComponent implements OnInit {
   }
 
   get displayedMatches(): any[] {
-    const base = this.matchesNaAba;
+    const base = [...this.matchesNaAba].sort((a, b) => this.compareByDataEvento(a, b));
     const q = (this.filtroBusca || '').trim().toLowerCase();
     if (!q) return base;
     return base.filter((m) => this.bidMatchesSearch(m, q));
+  }
+
+  private compareByDataEvento(a: any, b: any): number {
+    const da = this.parseDate(a?.data_jogo)?.getTime();
+    const db = this.parseDate(b?.data_jogo)?.getTime();
+    if (da != null && db != null) return da - db;
+    if (da != null) return -1;
+    if (db != null) return 1;
+    return String(a?.titulo || '').localeCompare(String(b?.titulo || ''), 'pt-BR');
   }
 
   private bidMatchesSearch(m: any, q: string): boolean {
@@ -508,6 +578,7 @@ export class MatchManagerComponent implements OnInit {
     private matchService: MatchService,
     private settingsService: SettingsService,
     private emailService: EmailService,
+    private eventoRhService: EventoRhService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -927,7 +998,7 @@ export class MatchManagerComponent implements OnInit {
   }
 
   async criarJogo() {
-    await this.abrirFormulario();
+    await this.abrirFormularioFases(null, false);
   }
 
   async editarJogo(match: any) {
@@ -935,8 +1006,686 @@ export class MatchManagerComponent implements OnInit {
   }
 
   async clonarJogo(match: any) {
-    // Chamamos o formulário passando a flag "isClone" = true
-    await this.abrirFormulario(match, true);
+    await this.abrirFormularioFases(match, true);
+  }
+
+  private escapeHtmlWizard(s: unknown): string {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /** ISO → valor datetime-local no fuso do browser. */
+  private formatIsoParaDatetimeLocal(iso: string | null | undefined): string {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch {
+      return '';
+    }
+  }
+
+  private dataJogoParaApenasData(dataJogoLocal: string): string {
+    if (!dataJogoLocal) return '';
+    const part = dataJogoLocal.trim().split('T')[0];
+    return /^\d{4}-\d{2}-\d{2}$/.test(part) ? part : '';
+  }
+
+  private toIsoWtPassLocal(local: string): string {
+    if (!local) return '';
+    const d = new Date(local);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+  }
+
+  private toIsoApenasDataWtPass(yyyyMmDd: string): string {
+    if (!yyyyMmDd || !/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd.trim())) return '';
+    const d = new Date(`${yyyyMmDd.trim()}T12:00:00`);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+  }
+
+  private buildInitialWizardState(match: any | null, isClone: boolean): MatchWizardState {
+    const emptyDados: MatchWizardDadosBid = {
+      titulo: '',
+      subtitulo: '',
+      setor_evento_id: 'null',
+      local: '',
+      banner: '',
+      link_extra: '',
+      informacoes_extras: '',
+      quantidade_premios: 1,
+      data_jogo_local: '',
+      data_inicio_apostas_local: '',
+      data_limite_aposta_local: '',
+      data_apuracao_local: '',
+    };
+
+    if (match && isClone) {
+      const tituloBase = String(match.titulo || '')
+        .replace(/\s*\(Cópia\)\s*$/i, '')
+        .trim();
+      const dados: MatchWizardDadosBid = {
+        ...emptyDados,
+        titulo: `${tituloBase || 'BID'} (Cópia)`,
+        subtitulo: match.subtitulo ? String(match.subtitulo) : '',
+        setor_evento_id: match.setor_evento_id != null ? String(match.setor_evento_id) : 'null',
+        local: match.local ? String(match.local) : '',
+        banner:
+          match.banner && String(match.banner).startsWith('http') ? String(match.banner) : '',
+        link_extra: match.link_extra ? String(match.link_extra) : '',
+        informacoes_extras: match.informacoes_extras ? String(match.informacoes_extras) : '',
+        quantidade_premios: Math.max(1, Number(match.quantidade_premios) || 1),
+        data_jogo_local: this.formatIsoParaDatetimeLocal(match.data_jogo),
+        data_inicio_apostas_local: this.formatIsoParaDatetimeLocal(match.data_inicio_apostas),
+        data_limite_aposta_local: this.formatIsoParaDatetimeLocal(match.data_limite_aposta),
+        data_apuracao_local: match.data_apuracao
+          ? this.formatIsoParaDatetimeLocal(match.data_apuracao)
+          : '',
+      };
+      const q = dados.quantidade_premios;
+      return {
+        dados,
+        grupos: { publico: false, ids: [] },
+        wtPass: {
+          ativo: false,
+          vagas: q,
+          permitir_lista_espera: true,
+          data_inicio_inscricao_local: dados.data_inicio_apostas_local,
+          data_limite_inscricao_local: dados.data_limite_aposta_local,
+          data_evento_yyyy_mm_dd: this.dataJogoParaApenasData(dados.data_jogo_local),
+        },
+        wtPassSeeded: false,
+      };
+    }
+
+    return {
+      dados: emptyDados,
+      grupos: { publico: false, ids: [] },
+      wtPass: {
+        ativo: false,
+        vagas: 1,
+        permitir_lista_espera: true,
+        data_inicio_inscricao_local: '',
+        data_limite_inscricao_local: '',
+        data_evento_yyyy_mm_dd: '',
+      },
+      wtPassSeeded: false,
+    };
+  }
+
+  private ensureWtPassDefaults(state: MatchWizardState): void {
+    const d = state.dados;
+    const q = Math.max(1, Number(d.quantidade_premios) || 1);
+    state.wtPass.vagas = q;
+    state.wtPass.data_inicio_inscricao_local = d.data_inicio_apostas_local;
+    state.wtPass.data_limite_inscricao_local = d.data_limite_aposta_local;
+    state.wtPass.data_evento_yyyy_mm_dd = this.dataJogoParaApenasData(d.data_jogo_local);
+  }
+
+  private buildMatchFormDataForGrupo(
+    dados: MatchWizardDadosBid,
+    grupoId: string,
+    motivo: string,
+  ): FormData {
+    const toIsoUtc = (v: string) => (v ? new Date(v).toISOString() : '');
+    const fd = new FormData();
+    fd.append('titulo', dados.titulo.trim());
+    fd.append('grupo_id', grupoId);
+    fd.append('setor_evento_id', dados.setor_evento_id || 'null');
+    fd.append('banner', dados.banner ?? '');
+    fd.append('subtitulo', dados.subtitulo ?? '');
+    fd.append('informacoes_extras', dados.informacoes_extras ?? '');
+    fd.append('link_extra', dados.link_extra ?? '');
+    fd.append('local', dados.local ?? '');
+    fd.append('data_jogo', toIsoUtc(dados.data_jogo_local) || dados.data_jogo_local);
+    fd.append(
+      'data_inicio_apostas',
+      toIsoUtc(dados.data_inicio_apostas_local) || dados.data_inicio_apostas_local,
+    );
+    fd.append(
+      'data_limite_aposta',
+      toIsoUtc(dados.data_limite_aposta_local) || dados.data_limite_aposta_local,
+    );
+    fd.append('data_apuracao', toIsoUtc(dados.data_apuracao_local) || '');
+    fd.append('quantidade_premios', String(Math.max(1, Number(dados.quantidade_premios) || 1)));
+    fd.append('motivo', motivo);
+    fd.append('adminId', String(this.currentUser.id));
+    return fd;
+  }
+
+  private buildWtPassBody(state: MatchWizardState): Record<string, unknown> | null {
+    if (!state.wtPass.ativo) return null;
+    const d = state.dados;
+    const w = state.wtPass;
+    const dataEventoIso = this.toIsoApenasDataWtPass(w.data_evento_yyyy_mm_dd);
+    const dataLimite = this.toIsoWtPassLocal(w.data_limite_inscricao_local);
+    const dataInicio = this.toIsoWtPassLocal(w.data_inicio_inscricao_local);
+    if (!dataEventoIso || !dataLimite) return null;
+    return {
+      titulo: d.titulo.trim() || null,
+      subtitulo: d.subtitulo?.trim() || null,
+      descricao: d.informacoes_extras?.trim() || null,
+      banner: d.banner?.trim() || null,
+      local: d.local?.trim() || null,
+      vagas: Math.max(1, Number(w.vagas) || 1),
+      permitir_lista_espera: w.permitir_lista_espera,
+      data_inicio_inscricao: dataInicio || '',
+      data_limite_inscricao: dataLimite,
+      data_evento: dataEventoIso,
+      adminId: this.currentUser.id,
+    };
+  }
+
+  private applyDadosBidToDom(d: MatchWizardDadosBid): void {
+    const setVal = (id: string, v: string) => {
+      const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el) el.value = v ?? '';
+    };
+    setVal('bid-w-titulo', d.titulo);
+    setVal('bid-w-subtitulo', d.subtitulo);
+    const setor = document.getElementById('bid-w-setorEventoId') as HTMLSelectElement | null;
+    if (setor) setor.value = d.setor_evento_id || 'null';
+    setVal('bid-w-local', d.local);
+    setVal('bid-w-banner', d.banner);
+    setVal('bid-w-linkExtra', d.link_extra);
+    setVal('bid-w-informacoesExtras', d.informacoes_extras);
+    const qtd = document.getElementById('bid-w-qtdPremios') as HTMLInputElement | null;
+    if (qtd) qtd.value = String(Math.max(1, Number(d.quantidade_premios) || 1));
+    setVal('bid-w-dataEvento', d.data_jogo_local);
+    setVal('bid-w-dataInicio', d.data_inicio_apostas_local);
+    setVal('bid-w-dataLimite', d.data_limite_aposta_local);
+    setVal('bid-w-dataApuracao', d.data_apuracao_local);
+  }
+
+  private readDadosBidFromDom(): MatchWizardDadosBid | null {
+    const getVal = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value ?? '';
+    const getTa = (id: string) =>
+      (document.getElementById(id) as HTMLTextAreaElement)?.value ?? '';
+    const titulo = getVal('bid-w-titulo').trim();
+    const dataJogo = getVal('bid-w-dataEvento');
+    if (!titulo || !dataJogo) {
+      Swal.showValidationMessage('Título e Data do Show/Jogo são obrigatórios.');
+      return null;
+    }
+    return {
+      titulo,
+      subtitulo: getVal('bid-w-subtitulo'),
+      setor_evento_id:
+        (document.getElementById('bid-w-setorEventoId') as HTMLSelectElement)?.value ?? 'null',
+      local: getVal('bid-w-local'),
+      banner: getVal('bid-w-banner'),
+      link_extra: getVal('bid-w-linkExtra'),
+      informacoes_extras: getTa('bid-w-informacoesExtras'),
+      quantidade_premios: Math.max(1, Math.floor(Number(getVal('bid-w-qtdPremios')) || 1)),
+      data_jogo_local: dataJogo,
+      data_inicio_apostas_local: getVal('bid-w-dataInicio'),
+      data_limite_aposta_local: getVal('bid-w-dataLimite'),
+      data_apuracao_local: getVal('bid-w-dataApuracao'),
+    };
+  }
+
+  private buildWizardFase1Html(setoresOptions: string, tituloInput: string): string {
+    return `
+        <div class="text-left space-y-4 px-2">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do BID</label>
+              <input id="bid-w-titulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 focus:ring-indigo-500 rounded-lg" value="${this.escapeHtmlWizard(tituloInput)}">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Subtítulo</label>
+              <input id="bid-w-subtitulo" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="Opcional">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-extrabold text-indigo-600 uppercase mb-1">Setor do evento</label>
+              <select id="bid-w-setorEventoId" class="swal2-select w-full m-0 h-10 text-sm border-indigo-200 bg-indigo-50/50 text-indigo-700 rounded-lg">
+                  <option value="null">— Nenhum</option>
+                  ${setoresOptions}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Local</label>
+              <input id="bid-w-local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Banner (URL da imagem)</label>
+                <input id="bid-w-banner" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://...">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link extra</label>
+                <input id="bid-w-linkExtra" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... (opcional)">
+              </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Informações extras</label>
+            <textarea id="bid-w-informacoesExtras" class="swal2-textarea w-full m-0 text-sm border-gray-300 rounded-lg" rows="3" placeholder="Texto livre (opcional)"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <div>
+                 <label class="block text-xs font-bold text-blue-600 uppercase mb-1">Qtd. Ingressos</label>
+                 <input id="bid-w-qtdPremios" type="number" min="1" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="1">
+              </div>
+              <div>
+                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Data do Show/Jogo</label>
+                 <input id="bid-w-dataEvento" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="">
+              </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-emerald-600 uppercase mb-1">Início das Apostas</label>
+                <input id="bid-w-dataInicio" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-emerald-200 rounded-lg" value="">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-rose-500 uppercase mb-1">Fim das Apostas</label>
+                <input id="bid-w-dataLimite" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-rose-200 rounded-lg" value="">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dia de apuração</label>
+                <input id="bid-w-dataApuracao" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="Opcional">
+            </div>
+          </div>
+        </div>
+      `;
+  }
+
+  private runWizardFase1(
+    state: MatchWizardState,
+    match: any | null,
+    isClone: boolean,
+  ): Promise<'cancel' | 'next'> {
+    const tituloModalBase = isClone ? '📑 Clonar BID' : 'Novo BID';
+    const tituloInput = state.dados.titulo || (isClone ? `${match?.titulo || ''} (Cópia)` : '');
+
+    const setoresOptions = this.setoresEvento
+      .map(
+        (s) =>
+          `<option value="${s.id}" ${state.dados.setor_evento_id === String(s.id) ? 'selected' : ''}>📌 ${this.escapeHtmlWizard(s.nome)}</option>`,
+      )
+      .join('');
+
+    return Swal.fire({
+      title: `${tituloModalBase} — Etapa 1 de 3`,
+      width: '700px',
+      html: this.buildWizardFase1Html(setoresOptions, tituloInput),
+      focusConfirm: false,
+      showCancelButton: true,
+      showDenyButton: false,
+      confirmButtonColor: '#4f46e5',
+      confirmButtonText: 'Próximo',
+      cancelButtonText: 'Cancelar',
+      didOpen: () => {
+        this.applyDadosBidToDom(state.dados);
+        if (match && isClone) {
+          const bannerEl = document.getElementById('bid-w-banner') as HTMLInputElement;
+          if (bannerEl && match.banner) bannerEl.value = match.banner.startsWith('http') ? match.banner : '';
+        }
+        if (!isClone) {
+          const titleEl = document.querySelector('.swal2-title') as HTMLElement | null;
+          if (titleEl) {
+            titleEl.style.display = 'flex';
+            titleEl.style.alignItems = 'center';
+            titleEl.style.justifyContent = 'center';
+            titleEl.style.width = '100%';
+            titleEl.style.gap = '10px';
+            titleEl.innerHTML =
+              '<span style="display:inline-flex;align-items:center;gap:10px"><img src="assets/allianz_ticket_blue_cartoon.png" alt="" style="width:50px;height:50px;object-fit:contain" />Novo BID — Etapa 1 de 3</span>';
+          }
+        }
+      },
+      preConfirm: () => {
+        const dados = this.readDadosBidFromDom();
+        if (!dados) return false;
+        state.dados = dados;
+        return true;
+      },
+    }).then((r) => {
+      if (r.isConfirmed) return 'next' as const;
+      return 'cancel' as const;
+    });
+  }
+
+  private updateWizardGrupoCount(): void {
+    const pub = (document.getElementById('bid-w-g-publico') as HTMLInputElement)?.checked;
+    const ids: number[] = [];
+    document.querySelectorAll<HTMLInputElement>('[data-bid-w-gid]:checked').forEach((el) => {
+      const id = el.getAttribute('data-bid-w-gid');
+      if (id) ids.push(Number(id));
+    });
+    let n = ids.length;
+    if (pub) n += 1;
+    const el = document.getElementById('bid-wizard-count');
+    if (el) el.textContent = String(n);
+  }
+
+  private buildWizardFase2Html(state: MatchWizardState): string {
+    const gruposHtml = this.groups
+      .map((g) => {
+        const checked = state.grupos.ids.includes(Number(g.id)) ? 'checked' : '';
+        return `<label class="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 cursor-pointer">
+          <input type="checkbox" data-bid-w-gid="${g.id}" class="rounded border-gray-300" ${checked} />
+          <span class="text-sm text-gray-800">🎲 ${this.escapeHtmlWizard(g.nome)}</span>
+        </label>`;
+      })
+      .join('');
+    return `
+      <div class="text-left space-y-3 px-1">
+        <p class="text-sm text-gray-600">Serão criados <strong id="bid-wizard-count">0</strong> BID(s) (um por opção selecionada).</p>
+        <p class="text-xs text-gray-500">Marque <strong>Público</strong> e/ou um ou mais grupos.</p>
+        <div class="max-h-52 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+          <label class="flex items-center gap-2 py-2 border-b border-amber-100 mb-1 cursor-pointer font-medium text-amber-800">
+            <input type="checkbox" id="bid-w-g-publico" class="rounded border-amber-300" ${state.grupos.publico ? 'checked' : ''} />
+            <span>👥 Público (Todos)</span>
+          </label>
+          ${gruposHtml || '<p class="text-gray-400 text-sm py-2">Nenhum grupo cadastrado.</p>'}
+        </div>
+      </div>
+    `;
+  }
+
+  private attachWizardFase2Handlers(): void {
+    const upd = () => this.updateWizardGrupoCount();
+    document.getElementById('bid-w-g-publico')?.addEventListener('change', upd);
+    document.querySelectorAll('[data-bid-w-gid]').forEach((el) => el.addEventListener('change', upd));
+    upd();
+  }
+
+  private readGruposFromDom(state: MatchWizardState): boolean {
+    const publico = !!(document.getElementById('bid-w-g-publico') as HTMLInputElement)?.checked;
+    const ids: number[] = [];
+    document.querySelectorAll<HTMLInputElement>('[data-bid-w-gid]:checked').forEach((el) => {
+      const id = el.getAttribute('data-bid-w-gid');
+      if (id) ids.push(Number(id));
+    });
+    if (!publico && ids.length === 0) {
+      Swal.showValidationMessage('Selecione pelo menos Público ou um grupo.');
+      return false;
+    }
+    state.grupos = { publico, ids };
+    return true;
+  }
+
+  private runWizardFase2(state: MatchWizardState): Promise<'cancel' | 'back' | 'next'> {
+    return Swal.fire({
+      title: 'Grupos — Etapa 2 de 3',
+      width: '520px',
+      html: this.buildWizardFase2Html(state),
+      focusConfirm: false,
+      showCancelButton: true,
+      showDenyButton: true,
+      denyButtonText: 'Voltar',
+      denyButtonColor: '#6b7280',
+      confirmButtonColor: '#4f46e5',
+      confirmButtonText: 'Próximo',
+      cancelButtonText: 'Cancelar',
+      didOpen: () => this.attachWizardFase2Handlers(),
+      preConfirm: () => this.readGruposFromDom(state),
+    }).then((r) => {
+      if (r.isConfirmed) return 'next' as const;
+      if (r.isDenied) return 'back' as const;
+      return 'cancel' as const;
+    });
+  }
+
+  private buildWizardFase3Html(): string {
+    return `
+      <div class="text-left space-y-4 px-2">
+        <label class="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
+          <input type="checkbox" id="bid-w-wt-ativo" class="rounded border-gray-300" />
+          <span>Criar evento WT Pass paralelo?</span>
+        </label>
+        <div id="bid-w-wt-fields" class="space-y-3 hidden border border-gray-100 rounded-lg p-3 bg-gray-50/80">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-blue-600 uppercase mb-1" for="bid-w-wt-vagas">Vagas</label>
+              <input id="bid-w-wt-vagas" type="number" min="1" class="swal2-input w-full m-0 h-10 text-sm" />
+            </div>
+            <div class="flex items-end pb-1">
+              <label class="flex items-center gap-2 text-xs font-medium text-gray-600">
+                <input id="bid-w-wt-fila" type="checkbox" checked class="rounded border-gray-300" />
+                Lista de espera
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1" for="bid-w-wt-evento">Data do evento (WT Pass)</label>
+            <input id="bid-w-wt-evento" type="date" class="swal2-input w-full m-0 h-10 text-sm" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-emerald-600 uppercase mb-1" for="bid-w-wt-ini">Início das inscrições</label>
+              <input id="bid-w-wt-ini" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-rose-500 uppercase mb-1" for="bid-w-wt-lim">Fim das inscrições</label>
+              <input id="bid-w-wt-lim" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm" />
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private applyWtPassToDom(state: MatchWizardState): void {
+    const ativo = document.getElementById('bid-w-wt-ativo') as HTMLInputElement | null;
+    const fields = document.getElementById('bid-w-wt-fields');
+    if (ativo) ativo.checked = state.wtPass.ativo;
+    if (fields) {
+      if (state.wtPass.ativo) fields.classList.remove('hidden');
+      else fields.classList.add('hidden');
+    }
+    const setN = (id: string, v: string) => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el) el.value = v;
+    };
+    setN('bid-w-wt-vagas', String(Math.max(1, Number(state.wtPass.vagas) || 1)));
+    const fila = document.getElementById('bid-w-wt-fila') as HTMLInputElement | null;
+    if (fila) fila.checked = state.wtPass.permitir_lista_espera !== false;
+    setN('bid-w-wt-evento', state.wtPass.data_evento_yyyy_mm_dd || '');
+    setN('bid-w-wt-ini', state.wtPass.data_inicio_inscricao_local || '');
+    setN('bid-w-wt-lim', state.wtPass.data_limite_inscricao_local || '');
+  }
+
+  private attachWizardFase3Handlers(state: MatchWizardState): void {
+    const ativo = document.getElementById('bid-w-wt-ativo') as HTMLInputElement | null;
+    const fields = document.getElementById('bid-w-wt-fields');
+    const toggle = () => {
+      if (!fields) return;
+      if (ativo?.checked) fields.classList.remove('hidden');
+      else fields.classList.add('hidden');
+    };
+    ativo?.addEventListener('change', () => {
+      state.wtPass.ativo = !!ativo.checked;
+      toggle();
+    });
+    this.applyWtPassToDom(state);
+    toggle();
+  }
+
+  private readWtPassFromDom(state: MatchWizardState): boolean {
+    const ativo = !!(document.getElementById('bid-w-wt-ativo') as HTMLInputElement)?.checked;
+    if (!ativo) {
+      state.wtPass.ativo = false;
+      return true;
+    }
+    const vagas = Math.max(1, Math.floor(Number((document.getElementById('bid-w-wt-vagas') as HTMLInputElement)?.value) || 1));
+    const permitir_lista_espera =
+      (document.getElementById('bid-w-wt-fila') as HTMLInputElement)?.checked ?? true;
+    const data_evento_yyyy_mm_dd =
+      (document.getElementById('bid-w-wt-evento') as HTMLInputElement)?.value?.trim() || '';
+    const data_inicio_inscricao_local =
+      (document.getElementById('bid-w-wt-ini') as HTMLInputElement)?.value || '';
+    const data_limite_inscricao_local =
+      (document.getElementById('bid-w-wt-lim') as HTMLInputElement)?.value || '';
+    if (!data_limite_inscricao_local || !data_evento_yyyy_mm_dd) {
+      Swal.showValidationMessage('WT Pass: data do evento e fim das inscrições são obrigatórios.');
+      return false;
+    }
+    if (!this.toIsoApenasDataWtPass(data_evento_yyyy_mm_dd)) {
+      Swal.showValidationMessage('WT Pass: data do evento inválida.');
+      return false;
+    }
+    state.wtPass = {
+      ativo: true,
+      vagas,
+      permitir_lista_espera,
+      data_inicio_inscricao_local,
+      data_limite_inscricao_local,
+      data_evento_yyyy_mm_dd,
+    };
+    return true;
+  }
+
+  private runWizardFase3(state: MatchWizardState): Promise<'cancel' | 'back' | 'next'> {
+    return Swal.fire({
+      title: 'WT Pass — Etapa 3 de 3',
+      width: '560px',
+      html: this.buildWizardFase3Html(),
+      focusConfirm: false,
+      showCancelButton: true,
+      showDenyButton: true,
+      denyButtonText: 'Voltar',
+      denyButtonColor: '#6b7280',
+      confirmButtonColor: '#4f46e5',
+      confirmButtonText: 'Salvar',
+      cancelButtonText: 'Cancelar',
+      didOpen: () => this.attachWizardFase3Handlers(state),
+      preConfirm: () => this.readWtPassFromDom(state),
+    }).then((r) => {
+      if (r.isConfirmed) return 'next' as const;
+      if (r.isDenied) return 'back' as const;
+      return 'cancel' as const;
+    });
+  }
+
+  private finishWizardSubmit(
+    okCount: number,
+    failed: { label: string; err?: unknown }[],
+    wtOk: boolean | null,
+    wtErr: string | null,
+  ): void {
+    this.loading = false;
+    this.cdr.detectChanges();
+    let msg = `${okCount} BID(s) criado(s) com sucesso.`;
+    if (failed.length) {
+      msg += ` Falha em: ${failed.map((f) => f.label).join(', ')}.`;
+    }
+    if (wtOk === true) msg += ' Evento WT Pass criado.';
+    if (wtOk === false && wtErr) msg += ` WT Pass: ${wtErr}`;
+    const icon = failed.length || wtOk === false ? 'warning' : 'success';
+    Swal.fire({ title: failed.length || wtOk === false ? 'Concluído com avisos' : 'Sucesso!', text: msg, icon });
+    this.carregar();
+  }
+
+  private submitWizardState(state: MatchWizardState, match: any | null, isClone: boolean): void {
+    const titulo = state.dados.titulo.trim();
+    const targets: { grupo_id: string; label: string }[] = [];
+    if (state.grupos.publico) targets.push({ grupo_id: 'null', label: 'Público' });
+    for (const gid of state.grupos.ids) {
+      const g = this.groups.find((x) => Number(x.id) === Number(gid));
+      targets.push({ grupo_id: String(gid), label: g?.nome || `Grupo ${gid}` });
+    }
+
+    const baseMotivo = isClone
+      ? `Clonagem do evento: ${match?.titulo || '?'} -> ${titulo}`
+      : `Criação do evento: ${titulo}`;
+
+    const requests = targets.map((t) =>
+      this.matchService
+        .createMatch(
+          this.buildMatchFormDataForGrupo(state.dados, t.grupo_id, `${baseMotivo} [${t.label}]`),
+        )
+        .pipe(
+          map(() => ({ ok: true as const, label: t.label })),
+          catchError((err) => of({ ok: false as const, label: t.label, err })),
+        ),
+    );
+
+    this.loading = true;
+    this.cdr.detectChanges();
+
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        const failed = results.filter((r) => !r.ok) as { ok: false; label: string; err: unknown }[];
+        const okCount = results.filter((r) => r.ok).length;
+
+        const wtBody = this.buildWtPassBody(state);
+        if (state.wtPass.ativo) {
+          if (!wtBody) {
+            this.finishWizardSubmit(
+              okCount,
+              failed,
+              false,
+              'Dados do WT Pass inválidos. Verifique as datas.',
+            );
+            return;
+          }
+          this.eventoRhService.createEvento(wtBody).subscribe({
+            next: () => this.finishWizardSubmit(okCount, failed, true, null),
+            error: (err: { error?: { error?: string } }) =>
+              this.finishWizardSubmit(
+                okCount,
+                failed,
+                false,
+                err.error?.error || 'Falha ao criar WT Pass.',
+              ),
+          });
+        } else {
+          this.finishWizardSubmit(okCount, failed, null, null);
+        }
+      },
+      error: () => {
+        this.loading = false;
+        this.cdr.detectChanges();
+        Swal.fire('Erro', 'Falha ao criar BIDs.', 'error');
+      },
+    });
+  }
+
+  async abrirFormularioFases(match: any = null, isClone: boolean = false): Promise<void> {
+    const state = this.buildInitialWizardState(match, isClone);
+    let step: 1 | 2 | 3 = 1;
+
+    for (;;) {
+      if (step === 1) {
+        const r = await this.runWizardFase1(state, match, isClone);
+        if (r === 'cancel') return;
+        step = 2;
+        continue;
+      }
+      if (step === 2) {
+        const r = await this.runWizardFase2(state);
+        if (r === 'cancel') return;
+        if (r === 'back') {
+          step = 1;
+          continue;
+        }
+        if (!state.wtPassSeeded) {
+          this.ensureWtPassDefaults(state);
+          state.wtPassSeeded = true;
+        }
+        step = 3;
+        continue;
+      }
+      if (step === 3) {
+        const r = await this.runWizardFase3(state);
+        if (r === 'cancel') return;
+        if (r === 'back') {
+          step = 2;
+          continue;
+        }
+        this.submitWizardState(state, match, isClone);
+        return;
+      }
+    }
   }
 
   async excluirJogo(match: any) {

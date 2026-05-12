@@ -1,9 +1,11 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
+import { EventoRhHistoricoItem, EventoRhService } from '../../services/evento-rh.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/wt-pass-inscricao';
 
 @Component({
   selector: 'app-history',
@@ -12,15 +14,29 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
   template: `
     <div class="history-theme min-h-0 bg-[var(--app-bg)] p-3 sm:p-4 md:p-6 lg:p-8 pb-10 font-sans">
       <div class="max-w-full mx-auto">
-        <div class="mb-4 sm:mb-6 lg:mb-8">
+        <div class="mb-4 sm:mb-6 lg:mb-4">
           <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-[var(--app-text)] tracking-tight flex items-center gap-2 sm:gap-3">
             <span class="text-3xl sm:text-4xl">🏛️</span> Hall da Fama e Histórico
           </h1>
           <p class="text-[var(--app-text-muted)] font-medium text-xs sm:text-sm mt-1">
-            Veja como foram os BIDs passados, estatísticas de pontos e os grandes vencedores.
+            {{
+              aba === 'bid'
+                ? 'Veja como foram os BIDs passados, estatísticas de pontos e os grandes vencedores.'
+                : 'O seu histórico de inscrições no WT Pass (uma inscrição por evento).'
+            }}
           </p>
         </div>
 
+        <div class="flex flex-wrap gap-1 border-b border-[var(--app-border)] mb-5 sm:mb-6">
+          <button type="button" (click)="aba = 'bid'" [ngClass]="abaTabClass('bid')">
+            Hall da Fama (BIDs)
+          </button>
+          <button type="button" (click)="selecionarAbaWtPass()" [ngClass]="abaTabClass('wtpass')">
+            WT Pass
+          </button>
+        </div>
+
+        <ng-container *ngIf="aba === 'bid'">
         <div *ngIf="loading" class="flex justify-center py-12 sm:py-20">
           <div class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-indigo-600"></div>
         </div>
@@ -103,13 +119,13 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
                 </div>
 
                 <div
-                  class="bg-rose-50/50 border border-rose-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
+                  class="bg-[var(--wt-pink-surface)] border border-[var(--wt-pink-border)] p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
-                  <span class="text-[9px] sm:text-[10px] font-black text-rose-400 uppercase tracking-widest"
+                  <span class="text-[9px] sm:text-[10px] font-black text-[var(--wt-pink-muted)] uppercase tracking-widest"
                     >Nota de Corte</span
                   >
-                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-rose-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
-                    {{ match.nota_corte }} <span class="text-[9px] sm:text-[10px] text-rose-400">pts</span>
+                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-[var(--wt-pink-strong)] leading-none mt-0.5 sm:mt-1 truncate max-w-full">
+                    {{ match.nota_corte }} <span class="text-[9px] sm:text-[10px] text-[var(--wt-pink-muted)]">pts</span>
                   </span>
                 </div>
               </div>
@@ -158,22 +174,253 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
             </div>
           </div>
         </div>
+        </ng-container>
+
+        <ng-container *ngIf="aba === 'wtpass'">
+          <div *ngIf="loadingWt" class="flex justify-center py-12 sm:py-20">
+            <div class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-indigo-600"></div>
+          </div>
+          <div
+            *ngIf="!loadingWt && historicoWt.length === 0"
+            class="text-center py-12 sm:py-20 bg-[var(--color-bg-surface)] rounded-xl lg:rounded-[2rem] border border-[var(--app-border)]"
+          >
+            <span class="text-4xl sm:text-5xl block mb-3 grayscale opacity-30">📭</span>
+            <h3 class="text-[var(--app-text-muted)] font-bold uppercase tracking-widest text-xs sm:text-sm px-2">
+              Ainda não há inscrições WT Pass no seu histórico.
+            </h3>
+          </div>
+          <div
+            *ngIf="!loadingWt && historicoWt.length > 0"
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pb-10"
+          >
+            <div
+              *ngFor="let h of historicoWt"
+              class="bg-[var(--color-bg-surface)] rounded-2xl hover:-translate-y-1 border border-[var(--app-border)] overflow-hidden transition-all duration-300 flex flex-col relative group h-full"
+            >
+              <div class="h-40 w-full bg-gray-200 relative overflow-hidden shrink-0">
+                <img
+                  [src]="getWtBannerUrl(h)"
+                  [alt]="h.titulo || 'Evento'"
+                  class="w-full h-full object-cover"
+                  (error)="$any($event.target).src = 'assets/placeholder.jpg'"
+                />
+                <div class="absolute inset-0 bg-black/20"></div>
+                <div class="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-[1]">
+                  <span
+                    class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                    [ngClass]="{
+                      'bg-emerald-500 text-white': statusBadgeWtHistorico(h) === 'Aberto',
+                      'bg-blue-600 text-white': statusBadgeWtHistorico(h) === 'Em Breve',
+                      'bg-gray-800 text-white': statusBadgeWtHistorico(h) === 'Fechado'
+                    }"
+                  >
+                    {{ statusBadgeWtHistorico(h) }}
+                  </span>
+                  <span
+                    *ngIf="seloDestaqueHistoricoWt(h) as selo"
+                    class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                    [ngClass]="{
+                      'bg-amber-500 text-white': selo.tone === 'amber',
+                      'bg-emerald-600 text-white': selo.tone === 'emerald',
+                      'bg-slate-600 text-white': selo.tone === 'slate'
+                    }"
+                  >
+                    {{ selo.texto }}
+                  </span>
+                </div>
+              </div>
+              <div class="p-4 flex-1 flex flex-col">
+                <div class="mb-4">
+                  <h2 class="text-xl font-black text-[var(--app-text)] leading-tight line-clamp-2 pr-1 min-w-0">
+                    {{ h.titulo || 'Sem título' }}
+                  </h2>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 text-xs pb-4 border-b border-[var(--app-border)]">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded text-[10px] uppercase shrink-0"
+                      >GERAL</span
+                    >
+                    <div class="flex items-center gap-1.5 text-[var(--app-text-muted)] min-w-0">
+                      <span class="text-rose-500 text-sm shrink-0">📍</span>
+                      <span class="font-medium truncate max-w-[120px]">{{ h.local || 'Local a definir' }}</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-end shrink-0">
+                    <span class="text-[9px] font-bold uppercase text-[var(--app-text-muted)]">Data do Evento</span>
+                    <div class="flex items-center gap-1 text-[var(--app-text)]">
+                      <span class="text-indigo-400">📅</span>
+                      <span class="font-bold">{{ formatarDataCurtaWt(h.data_evento) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 items-stretch">
+                  <div
+                    class="rounded-xl lg:rounded-2xl border px-2 sm:px-3 py-3 text-center flex flex-col items-center justify-center min-h-[5.5rem] sm:min-h-[6rem] min-w-0 h-full"
+                    [ngClass]="
+                      situacaoWtHistoricoCancelada(h)
+                        ? 'border bg-[var(--wt-pink-surface)] border-[var(--wt-pink-border)]'
+                        : 'border-emerald-100 bg-emerald-50/50 dark:bg-emerald-500/10 dark:border-emerald-400/20'
+                    "
+                  >
+                    <div
+                      class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest"
+                      [ngClass]="
+                        situacaoWtHistoricoCancelada(h)
+                          ? 'text-[var(--wt-pink-muted)]'
+                          : 'text-emerald-400'
+                      "
+                    >
+                      Situação
+                    </div>
+                    <div
+                      class="text-base sm:text-lg font-black leading-tight mt-0.5 sm:mt-1 line-clamp-2"
+                      [ngClass]="
+                        situacaoWtHistoricoCancelada(h)
+                          ? 'text-[var(--wt-pink-strong)]'
+                          : 'text-emerald-600 dark:text-emerald-300'
+                      "
+                    >
+                      {{ labelSituacaoWtHistorico(h) }}
+                    </div>
+                  </div>
+                  <div
+                    class="rounded-xl lg:rounded-2xl border border-indigo-100 bg-indigo-50/50 dark:bg-indigo-500/10 dark:border-indigo-400/20 px-2 sm:px-3 py-3 flex flex-col items-center justify-center gap-1 min-h-[5.5rem] sm:min-h-[6rem] min-w-0 h-full text-center"
+                    role="group"
+                    title="Ocupação do evento: vagas preenchidas e disponíveis"
+                    [attr.aria-label]="
+                      h.ocupadas +
+                      ' de ' +
+                      (h.vagas || 0) +
+                      ' vagas ocupadas, ' +
+                      h.vagas_restantes +
+                      ' vagas livres'
+                    "
+                  >
+                    <div class="text-sm sm:text-base font-black tabular-nums leading-tight px-0.5 text-[var(--app-text)]">
+                      <span>{{ h.ocupadas }}</span>
+                      <span class="text-[var(--app-text-muted)] font-bold"> de </span>
+                      <span>{{ h.vagas || 0 }}</span>
+                      <span
+                        class="block text-[10px] sm:text-[11px] font-black text-[var(--app-text-muted)] normal-case tracking-normal mt-0.5"
+                        >vagas ocupadas</span
+                      >
+                    </div>
+                    <div
+                      class="text-[10px] sm:text-[11px] font-black tabular-nums leading-tight text-[var(--app-text)]"
+                    >
+                      <span>{{ h.vagas_restantes }}</span>
+                      <span class="text-[var(--app-text-muted)] font-bold"> vagas livres</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
       </div>
     </div>
   `,
 })
 export class HistoryComponent implements OnInit {
+  aba: 'bid' | 'wtpass' = 'bid';
   history: any[] = [];
+  historicoWt: EventoRhHistoricoItem[] = [];
   loading = true;
+  loadingWt = false;
+  private historicoWtJaSolicitado = false;
 
   // 1. INJEÇÃO DO ChangeDetectorRef ADICIONADA AQUI:
   constructor(
     private matchService: MatchService,
+    private eventoRhService: EventoRhService,
     private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
     this.carregarHistorico();
+  }
+
+  abaTabClass(tab: 'bid' | 'wtpass'): string {
+    const ativo = this.aba === tab;
+    return ativo
+      ? 'inline-flex items-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-t-lg text-xs sm:text-sm font-black border border-b-0 border-[var(--app-border)] bg-[var(--color-bg-surface)] text-[var(--app-text)] -mb-px z-10'
+      : 'inline-flex items-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-t-lg text-xs sm:text-sm font-bold text-[var(--app-text-muted)] hover:text-[var(--app-text)] bg-transparent';
+  }
+
+  selecionarAbaWtPass() {
+    this.aba = 'wtpass';
+    if (!this.historicoWtJaSolicitado) {
+      this.carregarHistoricoWt();
+    }
+  }
+
+  carregarHistoricoWt() {
+    this.historicoWtJaSolicitado = true;
+    this.loadingWt = true;
+    this.eventoRhService.listHistorico().subscribe({
+      next: (res) => {
+        const lista = res.historico || [];
+        this.historicoWt = [...lista].sort(
+          (a, b) =>
+            new Date(a.data_evento || 0).getTime() - new Date(b.data_evento || 0).getTime(),
+        );
+        this.loadingWt = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.loadingWt = false;
+        this.historicoWtJaSolicitado = false;
+        Swal.fire('Erro', 'Não foi possível carregar o histórico do WT Pass.', 'error');
+        this.cd.detectChanges();
+      },
+    });
+  }
+
+  getWtBannerUrl(ev: { banner?: string | null }): string {
+    if (!ev?.banner) return 'assets/placeholder.jpg';
+    if (String(ev.banner).startsWith('http')) return ev.banner;
+    return uploadsPublicUrl(ev.banner);
+  }
+
+  formatarDataCurtaWt(iso: string | null | undefined): string {
+    if (!iso) return '—';
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(new Date(iso));
+    } catch {
+      return '—';
+    }
+  }
+
+  /** Mesma lógica de `statusBadge` em `evento-rh-list` para uniformidade. */
+  statusBadgeWtHistorico(h: EventoRhHistoricoItem): string {
+    const agora = Date.now();
+    const ini = h?.data_inicio_inscricao ? new Date(h.data_inicio_inscricao).getTime() : 0;
+    const lim = h?.data_limite_inscricao ? new Date(h.data_limite_inscricao).getTime() : 0;
+    const eventoSt = String(h?.evento_status ?? '').toUpperCase().trim();
+    if (eventoSt !== 'ABERTO') return 'Fechado';
+    if (ini && agora < ini - 60_000) return 'Em Breve';
+    if (lim && agora > lim + 60_000) return 'Fechado';
+    return 'Aberto';
+  }
+
+  labelSituacaoWtHistorico(h: EventoRhHistoricoItem): string {
+    return rotuloSituacaoInscricaoWtPass(h, '—', this.statusBadgeWtHistorico(h) === 'Aberto');
+  }
+
+  situacaoWtHistoricoCancelada(h: EventoRhHistoricoItem): boolean {
+    return String(h?.inscricao_status ?? '')
+      .toUpperCase()
+      .trim() === 'CANCELADO';
+  }
+
+  seloDestaqueHistoricoWt(h: EventoRhHistoricoItem): ReturnType<typeof seloDestaqueWtPass> {
+    return seloDestaqueWtPass(h, this.statusBadgeWtHistorico(h) === 'Aberto');
   }
 
   carregarHistorico() {
@@ -369,9 +616,9 @@ export class HistoryComponent implements OnInit {
           <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Participantes</span>
           <span class="text-xl font-black text-emerald-600 leading-none mt-1">${totalParticipantes}<span class="text-[10px] text-emerald-400"> pessoas</span></span>
         </div>
-        <div class="bg-rose-50/80 border border-rose-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
-          <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest">Nota de Corte</span>
-          <span class="text-xl font-black text-rose-600 leading-none mt-1">${notaCorte}<span class="text-[10px] text-rose-400"> pts</span></span>
+        <div class="bg-[var(--wt-pink-surface)] border border-[var(--wt-pink-border)] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-black text-[var(--wt-pink-muted)] uppercase tracking-widest">Nota de Corte</span>
+          <span class="text-xl font-black text-[var(--wt-pink-strong)] leading-none mt-1">${notaCorte}<span class="text-[10px] text-[var(--wt-pink-muted)]"> pts</span></span>
         </div>
       </div>
     `;

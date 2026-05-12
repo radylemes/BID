@@ -72,6 +72,17 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             <span class="text-lg">📜</span> Política de Acesso
           </button>
           <button
+            (click)="abaAtual = 'wt-pass'; carregarWtPassSettings()"
+            [ngClass]="
+              abaAtual === 'wt-pass'
+                ? 'bg-indigo-100 text-indigo-700 font-bold'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
+            "
+            class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
+          >
+            <span class="text-lg">🎫</span> WT Pass
+          </button>
+          <button
             (click)="abaAtual = 'tenants-status'"
             [ngClass]="
               abaAtual === 'tenants-status'
@@ -343,6 +354,76 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             </div>
           </div>
 
+          <div *ngIf="abaAtual === 'wt-pass' && !loading" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 class="text-xl font-black text-[var(--app-text)]">Bloqueio do WT Pass</h3>
+                <p class="text-xs text-[var(--app-text-muted)] mt-1">
+                  Configure o limite de faltas antes de aplicar bloqueio e a duração desse bloqueio em
+                  número de eventos novos publicados.
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-[var(--color-bg-surface-alt)] border border-[var(--app-border)] rounded-xl p-4">
+                <label
+                  for="wt-pass-faltas"
+                  class="block text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-wide mb-2"
+                >
+                  Faltas permitidas antes do bloqueio
+                </label>
+                <input
+                  id="wt-pass-faltas"
+                  type="number"
+                  min="1"
+                  step="1"
+                  [(ngModel)]="wtPassFaltasPermitidas"
+                  class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow"
+                />
+                <p class="text-[11px] text-[var(--app-text-muted)] mt-2">
+                  Total de faltas acumuladas que o usuário pode ter antes de ser bloqueado.
+                </p>
+              </div>
+              <div class="bg-[var(--color-bg-surface-alt)] border border-[var(--app-border)] rounded-xl p-4">
+                <label
+                  for="wt-pass-eventos"
+                  class="block text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-wide mb-2"
+                >
+                  Duração do bloqueio (em eventos)
+                </label>
+                <input
+                  id="wt-pass-eventos"
+                  type="number"
+                  min="1"
+                  step="1"
+                  [(ngModel)]="wtPassEventosBloqueio"
+                  class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow"
+                />
+                <p class="text-[11px] text-[var(--app-text-muted)] mt-2">
+                  Quantos eventos novos precisam ser publicados para liberar o usuário punido.
+                </p>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-xs leading-relaxed">
+              Ao cumprir a penalidade, o contador de faltas do usuário é zerado automaticamente.
+              Bloqueios já em andamento mantêm a duração com a qual foram criados; só novos bloqueios
+              usarão os valores definidos aqui.
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                (click)="salvarWtPassSettings()"
+                [disabled]="salvandoWtPass"
+                class="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-xs uppercase tracking-wide transition-all"
+              >
+                {{ salvandoWtPass ? 'Salvando...' : 'Salvar configurações' }}
+              </button>
+            </div>
+          </div>
+
           <div *ngIf="abaAtual === 'tenants-status'">
             <app-tenants-status></app-tenants-status>
           </div>
@@ -378,6 +459,10 @@ export class SettingsComponent implements OnInit {
   templates: TemplateEmail[] = [];
   listasLoading = false;
   templatesLoading = false;
+
+  wtPassFaltasPermitidas = 1;
+  wtPassEventosBloqueio = 5;
+  salvandoWtPass = false;
 
   get tinymceInit(): Record<string, unknown> {
     return {
@@ -417,11 +502,13 @@ export class SettingsComponent implements OnInit {
         aba === 'email' ||
         aba === 'politica' ||
         aba === 'pontos' ||
+        aba === 'wt-pass' ||
         aba === 'tenants-status' ||
         aba === 'monitor'
       ) {
         this.abaAtual = aba;
         if (aba === 'email' || aba === 'politica') this.carregarSettings();
+        if (aba === 'wt-pass') this.carregarWtPassSettings();
       }
     });
   }
@@ -440,6 +527,53 @@ export class SettingsComponent implements OnInit {
         this.cd.detectChanges();
       },
     });
+  }
+
+  carregarWtPassSettings() {
+    this.loading = true;
+    this.settingsService.getWtPassSettings().subscribe({
+      next: (cfg) => {
+        this.wtPassFaltasPermitidas = Number(cfg?.wt_pass_faltas_permitidas) || 1;
+        this.wtPassEventosBloqueio = Number(cfg?.wt_pass_eventos_bloqueio) || 5;
+        this.loading = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        Swal.fire('Erro', 'Não foi possível carregar as configurações do WT Pass.', 'error');
+      },
+    });
+  }
+
+  salvarWtPassSettings() {
+    const faltas = Math.floor(Number(this.wtPassFaltasPermitidas));
+    const eventos = Math.floor(Number(this.wtPassEventosBloqueio));
+    if (!Number.isFinite(faltas) || faltas < 1 || !Number.isFinite(eventos) || eventos < 1) {
+      Swal.fire(
+        'Valores inválidos',
+        'Informe números inteiros maiores ou iguais a 1 para faltas e duração.',
+        'warning',
+      );
+      return;
+    }
+    this.salvandoWtPass = true;
+    this.settingsService
+      .updateWtPassSettings(
+        { wt_pass_faltas_permitidas: faltas, wt_pass_eventos_bloqueio: eventos },
+        this.currentUser?.id,
+      )
+      .subscribe({
+        next: (res) => {
+          this.wtPassFaltasPermitidas = Number(res?.wt_pass_faltas_permitidas) || faltas;
+          this.wtPassEventosBloqueio = Number(res?.wt_pass_eventos_bloqueio) || eventos;
+          this.salvandoWtPass = false;
+          Swal.fire('Salvo', 'Configurações do WT Pass atualizadas.', 'success');
+        },
+        error: (err: any) => {
+          this.salvandoWtPass = false;
+          Swal.fire('Erro', err?.error?.error || 'Falha ao salvar configurações.', 'error');
+        },
+      });
   }
 
   salvarSmtp() {

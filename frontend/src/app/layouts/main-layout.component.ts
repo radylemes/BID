@@ -84,6 +84,16 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
 
           <a
             *ngIf="!isPortaria"
+            routerLink="/eventos-rh"
+            [routerLinkActiveOptions]="{ exact: true }"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
+          >
+            <span class="mr-3 text-lg">📅</span> WT Pass
+          </a>
+
+          <a
+            *ngIf="!isPortaria"
             routerLink="/profile"
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
@@ -143,6 +153,13 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
               class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">🎫</span> Gerenciar Bids
+            </a>
+            <a
+              routerLink="/eventos-rh/manage"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
+            >
+              <span class="mr-3 text-lg">🗓️</span> Gerenciar WT Pass
             </a>
             <a
               *ngIf="isAdmin"
@@ -275,6 +292,8 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     '/users': 'Gerenciamento de Usuários',
     '/groups': 'Empresas',
     '/matches/manage': 'Gestão de Bids',
+    '/eventos-rh/manage': 'Gestão WT Pass',
+    '/eventos-rh': 'WT Pass',
     '/matches': 'Bids',
     '/auditoria': 'Logs de Auditoria',
     '/reception': 'App Portaria',

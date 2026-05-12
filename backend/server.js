@@ -5,6 +5,7 @@ const helmet = require("helmet");
 require("dotenv").config();
 const initializeDatabase = require("./config/setupDatabase");
 const initAutomations = require("./cron/automations");
+const { initEventoRhAutoClose } = require("./cron/eventoRhAutoClose");
 const passport = require("./config/passport");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -19,6 +20,7 @@ const auditRoutes = require("./routes/auditRoutes");
 const systemMonitorRoutes = require("./routes/systemMonitorRoutes");
 const setoresEventoRoutes = require("./routes/setoresEventoRoutes");
 const emailRoutes = require("./routes/emailRoutes");
+const eventoRhRoutes = require("./routes/eventoRhRoutes");
 const logErro = require("./utils/errorLogger");
 
 const app = express();
@@ -54,6 +56,7 @@ app.use("/api/audits", auditRoutes);
 app.use("/api/system-errors", systemMonitorRoutes);
 app.use("/api/setores-evento", setoresEventoRoutes);
 app.use("/api/email", emailRoutes);
+app.use("/api/eventos-rh", eventoRhRoutes);
 
 // Ficheiros estáticos sob /api/uploads → o proxy Nginx em /api/ encaminha ao Node
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads"), { index: false }));
@@ -73,6 +76,7 @@ app.get("/", (req, res) => {
 });
 
 initAutomations();
+initEventoRhAutoClose();
 // Inicializa Banco e depois sobe o servidor
 initializeDatabase().then(() => {
   app.listen(PORT, () => {

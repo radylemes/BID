@@ -700,8 +700,8 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
             <p class="text-xs sm:text-sm text-[var(--app-text-muted)] mt-2 leading-snug break-words">
               Pessoas autorizadas a retirar seus ingressos ganhos na portaria do evento.
               <span class="block mt-1 font-semibold text-[var(--app-text)]">
-                Atenção: cadastrar o convidado aqui não vincula automaticamente.
-                Após ser contemplado, é necessário associar o convidado ao ingresso ganho.
+                Após cadastrar o convidado e você ser contemplado como ganhador do BID, será necessário vinculá-lo ao evento do qual participará.
+                Apenas o cadastro do convidado nesta tela não garante seu vínculo ao evento.
               </span>
             </p>
           </div>

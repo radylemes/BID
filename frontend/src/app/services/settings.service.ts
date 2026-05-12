@@ -89,6 +89,33 @@ export class SettingsService {
     return this.http.get<Record<string, string>>(`${this.apiUrl}/export`);
   }
 
+  /** Configurações do bloqueio do WT Pass (faltas permitidas e duração em eventos). */
+  getWtPassSettings(): Observable<{
+    wt_pass_faltas_permitidas: number;
+    wt_pass_eventos_bloqueio: number;
+  }> {
+    return this.http.get<{
+      wt_pass_faltas_permitidas: number;
+      wt_pass_eventos_bloqueio: number;
+    }>(`${this.apiUrl}/wt-pass`);
+  }
+
+  updateWtPassSettings(
+    payload: { wt_pass_faltas_permitidas: number; wt_pass_eventos_bloqueio: number },
+    adminId?: number,
+  ): Observable<{
+    message: string;
+    wt_pass_faltas_permitidas: number;
+    wt_pass_eventos_bloqueio: number;
+  }> {
+    const body = adminId != null ? { ...payload, adminId } : payload;
+    return this.http.post<{
+      message: string;
+      wt_pass_faltas_permitidas: number;
+      wt_pass_eventos_bloqueio: number;
+    }>(`${this.apiUrl}/wt-pass`, body);
+  }
+
   updateSettings(settings: Record<string, string>, adminId?: number): Observable<{ message: string }> {
     const body = adminId != null ? { ...settings, adminId } : settings;
     return this.http.post<{ message: string }>(this.apiUrl, body);

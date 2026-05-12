@@ -42,6 +42,20 @@ router.get("/export", authMiddleware, settingsController.getExportSettings);
 router.get("/bid-policy", authMiddleware, settingsController.getBidPolicy);
 router.get("/bid-policy/document", authMiddleware, settingsController.getBidPolicyDocument);
 
+// Configurações específicas do WT Pass (ADMIN)
+router.get(
+  "/wt-pass",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  settingsController.getWtPassSettings,
+);
+router.post(
+  "/wt-pass",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  settingsController.updateWtPassSettings,
+);
+
 // Atualiza as configurações (ADMIN)
 router.post(
   "/",

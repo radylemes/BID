@@ -21,6 +21,8 @@ import { EmailTemplateEditorComponent } from './pages/email/email-template-edito
 import { DisparoEmailsComponent } from './pages/email/disparo-emails.component';
 import { TenantsStatusComponent } from './pages/tenants-status/tenants-status.component';
 import { PolicyAccessComponent } from './pages/policy/policy-access.component';
+import { EventoRhListComponent } from './pages/eventos-rh/evento-rh-list.component';
+import { EventoRhManagerComponent } from './pages/eventos-rh/evento-rh-manager.component';
 
 export const routes: Routes = [
   {
@@ -59,6 +61,8 @@ export const routes: Routes = [
       // Tela Inicial (Usuário vê stats e aposta)
       { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
       { path: 'politica-acesso', component: PolicyAccessComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
+      { path: 'eventos-rh', component: EventoRhListComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
+      { path: 'eventos-rh/manage', component: EventoRhManagerComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'minhas-apostas', component: MyBetsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
       { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
 
