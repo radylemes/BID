@@ -5,8 +5,8 @@ import { EventoRhService } from '../../services/evento-rh.service';
 import { SettingsService } from '../../services/settings.service';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { formatarInputCpf, normalizarCpfDigits } from '../../utils/cpf';
+import { exportWtPassInscritosXlsx } from '../../utils/export-wt-pass-inscritos-xlsx';
 import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-evento-rh-manager',
@@ -591,31 +591,7 @@ export class EventoRhManagerComponent implements OnInit {
   }
 
   private exportarInscritosXlsx(ev: any, rows: any[]): void {
-    const tituloSeguro = String(ev?.titulo || 'evento')
-      .replace(/[\\/:*?"<>|]+/g, '_')
-      .replace(/\s+/g, '_')
-      .slice(0, 50);
-    const head = ['#', 'Nome', 'CPF', 'Setor', 'Estado', 'Chamada'];
-    const dados: unknown[][] = [head];
-    for (const r of rows) {
-      const st = String(r.status || '');
-      let chamada = '—';
-      if (st === 'PRESENTE') chamada = 'Presente';
-      else if (st === 'FALTOU') chamada = 'Faltou';
-      else if (st === 'INSCRITO' || st === 'FILA_ESPERA') chamada = 'Pendente';
-      dados.push([
-        r.posicao_exibicao ?? r.posicao,
-        r.nome_completo ?? '',
-        normalizarCpfDigits(r.cpf) || '',
-        r.setor_nome || '',
-        st,
-        chamada,
-      ]);
-    }
-    const ws = XLSX.utils.aoa_to_sheet(dados);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Inscritos');
-    XLSX.writeFile(wb, `WT_Pass_inscritos_${ev.id}_${tituloSeguro}.xlsx`);
+    exportWtPassInscritosXlsx(ev, rows);
   }
 
   /** Título do SweetAlert do modal de inscrições. */

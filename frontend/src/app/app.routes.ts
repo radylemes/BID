@@ -23,6 +23,7 @@ import { TenantsStatusComponent } from './pages/tenants-status/tenants-status.co
 import { PolicyAccessComponent } from './pages/policy/policy-access.component';
 import { EventoRhListComponent } from './pages/eventos-rh/evento-rh-list.component';
 import { EventoRhManagerComponent } from './pages/eventos-rh/evento-rh-manager.component';
+import { RelatoriosComponent } from './pages/relatorios/relatorios.component';
 
 export const routes: Routes = [
   {
@@ -75,6 +76,7 @@ export const routes: Routes = [
       { path: 'settings/templates-email/new', component: EmailTemplateEditorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'email/disparo', component: DisparoEmailsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
+      { path: 'relatorios', component: RelatoriosComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'auditoria', component: AuditComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'monitor', component: SystemMonitorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'tenants-status', component: TenantsStatusComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },

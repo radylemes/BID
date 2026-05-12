@@ -1056,7 +1056,7 @@ exports.getMatchWinnersReport = async (req, res) => {
     const [rows] = await db.execute(
       `
       SELECT u.nome_completo AS titular_nome, s.nome AS titular_setor, a.valor_pago AS lance_pago,
-             c.nome_completo AS retirante_nome, c.cpf AS retirante_cpf, i.checkin
+             c.nome_completo AS retirante_nome, c.cpf AS retirante_cpf, i.checkin, i.data_checkin
       FROM apostas a
       JOIN ingressos i ON i.aposta_id = a.id
       JOIN usuarios u ON a.usuario_id = u.id
@@ -1067,7 +1067,21 @@ exports.getMatchWinnersReport = async (req, res) => {
     `,
       [req.params.id],
     );
-    res.json(rows);
+    const dbUtcToISO = (v) => {
+      if (!v) return null;
+      const s = String(v).trim().replace(" ", "T");
+      return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
+    };
+    const results = rows.map((row) => ({
+      titular_nome: row.titular_nome,
+      titular_setor: row.titular_setor,
+      lance_pago: row.lance_pago,
+      retirante_nome: row.retirante_nome,
+      retirante_cpf: row.retirante_cpf,
+      checkin: row.checkin,
+      data_checkin: dbUtcToISO(row.data_checkin),
+    }));
+    res.json(results);
   } catch (error) {
     await logErro("MATCH_CONTROLLER_WINNERS_REPORT", error);
     res.status(500).json({ error: "Erro." });

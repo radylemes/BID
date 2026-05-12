@@ -95,18 +95,6 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                 </div>
 
                 <div
-                  class="bg-amber-50/50 border border-amber-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
-                >
-                  <span class="text-[9px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest"
-                    >Aposta máxima</span
-                  >
-                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-amber-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
-                    {{ match.stats.aposta_maxima }}
-                    <span class="text-[9px] sm:text-[10px] text-amber-400">pts</span>
-                  </span>
-                </div>
-
-                <div
                   class="bg-emerald-50/50 border border-emerald-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
                 >
                   <span class="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest"
@@ -115,6 +103,18 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                   <span class="text-lg sm:text-xl lg:text-2xl font-black text-emerald-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
                     {{ match.stats.total_participantes }}
                     <span class="text-[9px] sm:text-[10px] text-emerald-400">pessoas</span>
+                  </span>
+                </div>
+
+                <div
+                  class="bg-amber-50/50 border border-amber-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
+                >
+                  <span class="text-[9px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest"
+                    >Aposta máxima</span
+                  >
+                  <span class="text-lg sm:text-xl lg:text-2xl font-black text-amber-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full">
+                    {{ match.stats.aposta_maxima }}
+                    <span class="text-[9px] sm:text-[10px] text-amber-400">pts</span>
                   </span>
                 </div>
 
@@ -608,13 +608,13 @@ export class HistoryComponent implements OnInit {
           <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Apostado</span>
           <span class="text-xl font-black text-indigo-700 leading-none mt-1">${totalPontos}<span class="text-[10px] text-indigo-400"> pts</span></span>
         </div>
-        <div class="bg-amber-50/80 border border-amber-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
-          <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Aposta máxima</span>
-          <span class="text-xl font-black text-amber-600 leading-none mt-1">${apostaMaxima}<span class="text-[10px] text-amber-400"> pts</span></span>
-        </div>
         <div class="bg-emerald-50/80 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
           <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Participantes</span>
           <span class="text-xl font-black text-emerald-600 leading-none mt-1">${totalParticipantes}<span class="text-[10px] text-emerald-400"> pessoas</span></span>
+        </div>
+        <div class="bg-amber-50/80 border border-amber-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Aposta máxima</span>
+          <span class="text-xl font-black text-amber-600 leading-none mt-1">${apostaMaxima}<span class="text-[10px] text-amber-400"> pts</span></span>
         </div>
         <div class="bg-[var(--wt-pink-surface)] border border-[var(--wt-pink-border)] p-4 rounded-2xl flex flex-col items-center justify-center text-center">
           <span class="text-[10px] font-black text-[var(--wt-pink-muted)] uppercase tracking-widest">Nota de Corte</span>
