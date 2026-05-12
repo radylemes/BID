@@ -200,7 +200,7 @@ interface MatchWizardState {
                 </th>
                 <th
                   class="w-[200px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle leading-tight"
-                  title="Ingressos disponíveis / Apostas realizadas (após apuração)"
+                  title="Ingressos disponíveis / Apostas realizadas"
                 >
                   Ingr. / Apostas
                 </th>
@@ -291,19 +291,19 @@ interface MatchWizardState {
                     <span
                       *ngIf="!isApuracaoEncerrada(m) && m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
-                      title="Não sorteados"
+                      title="Apostas realizadas"
                       ><span aria-hidden="true">🎟️</span> {{ m.ingressos_nao_sorteados }}</span
                     >
                     <span
-                      *ngIf="isApuracaoEncerrada(m)"
+                      *ngIf="isPrazoApostasEncerrado(m)"
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
                       title="Apostas realizadas"
                       ><span aria-hidden="true">🧾</span> {{ m.total_apostas_realizadas }}</span
                     >
                     <span
-                      *ngIf="!isApuracaoEncerrada(m) && (m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0)"
+                      *ngIf="!isPrazoApostasEncerrado(m) && (m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0)"
                       class="text-[var(--app-text-muted)] text-xs shrink-0"
-                      title="Não sorteados"
+                      title="Apostas realizadas"
                       >—</span
                     >
                   </div>
@@ -491,6 +491,12 @@ export class MatchManagerComponent implements OnInit {
     const apuracao = this.parseDate(m?.data_apuracao);
     if (!apuracao) return false;
     return Date.now() > apuracao.getTime();
+  }
+
+  isPrazoApostasEncerrado(m: any): boolean {
+    const limite = this.parseDate(m?.data_limite_aposta);
+    if (!limite) return false;
+    return Date.now() > limite.getTime();
   }
 
   canEditMatch(m: any): boolean {
