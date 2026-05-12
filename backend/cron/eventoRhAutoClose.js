@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
+const { executarMarcacaoNaoRetiradaWtPassAposEvento } = require("../controllers/eventoRhController");
 
 /**
  * Cadência do auto-encerramento. Por padrão a cada minuto — suficiente para que
@@ -84,12 +85,13 @@ async function executarAutoEncerramento() {
 function initEventoRhAutoClose() {
   const cronExpr = buildAutoEncerrarCron();
   console.log(
-    `🏁 Auto-encerramento WT Pass agendado: "${cronExpr}" (UTC para data_limite_inscricao).`,
+    `🏁 Auto-encerramento WT Pass + marcação «não retirada» agendados: "${cronExpr}" (UTC).`,
   );
 
   cron.schedule(cronExpr, async () => {
     try {
       await executarAutoEncerramento();
+      await executarMarcacaoNaoRetiradaWtPassAposEvento();
     } catch (error) {
       await logErro("EVENTO_RH_AUTO_ENCERRAR_CRON", error);
     }

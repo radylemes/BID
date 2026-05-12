@@ -954,6 +954,82 @@ exports.cancelarInscricao = async (req, res) => {
   }
 };
 
+/**
+ * Regras de bloqueio do WT Pass após uma falta (manual ou automática por não retirada).
+ * Mantém o mesmo comportamento que existia em `marcarPresenca` para status FALTOU.
+ */
+async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId) {
+  const cfg = await getWtPassConfig(connection);
+
+  const [[faltasRow]] = await connection.execute(
+    `SELECT COUNT(*) AS total
+       FROM inscricoes_rh
+      WHERE usuario_id = ?
+        AND status = 'FALTOU'
+        AND bloqueio_consumido_id IS NULL`,
+    [alvoId],
+  );
+  const faltasAtuais = Number(faltasRow?.total) || 0;
+
+  if (faltasAtuais < cfg.faltasPermitidas) return;
+
+  const [bloqInsert] = await connection.execute(
+    `INSERT INTO bloqueios_eventos_rh (usuario_id, evento_origem_id, eventos_restantes, eventos_total, ativo) VALUES (?, ?, ?, ?, 1)`,
+    [alvoId, eventoId, cfg.eventosBloqueio, cfg.eventosBloqueio],
+  );
+  const novoBloqueioId = bloqInsert.insertId;
+
+  const [futuros] = await connection.execute(
+    `SELECT e.id
+       FROM eventos_rh e
+      WHERE e.id <> ?
+        AND e.status = 'ABERTO'
+        AND (e.data_evento IS NULL OR DATE(e.data_evento) >= DATE(NOW()))
+        AND NOT EXISTS (
+          SELECT 1 FROM bloqueios_eventos_rh_alvos ba
+          WHERE ba.usuario_id = ? AND ba.evento_id = e.id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM inscricoes_rh i
+          WHERE i.evento_id = e.id AND i.usuario_id = ?
+            AND i.status <> 'CANCELADO'
+        )
+      ORDER BY e.data_evento ASC, e.id ASC
+      LIMIT ?`,
+    [eventoId, alvoId, alvoId, cfg.eventosBloqueio],
+  );
+  const aVincular = futuros;
+  for (const ev of aVincular) {
+    await connection.execute(
+      `INSERT IGNORE INTO bloqueios_eventos_rh_alvos (bloqueio_id, usuario_id, evento_id) VALUES (?, ?, ?)`,
+      [novoBloqueioId, alvoId, ev.id],
+    );
+  }
+
+  const vinculadosAgora = aVincular.length;
+  const restantes = Math.max(0, cfg.eventosBloqueio - vinculadosAgora);
+  if (restantes === 0) {
+    await connection.execute(
+      `UPDATE bloqueios_eventos_rh SET eventos_restantes = 0, ativo = 0 WHERE id = ?`,
+      [novoBloqueioId],
+    );
+  } else {
+    await connection.execute(
+      `UPDATE bloqueios_eventos_rh SET eventos_restantes = ? WHERE id = ?`,
+      [restantes, novoBloqueioId],
+    );
+  }
+
+  await connection.execute(
+    `UPDATE inscricoes_rh
+        SET bloqueio_consumido_id = ?
+      WHERE usuario_id = ?
+        AND status = 'FALTOU'
+        AND bloqueio_consumido_id IS NULL`,
+    [novoBloqueioId, alvoId],
+  );
+}
+
 exports.marcarPresenca = async (req, res) => {
   const eventoId = Number(req.params.id);
   const { usuario_id: alvoId, status, adminId } = req.body;
@@ -979,90 +1055,7 @@ exports.marcarPresenca = async (req, res) => {
     await connection.execute(`UPDATE inscricoes_rh SET status = ? WHERE id = ?`, [status, ins[0].id]);
 
     if (status === "FALTOU" && (prev === "INSCRITO" || prev === "FILA_ESPERA")) {
-      const cfg = await getWtPassConfig(connection);
-
-      // Conta as faltas "não consumidas" do usuário (incluindo a recém marcada).
-      const [[faltasRow]] = await connection.execute(
-        `SELECT COUNT(*) AS total
-           FROM inscricoes_rh
-          WHERE usuario_id = ?
-            AND status = 'FALTOU'
-            AND bloqueio_consumido_id IS NULL`,
-        [alvoId],
-      );
-      const faltasAtuais = Number(faltasRow?.total) || 0;
-
-      if (faltasAtuais >= cfg.faltasPermitidas) {
-        const [bloqInsert] = await connection.execute(
-          `INSERT INTO bloqueios_eventos_rh (usuario_id, evento_origem_id, eventos_restantes, eventos_total, ativo) VALUES (?, ?, ?, ?, 1)`,
-          [alvoId, eventoId, cfg.eventosBloqueio, cfg.eventosBloqueio],
-        );
-        const novoBloqueioId = bloqInsert.insertId;
-
-        // Vincula até N eventos «ativos» (ABERTO, data do evento ainda vigente),
-        // por ordem cronológica, **excluindo**:
-        // - o evento onde ocorreu a falta;
-        // - eventos já ligados a este utilizador em bloqueios_eventos_rh_alvos
-        //   (penalidades anteriores — não repetir a mesma vaga de bloqueio);
-        // - eventos em que o utilizador já tem inscrição/participação não cancelada
-        //   (só penaliza eventos em que ainda podia atuar como «próximo» WT Pass).
-        // O restante da duração (wt_pass_eventos_bloqueio) segue para createEvento.
-        const [futuros] = await connection.execute(
-          `SELECT e.id
-             FROM eventos_rh e
-            WHERE e.id <> ?
-              AND e.status = 'ABERTO'
-              AND (e.data_evento IS NULL OR DATE(e.data_evento) >= DATE(NOW()))
-              AND NOT EXISTS (
-                SELECT 1 FROM bloqueios_eventos_rh_alvos ba
-                WHERE ba.usuario_id = ? AND ba.evento_id = e.id
-              )
-              AND NOT EXISTS (
-                SELECT 1 FROM inscricoes_rh i
-                WHERE i.evento_id = e.id AND i.usuario_id = ?
-                  AND i.status <> 'CANCELADO'
-              )
-            ORDER BY e.data_evento ASC, e.id ASC
-            LIMIT ?`,
-          [eventoId, alvoId, alvoId, cfg.eventosBloqueio],
-        );
-        const aVincular = futuros;
-        for (const ev of aVincular) {
-          await connection.execute(
-            `INSERT IGNORE INTO bloqueios_eventos_rh_alvos (bloqueio_id, usuario_id, evento_id) VALUES (?, ?, ?)`,
-            [novoBloqueioId, alvoId, ev.id],
-          );
-        }
-
-        const vinculadosAgora = aVincular.length;
-        const restantes = Math.max(0, cfg.eventosBloqueio - vinculadosAgora);
-        if (restantes === 0) {
-          // Já tem futuros suficientes para cobrir toda a penalidade — desativa
-          // o bloqueio (eventos novos a publicar não precisam mais ser vinculados).
-          await connection.execute(
-            `UPDATE bloqueios_eventos_rh SET eventos_restantes = 0, ativo = 0 WHERE id = ?`,
-            [novoBloqueioId],
-          );
-        } else {
-          // Faltam eventos para completar a penalidade — mantém o bloqueio ativo
-          // e o restante será absorvido por createEvento → vincularEventoAosBloqueiosAtivos.
-          await connection.execute(
-            `UPDATE bloqueios_eventos_rh SET eventos_restantes = ? WHERE id = ?`,
-            [restantes, novoBloqueioId],
-          );
-        }
-
-        // Marca todas as faltas não consumidas como consumidas por este bloqueio,
-        // zerando o contador para o próximo ciclo.
-        await connection.execute(
-          `UPDATE inscricoes_rh
-              SET bloqueio_consumido_id = ?
-            WHERE usuario_id = ?
-              AND status = 'FALTOU'
-              AND bloqueio_consumido_id IS NULL`,
-          [novoBloqueioId, alvoId],
-        );
-      }
+      await aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId);
     }
 
     await gravarAuditoria(connection, adminId, "EVENTOS_RH", "PRESENCA", eventoId, {
@@ -1112,5 +1105,75 @@ exports.listAllForAdmin = async (req, res) => {
   } catch (error) {
     await logErro("EVENTO_RH_LIST_ADMIN", error);
     res.status(500).json({ error: "Erro ao listar eventos." });
+  }
+};
+
+/**
+ * Job: após o instante `data_evento`, inscrições com vaga (INSCRITO) que nunca
+ * fizeram check-in na portaria passam a FALTOU (não retirada), promove fila de
+ * espera e aplica as mesmas regras de bloqueio do WT Pass que uma falta manual.
+ */
+exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
+  try {
+    const [rows] = await db.query(
+      `SELECT i.id AS inscricao_id, i.evento_id, i.usuario_id
+         FROM inscricoes_rh i
+         INNER JOIN eventos_rh ev ON ev.id = i.evento_id
+        WHERE i.status = 'INSCRITO'
+          AND IFNULL(i.portaria_checkin, 0) = 0
+          AND ev.data_evento IS NOT NULL
+          AND ev.data_evento < UTC_TIMESTAMP()`,
+    );
+    if (!rows.length) return;
+
+    for (const row of rows) {
+      const c = await db.getConnection();
+      try {
+        await c.beginTransaction();
+        const [u] = await c.execute(
+          `SELECT id, status, portaria_checkin FROM inscricoes_rh WHERE id = ? FOR UPDATE`,
+          [row.inscricao_id],
+        );
+        if (
+          u.length === 0 ||
+          String(u[0].status) !== "INSCRITO" ||
+          Number(u[0].portaria_checkin) === 1
+        ) {
+          await c.rollback();
+          continue;
+        }
+
+        const [upd] = await c.execute(
+          `UPDATE inscricoes_rh SET status = 'FALTOU' WHERE id = ? AND status = 'INSCRITO' AND IFNULL(portaria_checkin, 0) = 0`,
+          [row.inscricao_id],
+        );
+        if (upd.affectedRows === 0) {
+          await c.rollback();
+          continue;
+        }
+
+        await promoverFilaEspera(c, row.evento_id);
+        await aplicarRegrasBloqueioAposFaltaWtPass(c, row.evento_id, row.usuario_id);
+
+        await gravarAuditoria(c, 1, "EVENTOS_RH", "WT_PASS_NAO_RETIRADA_AUTO", row.evento_id, {
+          motivo: truncateMotivo(
+            `Ingresso WT Pass não retirado após a data do evento (inscrição #${row.inscricao_id}, utilizador #${row.usuario_id}).`,
+          ),
+          usuario_id: row.usuario_id,
+          inscricao_id: row.inscricao_id,
+        });
+
+        await c.commit();
+      } catch (err) {
+        try {
+          await c.rollback();
+        } catch (_) {}
+        await logErro("EVENTO_RH_NAO_RETIRADA_ITEM", err);
+      } finally {
+        c.release();
+      }
+    }
+  } catch (error) {
+    await logErro("EVENTO_RH_NAO_RETIRADA_CRON", error);
   }
 };

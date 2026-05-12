@@ -144,7 +144,10 @@ exports.getEventGuests = async (req, res) => {
       INNER JOIN eventos_rh ev ON ev.id = i.evento_id AND ev.partida_id = ?
       INNER JOIN usuarios u ON u.id = i.usuario_id
       LEFT JOIN empresas em ON u.empresa_id = em.id
-      WHERE i.status = 'INSCRITO'
+      WHERE (
+          (i.status = 'INSCRITO' AND IFNULL(i.portaria_checkin, 0) = 0)
+          OR (i.status = 'PRESENTE' AND IFNULL(i.portaria_checkin, 0) = 1)
+        )
       ORDER BY u.nome_completo ASC
     `;
     const [rowsWt] = await db.execute(queryWt, [partidaId]);
@@ -228,9 +231,15 @@ exports.checkin = async (req, res) => {
       }
 
       const [upd] = await connection.execute(
-        `UPDATE inscricoes_rh SET portaria_checkin = 1, portaria_assinatura = ?, portaria_documento = ?,
-          portaria_recebedor_nome = ?, portaria_recebedor_cpf = ?, portaria_data_checkin = NOW()
-         WHERE id = ? AND status = 'INSCRITO' AND portaria_checkin = 0`,
+        `UPDATE inscricoes_rh SET
+          status = 'PRESENTE',
+          portaria_checkin = 1,
+          portaria_assinatura = ?,
+          portaria_documento = ?,
+          portaria_recebedor_nome = ?,
+          portaria_recebedor_cpf = ?,
+          portaria_data_checkin = NOW()
+         WHERE id = ? AND status = 'INSCRITO' AND IFNULL(portaria_checkin, 0) = 0`,
         [assinaturaBase64, documentoBase64, recebedorNome, recebedorCpf, inscricaoRhId],
       );
       if (upd.affectedRows === 0) {
