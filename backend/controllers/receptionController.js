@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
+const { normalizarCpfDigits } = require("../utils/cpf");
 
 async function gravarAuditoria(
   connection,
@@ -53,7 +54,9 @@ exports.getEventGuests = async (req, res) => {
   try {
     const query = `
       SELECT i.id as ingresso_id, i.aposta_id, i.checkin, i.assinatura, i.documento, i.recebedor_nome as aposta_recebedor_nome, i.recebedor_cpf as aposta_recebedor_cpf,
-        u.id as titular_id, u.nome_completo as titular_nome, e.nome as empresa, c.nome_completo as retirante_nome, c.cpf as retirante_cpf
+        u.id as titular_id, u.nome_completo as titular_nome, u.cpf as titular_cpf_db,
+        (SELECT c2.cpf FROM convidados c2 WHERE c2.usuario_id = u.id AND c2.vinculo_titular = 1 LIMIT 1) as titular_cpf_conv_padrao,
+        e.nome as empresa, c.nome_completo as retirante_nome, c.cpf as retirante_cpf
       FROM ingressos i
       JOIN apostas a ON i.aposta_id = a.id
       JOIN usuarios u ON i.usuario_id = u.id
@@ -63,20 +66,31 @@ exports.getEventGuests = async (req, res) => {
       ORDER BY u.nome_completo ASC
     `;
     const [rows] = await db.execute(query, [eventId]);
-    const formatedRows = rows.map((r) => ({
-      ingresso_id: r.ingresso_id,
-      aposta_id: r.aposta_id,
-      checkin: r.checkin === 1,
-      assinatura: r.assinatura,
-      documento: r.documento,
-      titular_id: r.titular_id,
-      titular_nome: r.titular_nome,
-      empresa: r.empresa || "Geral",
-      recebedor_nome: r.aposta_recebedor_nome || r.retirante_nome || "Pendente",
-      recebedor_cpf: r.aposta_recebedor_cpf || r.retirante_cpf || "---",
-      retirante_nome: r.retirante_nome || "Não indicado",
-      retirante_cpf: r.retirante_cpf || "---",
-    }));
+    const formatedRows = rows.map((r) => {
+      const titCpf =
+        normalizarCpfDigits(r.titular_cpf_db) ||
+        normalizarCpfDigits(r.titular_cpf_conv_padrao);
+      const retCpf = normalizarCpfDigits(r.retirante_cpf);
+      const apostaCpf = normalizarCpfDigits(r.aposta_recebedor_cpf);
+      /** Sem convidado vinculado: exibir CPF do titular (cadastro em usuarios). */
+      const retiranteCpfExibicao = retCpf || titCpf || "";
+      const recebedorCpfExibicao = apostaCpf || retCpf || titCpf || "";
+      return {
+        ingresso_id: r.ingresso_id,
+        aposta_id: r.aposta_id,
+        checkin: r.checkin === 1,
+        assinatura: r.assinatura,
+        documento: r.documento,
+        titular_id: r.titular_id,
+        titular_nome: r.titular_nome,
+        titular_cpf: titCpf || null,
+        empresa: r.empresa || "Geral",
+        recebedor_nome: r.aposta_recebedor_nome || r.retirante_nome || "Pendente",
+        recebedor_cpf: recebedorCpfExibicao || "---",
+        retirante_nome: r.retirante_nome || "Não indicado",
+        retirante_cpf: retiranteCpfExibicao || "---",
+      };
+    });
     res.json(formatedRows);
   } catch (error) {
     await logErro("RECEPTION_CONTROLLER_GET_EVENT_GUESTS", error);

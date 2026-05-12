@@ -223,7 +223,7 @@ import { environment } from '../../../environments/environment';
             <div class="flex-1 min-w-0">
               <p class="font-black text-gray-900 text-sm truncate">{{ group.retirante_nome }}</p>
               <p class="text-xs text-gray-500 truncate">Titular: {{ group.titular_nome }}</p>
-              <p class="text-[10px] text-gray-400 font-mono mt-0.5">CPF {{ group.retirante_cpf }}</p>
+              <p class="text-[10px] text-gray-400 font-mono mt-0.5">CPF {{ cpfRetiranteOuTitular(group) }}</p>
             </div>
             <span
               *ngIf="group.checkin"
@@ -292,7 +292,7 @@ import { environment } from '../../../environments/environment';
                           <span class="truncate">{{ group.retirante_nome }}</span>
                         </div>
                         <div class="text-[9px] sm:text-[10px] text-gray-400 font-mono mt-0.5 truncate">
-                          CPF: {{ group.retirante_cpf }}
+                          CPF: {{ cpfRetiranteOuTitular(group) }}
                         </div>
                       </div>
                     </div>
@@ -522,7 +522,7 @@ import { environment } from '../../../environments/environment';
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Convidado (Retirante)</p>
               <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.retirante_nome }}</p>
-              <p class="text-xs text-gray-500 font-mono mt-0.5">CPF: {{ selectedGroupForModal.retirante_cpf }}</p>
+              <p class="text-xs text-gray-500 font-mono mt-0.5">CPF: {{ cpfRetiranteOuTitular(selectedGroupForModal) }}</p>
             </div>
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Evento</p>
@@ -595,6 +595,23 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   /** Uma linha por ingresso (sem agrupar por retirante). */
   guestsList: any[] = [];
   searchTerm = '';
+
+  /** CPF do retirante ou do titular quando não houver indicação (usa `titular_cpf` da API). */
+  cpfRetiranteOuTitular(g: any): string {
+    const r = g?.retirante_cpf;
+    const t = g?.titular_cpf;
+    const rs = r != null ? String(r).trim() : '';
+    if (rs && rs !== '---') return rs;
+    const ts = t != null ? String(t).trim() : '';
+    return ts || '---';
+  }
+
+  /** Só dígitos para pré-preencher o check-in (vazio se não houver CPF). */
+  cpfParaCampoCheckin(g: any): string {
+    const v = this.cpfRetiranteOuTitular(g);
+    if (!v || v === '---') return '';
+    return v.replace(/\D/g, '');
+  }
 
   totalConvidados = 0;
   totalLiberados = 0;
@@ -759,15 +776,18 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   filteredGuests() {
     if (!this.searchTerm) return this.guestsList;
     const term = this.searchTerm.toLowerCase();
+    const termDigits = term.replace(/\D/g, '');
 
-    return this.guestsList.filter(
-      (g) =>
+    return this.guestsList.filter((g) => {
+      const cpf = this.cpfRetiranteOuTitular(g);
+      return (
         (g.retirante_nome && g.retirante_nome.toLowerCase().includes(term)) ||
-        (g.retirante_cpf && g.retirante_cpf.includes(term)) ||
+        (cpf !== '---' && (cpf.includes(term) || (termDigits.length > 0 && cpf.includes(termDigits)))) ||
         (g.empresa && g.empresa.toLowerCase().includes(term)) ||
         (g.titular_nome && g.titular_nome.toLowerCase().includes(term)) ||
-        (g.evento_titulo && g.evento_titulo.toLowerCase().includes(term)),
-    );
+        (g.evento_titulo && g.evento_titulo.toLowerCase().includes(term))
+      );
+    });
   }
 
   abrirAssinatura(guest: any) {
@@ -781,7 +801,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         aposta_id: guest.aposta_id,
         checkin: guest.checkin,
         recebedor_nome: guest.retirante_nome || '',
-        recebedor_cpf: guest.retirante_cpf || '',
+        recebedor_cpf: this.cpfParaCampoCheckin(guest),
         recebedor_documento: null as string | null,
       },
     ];

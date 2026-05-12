@@ -111,7 +111,7 @@ import { environment } from '../../../environments/environment';
                 Titular: {{ group.titular_nome }}
               </p>
               <p class="text-[10px] text-gray-400 font-mono mt-0.5">
-                CPF {{ group.retirante_cpf }}
+                CPF {{ cpfRetiranteOuTitular(group) }}
               </p>
               <p class="text-[10px] text-indigo-600 font-semibold mt-1">
                 {{ group.evento_titulo }} · {{ group.data_evento | date: 'dd/MM/yyyy HH:mm' }}
@@ -139,6 +139,15 @@ export class ReceptionConfirmedComponent implements OnInit {
   events: any[] = [];
   selectedEventId: number | null = null;
   confirmedList: any[] = [];
+
+  cpfRetiranteOuTitular(g: any): string {
+    const r = g?.retirante_cpf;
+    const t = g?.titular_cpf;
+    const rs = r != null ? String(r).trim() : '';
+    if (rs && rs !== '---') return rs;
+    const ts = t != null ? String(t).trim() : '';
+    return ts || '---';
+  }
 
   constructor(
     private http: HttpClient,
