@@ -109,12 +109,43 @@ async function initializeDatabase() {
         microsoft_id VARCHAR(255) NULL,
         foto VARCHAR(500) NULL,
         tema_preferido VARCHAR(50) NOT NULL DEFAULT 'claro',
+        cpf VARCHAR(11) NULL COMMENT 'Titular: 11 digitos, obrigatorio em criacao/edicao manual e importacao',
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE SET NULL,
         FOREIGN KEY (setor_id) REFERENCES setores(id) ON DELETE SET NULL,
         FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL
       );
     `);
+
+    // Migração: coluna cpf em usuarios (titular) + índice único (vários NULL permitidos no MySQL)
+    try {
+      const [cpfCol] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'cpf'`,
+        [process.env.DB_NAME],
+      );
+      if (cpfCol.length === 0) {
+        await connection.query(
+          `ALTER TABLE usuarios ADD COLUMN cpf VARCHAR(11) NULL COMMENT 'Titular: 11 digitos' AFTER tema_preferido`,
+        );
+        console.log("✅ Coluna usuarios.cpf adicionada.");
+      }
+      const [idxCpf] = await connection.query(
+        `SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'usuarios' AND INDEX_NAME = 'uniq_usuarios_cpf'`,
+        [process.env.DB_NAME],
+      );
+      if (idxCpf.length === 0) {
+        try {
+          await connection.query(
+            `ALTER TABLE usuarios ADD UNIQUE KEY uniq_usuarios_cpf (cpf)`,
+          );
+          console.log("✅ Índice uniq_usuarios_cpf adicionado à tabela usuarios.");
+        } catch (alterErr) {
+          console.warn("Aviso ao adicionar UNIQUE cpf em usuarios:", alterErr.message);
+        }
+      }
+    } catch (e) {
+      console.warn("Aviso ao migrar usuarios.cpf:", e.message);
+    }
 
     // ============================================================
     // 5. CONVIDADOS E HISTÓRICO DE PONTOS
@@ -127,6 +158,7 @@ async function initializeDatabase() {
         cpf VARCHAR(20) NOT NULL,
         email VARCHAR(255),
         telefone VARCHAR(20),
+        vinculo_titular TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = retirante e o proprio titular (nao excluir)',
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
         UNIQUE KEY uniq_usuario_cpf (usuario_id, cpf)
@@ -161,6 +193,22 @@ async function initializeDatabase() {
       }
     } catch (e) {
       console.warn("Aviso ao verificar/migrar índice convidados:", e.message);
+    }
+
+    // Migração: convidados.vinculo_titular (retirante = titular da conta)
+    try {
+      const [vincCol] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'convidados' AND COLUMN_NAME = 'vinculo_titular'`,
+        [process.env.DB_NAME],
+      );
+      if (vincCol.length === 0) {
+        await connection.query(
+          `ALTER TABLE convidados ADD COLUMN vinculo_titular TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = titular' AFTER telefone`,
+        );
+        console.log("✅ Coluna convidados.vinculo_titular adicionada.");
+      }
+    } catch (e) {
+      console.warn("Aviso ao migrar convidados.vinculo_titular:", e.message);
     }
 
     await connection.query(`
@@ -647,8 +695,10 @@ async function initializeDatabase() {
       await connection.query(
         "INSERT INTO grupos (id, nome, descricao) VALUES (1, 'Geral', 'Grupo de Apostas Padrão')",
       );
+      // CPF fictício válido apenas para seed de desenvolvimento (admin local).
+      const adminSeedCpf = "39053344705";
       await connection.query(
-        `INSERT INTO usuarios (username, nome_completo, email, senha_hash, is_ad_user, perfil, pontos, ativo, grupo_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO usuarios (username, nome_completo, email, senha_hash, is_ad_user, perfil, pontos, ativo, grupo_id, cpf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           "admin",
           "Administrador",
@@ -659,6 +709,7 @@ async function initializeDatabase() {
           1000,
           1,
           1,
+          adminSeedCpf,
         ],
       );
       console.log("👤 Admin padrão recriado.");

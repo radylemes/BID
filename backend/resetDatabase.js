@@ -85,10 +85,30 @@ async function resetDatabase() {
       "INSERT INTO grupos (id, nome, descricao) VALUES (1, 'Geral', 'Grupo de Apostas Padrão')",
     );
 
-    // Recria o admin apontando para os novos IDs (agora incluindo o grupo_id)
+    try {
+      const [cpfCol] = await connection.query(
+        "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'cpf'",
+      );
+      if (cpfCol.length === 0) {
+        await connection.query(
+          "ALTER TABLE usuarios ADD COLUMN cpf VARCHAR(11) NULL COMMENT 'Titular: 11 digitos' AFTER tema_preferido",
+        );
+      }
+      const [idxCpf] = await connection.query(
+        "SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND INDEX_NAME = 'uniq_usuarios_cpf'",
+      );
+      if (idxCpf.length === 0) {
+        await connection.query("ALTER TABLE usuarios ADD UNIQUE KEY uniq_usuarios_cpf (cpf)");
+      }
+    } catch (migErr) {
+      console.warn("Aviso ao garantir usuarios.cpf antes do seed:", migErr.message);
+    }
+
+    // CPF fictício válido apenas para seed após reset (admin local).
+    const adminSeedCpf = "39053344705";
     await connection.query(
-      `INSERT INTO usuarios (username, nome_completo, email, senha_hash, is_ad_user, perfil, pontos, ativo, empresa_id, setor_id, grupo_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO usuarios (username, nome_completo, email, senha_hash, is_ad_user, perfil, pontos, ativo, empresa_id, setor_id, grupo_id, cpf) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         "admin",
         "Administrador",
@@ -101,6 +121,7 @@ async function resetDatabase() {
         1, // empresa_id
         1, // setor_id
         1, // grupo_id (NOVO)
+        adminSeedCpf,
       ],
     );
 

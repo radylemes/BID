@@ -1,29 +1,7 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
-
-/** Normaliza CPF para 11 dígitos ou string vazia. */
-function normalizarCpfDigits(cpf) {
-  if (cpf == null || cpf === undefined) return "";
-  return String(cpf).replace(/\D/g, "").slice(0, 11);
-}
-
-/** Valida dígitos verificadores do CPF brasileiro. */
-function validarCpf(cpf) {
-  const digits = normalizarCpfDigits(cpf);
-  if (digits.length !== 11) return false;
-  if (/^(\d)\1{10}$/.test(digits)) return false;
-  let s = 0;
-  for (let i = 0; i < 9; i++) s += Number(digits[i]) * (10 - i);
-  let d1 = (s * 10) % 11;
-  if (d1 === 10) d1 = 0;
-  if (d1 !== Number(digits[9])) return false;
-  s = 0;
-  for (let i = 0; i < 10; i++) s += Number(digits[i]) * (11 - i);
-  let d2 = (s * 10) % 11;
-  if (d2 === 10) d2 = 0;
-  return d2 === Number(digits[10]);
-}
+const { normalizarCpfDigits, validarCpf } = require("../utils/cpf");
 
 async function gravarAuditoria(
   connection,
@@ -69,15 +47,77 @@ function formatarDataHoraPtBr(data) {
   }).format(data);
 }
 
+/**
+ * Garante um registo em convidados para o titular (mesmo CPF/nome da conta), para aparecer na lista
+ * e poder ser escolhido ao vincular ingressos. Sincroniza nome/e-mail/CPF com usuarios.
+ * Só cria se usuarios.cpf for válido.
+ */
+async function ensureTitularGuestRow(userId) {
+  const uid = Number(userId);
+  if (!Number.isFinite(uid) || uid <= 0) return;
+  try {
+    const [userRows] = await db.execute(
+      "SELECT id, nome_completo, email, cpf FROM usuarios WHERE id = ? LIMIT 1",
+      [uid],
+    );
+    if (userRows.length === 0) return;
+    const u = userRows[0];
+    const cpfDigits = normalizarCpfDigits(u.cpf);
+    if (!validarCpf(cpfDigits)) return;
+
+    const [titRows] = await db.execute(
+      "SELECT id FROM convidados WHERE usuario_id = ? AND vinculo_titular = 1 LIMIT 1",
+      [uid],
+    );
+    if (titRows.length > 0) {
+      await db.execute(
+        "UPDATE convidados SET nome_completo = ?, cpf = ?, email = ? WHERE id = ?",
+        [u.nome_completo, cpfDigits, u.email || null, titRows[0].id],
+      );
+      return;
+    }
+
+    const [sameCpf] = await db.execute(
+      "SELECT id FROM convidados WHERE usuario_id = ? AND cpf = ? LIMIT 1",
+      [uid, cpfDigits],
+    );
+    if (sameCpf.length > 0) {
+      await db.execute("UPDATE convidados SET vinculo_titular = 1, nome_completo = ?, email = ? WHERE id = ?", [
+        u.nome_completo,
+        u.email || null,
+        sameCpf[0].id,
+      ]);
+      return;
+    }
+
+    await db.execute(
+      "INSERT INTO convidados (usuario_id, nome_completo, cpf, email, telefone, vinculo_titular) VALUES (?, ?, ?, ?, NULL, 1)",
+      [uid, u.nome_completo, cpfDigits, u.email || null],
+    );
+  } catch (e) {
+    await logErro("GUEST_CONTROLLER_ENSURE_TITULAR", e);
+  }
+}
+
 exports.getGuests = async (req, res) => {
   const { userId } = req.params;
+  const uid = Number(userId);
+  const requester = Number(req.user?.id);
+  const role = String(req.user?.role || "").toUpperCase();
+  if (!Number.isFinite(uid) || uid <= 0) {
+    return res.status(400).json({ error: "ID inválido." });
+  }
+  if (role !== "ADMIN" && requester !== uid) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
   try {
+    await ensureTitularGuestRow(uid);
     const query = `
       SELECT c.*,
         (SELECT GROUP_CONCAT(DISTINCT p.titulo SEPARATOR ', ') FROM ingressos i JOIN apostas a ON i.aposta_id = a.id JOIN partidas p ON a.partida_id = p.id WHERE i.convidado_id = c.id AND a.status = 'GANHOU') as eventos_participados
-      FROM convidados c WHERE c.usuario_id = ? ORDER BY c.nome_completo ASC
+      FROM convidados c WHERE c.usuario_id = ? ORDER BY c.vinculo_titular DESC, c.nome_completo ASC
     `;
-    const [rows] = await db.execute(query, [userId]);
+    const [rows] = await db.execute(query, [uid]);
     res.json(rows);
   } catch (error) {
     await logErro("GUEST_CONTROLLER_GET_GUESTS", error);
@@ -111,7 +151,7 @@ exports.createGuest = async (req, res) => {
       userRows.length > 0 ? userRows[0].nome_completo : "Usuário";
 
     const [result] = await db.execute(
-      "INSERT INTO convidados (usuario_id, nome_completo, cpf, email, telefone) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO convidados (usuario_id, nome_completo, cpf, email, telefone, vinculo_titular) VALUES (?, ?, ?, ?, ?, 0)",
       [usuario_id, nome_completo, cpfDigits, email || null, telefone || null],
     );
 
@@ -162,9 +202,17 @@ exports.updateGuest = async (req, res) => {
 exports.deleteGuest = async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await db.execute("SELECT id, nome_completo FROM convidados WHERE id = ?", [id]);
+    const [rows] = await db.execute(
+      "SELECT id, nome_completo, vinculo_titular FROM convidados WHERE id = ?",
+      [id],
+    );
     if (rows.length === 0) {
       return res.status(404).json({ error: "Convidado não encontrado." });
+    }
+    if (Number(rows[0].vinculo_titular) === 1) {
+      return res.status(403).json({
+        error: "O retirante vinculado à sua conta (titular) não pode ser excluído.",
+      });
     }
     await db.execute("DELETE FROM convidados WHERE id = ?", [id]);
     await gravarAuditoria(null, req.user?.id, "CONVIDADOS", "DELETE", id, {

@@ -8,6 +8,7 @@ const fs = require("fs");
 const logErro = require("../utils/errorLogger");
 const { sendNovoUsuarioEmail } = require("./emailController");
 const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
+const { normalizarCpfDigits, validarCpf } = require("../utils/cpf");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -413,6 +414,22 @@ exports.bulkUpdate = async (req, res) => {
   if (!alteracoes || alteracoes.length === 0)
     return res.status(400).json({ error: "Nenhum dado recebido." });
 
+  for (let i = 0; i < alteracoes.length; i++) {
+    const item = alteracoes[i];
+    const emailLinha = (item.email && String(item.email).trim()) || "";
+    if (!emailLinha) {
+      return res.status(400).json({
+        error: `Linha ${i + 1}: e-mail obrigatório.`,
+      });
+    }
+    const cpfDigits = normalizarCpfDigits(item.cpf ?? item.CPF ?? item.documento);
+    if (!validarCpf(cpfDigits)) {
+      return res.status(400).json({
+        error: `Linha ${i + 1} (${emailLinha}): CPF obrigatório ou inválido.`,
+      });
+    }
+  }
+
   const connection = await db.getConnection();
   try {
     const [gruposDb] = await connection.execute("SELECT id, nome FROM grupos");
@@ -425,7 +442,9 @@ exports.bulkUpdate = async (req, res) => {
     let atualizados = 0;
 
     for (const item of alteracoes) {
-      if (!item.email) continue;
+      const emailTrim = String(item.email).trim();
+      if (!emailTrim) continue;
+      const cpfDigits = normalizarCpfDigits(item.cpf ?? item.CPF ?? item.documento);
       let ativoFinal = 1;
       const vStatus = item.ativo !== undefined ? item.ativo : item.status;
       if (
@@ -472,13 +491,23 @@ exports.bulkUpdate = async (req, res) => {
 
       const [rowsUser] = await connection.execute(
         "SELECT id, pontos FROM usuarios WHERE email = ?",
-        [item.email],
+        [emailTrim],
       );
 
       if (rowsUser.length > 0) {
         const u = rowsUser[0];
+        const [cpfOutro] = await connection.execute(
+          "SELECT id FROM usuarios WHERE cpf = ? AND id <> ? LIMIT 1",
+          [cpfDigits, u.id],
+        );
+        if (cpfOutro.length > 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            error: `CPF ${cpfDigits} já está associado a outro utilizador (conflito ao atualizar ${emailTrim}).`,
+          });
+        }
         await connection.execute(
-          `UPDATE usuarios SET nome_completo = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ?, perfil = ?, ativo = ? WHERE id = ?`,
+          `UPDATE usuarios SET nome_completo = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ?, perfil = ?, ativo = ?, cpf = ? WHERE id = ?`,
           [
             item.nome_completo || item.Nome,
             empId,
@@ -487,17 +516,28 @@ exports.bulkUpdate = async (req, res) => {
             item.pontos || 0,
             perfilFinal,
             ativoFinal,
+            cpfDigits,
             u.id,
           ],
         );
       } else {
+        const [cpfExiste] = await connection.execute(
+          "SELECT id FROM usuarios WHERE cpf = ? LIMIT 1",
+          [cpfDigits],
+        );
+        if (cpfExiste.length > 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            error: `CPF ${cpfDigits} já está associado a outro utilizador (importação: ${emailTrim}).`,
+          });
+        }
         const username =
-          item.email.split("@")[0] + Math.floor(Math.random() * 100);
+          emailTrim.split("@")[0] + Math.floor(Math.random() * 100);
         await connection.execute(
-          `INSERT INTO usuarios (nome_completo, email, username, empresa_id, setor_id, grupo_id, pontos, perfil, ativo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO usuarios (nome_completo, email, username, empresa_id, setor_id, grupo_id, pontos, perfil, ativo, cpf, is_ad_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
           [
             item.nome_completo || item.Nome,
-            item.email,
+            emailTrim,
             username,
             empId,
             setId,
@@ -505,6 +545,7 @@ exports.bulkUpdate = async (req, res) => {
             item.pontos || 0,
             perfilFinal,
             ativoFinal,
+            cpfDigits,
           ],
         );
       }
@@ -526,6 +567,11 @@ exports.bulkUpdate = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     await logErro("USER_CONTROLLER_BULK_UPDATE", error);
+    if (error && error.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        error: "CPF duplicado: este CPF já está associado a outro utilizador.",
+      });
+    }
     res.status(500).json({ error: error.message });
   } finally {
     connection.release();
@@ -694,7 +740,22 @@ exports.createUser = async (req, res) => {
     pontos,
     motivo,
     adminId,
+    cpf,
   } = req.body;
+
+  const cpfDigits = normalizarCpfDigits(cpf);
+  if (!validarCpf(cpfDigits)) {
+    return res.status(400).json({ message: "CPF inválido ou ausente." });
+  }
+
+  const [dupCpf] = await db.execute(
+    "SELECT id FROM usuarios WHERE cpf = ? LIMIT 1",
+    [cpfDigits],
+  );
+  if (dupCpf.length > 0) {
+    return res.status(400).json({ message: "CPF já associado a outro utilizador." });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -705,7 +766,7 @@ exports.createUser = async (req, res) => {
     const pontosIniciais = pontos ? Number(pontos) : 0;
 
     const [result] = await connection.execute(
-      `INSERT INTO usuarios (username, nome_completo, email, senha_hash, is_ad_user, perfil, ativo, empresa_id, setor_id, grupo_id, pontos) VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, ?)`,
+      `INSERT INTO usuarios (username, nome_completo, email, senha_hash, is_ad_user, perfil, ativo, empresa_id, setor_id, grupo_id, pontos, cpf) VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, ?, ?)`,
       [
         username,
         nome_completo,
@@ -716,6 +777,7 @@ exports.createUser = async (req, res) => {
         setId,
         grpId,
         pontosIniciais,
+        cpfDigits,
       ],
     );
     const novoUserId = result.insertId;
@@ -735,7 +797,7 @@ exports.createUser = async (req, res) => {
       "USUARIOS",
       "CREATE_USER",
       novoUserId,
-      { email, username, perfil, pontos_iniciais: pontosIniciais, motivo },
+      { email, username, perfil, pontos_iniciais: pontosIniciais, motivo, cpf: cpfDigits },
     );
 
     await connection.commit();
@@ -750,6 +812,9 @@ exports.createUser = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     await logErro("USER_CONTROLLER_CREATE_USER", error);
+    if (error && error.code === "ER_DUP_ENTRY" && String(error.sqlMessage || "").includes("uniq_usuarios_cpf")) {
+      return res.status(400).json({ message: "CPF já associado a outro utilizador." });
+    }
     res.status(500).json({ message: "Erro" });
   } finally {
     connection.release();
@@ -768,7 +833,23 @@ exports.updateUserManual = async (req, res) => {
     pontos,
     motivo,
     adminId,
+    cpf,
   } = req.body;
+
+  const cpfDigits = normalizarCpfDigits(cpf);
+  if (!validarCpf(cpfDigits)) {
+    return res.status(400).json({ message: "CPF inválido ou ausente." });
+  }
+
+  const userId = Number(req.params.id);
+  const [cpfOutro] = await db.execute(
+    "SELECT id FROM usuarios WHERE cpf = ? AND id <> ? LIMIT 1",
+    [cpfDigits, userId],
+  );
+  if (cpfOutro.length > 0) {
+    return res.status(400).json({ message: "CPF já associado a outro utilizador." });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -793,7 +874,7 @@ exports.updateUserManual = async (req, res) => {
     const grpId = grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
 
     await connection.execute(
-      `UPDATE usuarios SET nome_completo = ?, email = ?, username = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ? ${qSenha} WHERE id = ?`,
+      `UPDATE usuarios SET nome_completo = ?, email = ?, username = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ?, cpf = ? ${qSenha} WHERE id = ?`,
       [
         nome_completo,
         email,
@@ -802,6 +883,7 @@ exports.updateUserManual = async (req, res) => {
         setId,
         grpId,
         pontosDepois,
+        cpfDigits,
         ...pSenha,
         req.params.id,
       ],
@@ -829,6 +911,7 @@ exports.updateUserManual = async (req, res) => {
         pontos_antes: pontosAntes,
         pontos_depois: pontosDepois,
         motivo,
+        cpf: cpfDigits,
       },
     );
 
@@ -837,6 +920,9 @@ exports.updateUserManual = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     await logErro("USER_CONTROLLER_UPDATE_USER_MANUAL", error);
+    if (error && error.code === "ER_DUP_ENTRY" && String(error.sqlMessage || "").includes("uniq_usuarios_cpf")) {
+      return res.status(400).json({ message: "CPF já associado a outro utilizador." });
+    }
     res.status(500).json({ message: "Erro ao atualizar" });
   } finally {
     connection.release();

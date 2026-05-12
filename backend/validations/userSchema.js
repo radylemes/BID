@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { normalizarCpfDigits, validarCpf } = require('../utils/cpf');
 
 const createUserSchema = Joi.object({
   nome_completo: Joi.string().required().messages({
@@ -19,6 +20,18 @@ const createUserSchema = Joi.object({
     'string.empty': 'O campo senha não pode estar vazio.',
     'any.required': 'A senha é obrigatória.',
   }),
+  cpf: Joi.string()
+    .required()
+    .messages({
+      'string.empty': 'O CPF é obrigatório.',
+      'any.required': 'O CPF é obrigatório.',
+      'any.invalid': 'CPF inválido.',
+    })
+    .custom((value, helpers) => {
+      const d = normalizarCpfDigits(value);
+      if (!validarCpf(d)) return helpers.error('any.invalid');
+      return d;
+    }),
   perfil: Joi.string().valid('ADMIN', 'USER', 'PORTARIA').optional(),
   empresa_id: Joi.alternatives().try(Joi.number().integer(), Joi.string().valid('null', '')).optional(),
   setor_id: Joi.alternatives().try(Joi.number().integer(), Joi.string().valid('null', '')).optional(),

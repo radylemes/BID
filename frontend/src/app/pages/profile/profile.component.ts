@@ -727,9 +727,17 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
                 <tr
                   *ngFor="let conv of convidados"
                   class="border-b border-[var(--app-border)] hover:bg-[var(--app-nav-hover-bg)] transition-colors"
+                  [class.bg-indigo-50]="isConvidadoTitular(conv)"
                 >
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4">
-                    <p class="font-black text-[var(--app-text)] text-xs sm:text-sm">{{ conv.nome_completo }}</p>
+                    <p class="font-black text-[var(--app-text)] text-xs sm:text-sm flex flex-wrap items-center gap-2">
+                      <span>{{ conv.nome_completo }}</span>
+                      <span
+                        *ngIf="isConvidadoTitular(conv)"
+                        class="text-[9px] font-black uppercase tracking-widest bg-indigo-600 text-white px-2 py-0.5 rounded-md shrink-0"
+                        >Titular</span
+                      >
+                    </p>
                     <p class="text-[10px] sm:text-[11px] text-[var(--app-text-muted)] font-medium mt-0.5 hidden md:block truncate max-w-[180px] lg:max-w-none">
                       {{ conv.email || 'Sem e-mail' }} | {{ conv.telefone || 'Sem telefone' }}
                     </p>
@@ -756,6 +764,7 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
                       Editar
                     </button>
                     <button
+                      *ngIf="!isConvidadoTitular(conv)"
                       (click)="excluirConvidado(conv.id)"
                       class="text-rose-600 font-black text-[10px] uppercase tracking-widest bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-lg transition-colors inline-flex items-center ml-1 sm:ml-2"
                     >
@@ -1379,6 +1388,11 @@ export class ProfileComponent implements OnInit {
     });
   }
 
+  /** Linha criada automaticamente para o titular (mesmo CPF da conta); não pode ser excluída. */
+  isConvidadoTitular(conv: any): boolean {
+    return conv?.vinculo_titular == 1 || conv?.vinculo_titular === true;
+  }
+
   async abrirFormularioConvidado(convidado: any = null) {
     const isEdit = !!convidado;
     const { value: formValues } = await Swal.fire({
@@ -1531,7 +1545,12 @@ export class ProfileComponent implements OnInit {
             });
             this.carregarConvidados();
           },
-          error: () => Swal.fire('Erro', 'Erro ao excluir.', 'error'),
+          error: (err: any) =>
+            Swal.fire(
+              'Erro',
+              err?.error?.error || 'Não foi possível excluir.',
+              'error',
+            ),
         });
       }
     });

@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { formatarInputCpf, normalizarCpfDigits, validarCpf } from '../../utils/cpf';
 
 @Component({
   selector: 'app-user-list',
@@ -75,6 +76,7 @@ export class UserListComponent implements OnInit {
           grupo_nome: u.grupo_nome || 'Sem Grupo',
           nome_completo: u.nome_completo,
           email: u.email,
+          cpf: u.cpf != null && u.cpf !== '' ? String(u.cpf) : '',
           ativo: u.ativo == 1 || u.ativo == true,
           perfil: u.perfil || 'USER',
           pontos: u.pontos || 0,
@@ -92,19 +94,34 @@ export class UserListComponent implements OnInit {
 
   filtrar() {
     const term = this.searchTerm.toLowerCase();
-    this.filteredUsers = this.users.filter(
-      (u) =>
+    const termDigits = term.replace(/\D/g, '');
+    this.filteredUsers = this.users.filter((u) => {
+      const matchText =
         u.nome_completo?.toLowerCase().includes(term) ||
         u.email?.toLowerCase().includes(term) ||
         u.setor?.toLowerCase().includes(term) ||
         u.empresa?.toLowerCase().includes(term) ||
-        u.grupo_nome?.toLowerCase().includes(term),
-    );
+        u.grupo_nome?.toLowerCase().includes(term);
+      const matchCpf =
+        termDigits.length > 0 && normalizarCpfDigits(u.cpf).includes(termDigits);
+      return matchText || matchCpf;
+    });
   }
 
   private getAdminId(): number {
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
     return user.id || 1;
+  }
+
+  /** Aplica máscara 000.000.000-00 no campo CPF (máx. 11 dígitos). */
+  private wireCpfComMascara(inputId: string): void {
+    const el = document.getElementById(inputId) as HTMLInputElement | null;
+    if (!el) return;
+    const aplicar = () => {
+      el.value = formatarInputCpf(el.value);
+    };
+    aplicar();
+    el.addEventListener('input', aplicar);
   }
 
   async alterarPerfil(user: any, event: any) {
@@ -282,6 +299,7 @@ export class UserListComponent implements OnInit {
           return {
             nome_completo: getVal(['nome', 'funcionario', 'name']),
             email: getVal(['email', 'mail']),
+            cpf: getVal(['cpf', 'documento']),
             setor: getVal(['setor', 'area', 'departamento']),
             grupo: getGrupoImport(),
             pontos: getVal(['pontos', 'pts']),
@@ -290,17 +308,32 @@ export class UserListComponent implements OnInit {
             status: getVal(['status', 'ativo']),
           };
         })
-        .filter((u) => u.email);
+        .filter((u) => u.email && String(u.email).trim());
+
+      const comCpfInvalido = formattedData.find(
+        (u) => !validarCpf(normalizarCpfDigits(u.cpf)),
+      );
+      if (comCpfInvalido) {
+        this.loading = false;
+        Swal.fire(
+          'Erro',
+          'Cada linha com e-mail deve ter um CPF válido (coluna CPF ou Documento). Verifique o ficheiro.',
+          'error',
+        );
+        return;
+      }
 
       this.userService.updateEmMassa(formattedData, this.getAdminId(), motivoGlobal).subscribe({
         next: () => {
+          this.loading = false;
           Swal.fire('Sucesso', 'Importação concluída.', 'success');
           this.carregarDados();
           (document.querySelector('input[type="file"]') as HTMLInputElement).value = '';
         },
         error: (err) => {
           this.loading = false;
-          Swal.fire('Erro', err.error?.message || 'Falha na importação', 'error');
+          const msg = err.error?.message || err.error?.error || 'Falha na importação';
+          Swal.fire('Erro', msg, 'error');
         },
       });
     };
@@ -311,6 +344,7 @@ export class UserListComponent implements OnInit {
     switch (key) {
       case 'nome': return u.nome_completo ?? '';
       case 'email': return u.email ?? '';
+      case 'cpf': return normalizarCpfDigits(u.cpf) || '';
       case 'empresa': return u.empresa || '';
       case 'setor': return u.setor || '';
       case 'grupo_apostas': return u.grupo_nome || '';
@@ -342,6 +376,7 @@ export class UserListComponent implements OnInit {
         const dados = this.users.map((u) => ({
           Nome: u.nome_completo,
           Email: u.email,
+          CPF: normalizarCpfDigits(u.cpf) || '',
           Empresa: u.empresa || '',
           Setor: u.setor || '',
           GrupoApostas: u.grupo_nome || '',
@@ -687,16 +722,23 @@ export class UserListComponent implements OnInit {
                  <div><label class="text-xs font-bold text-gray-500 uppercase">Senha</label><input id="swal-senha" type="password" class="swal2-input m-0 w-full"></div>
             </div>
             <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">CPF</label>
+                <input id="swal-cpf" maxlength="14" class="swal2-input m-0 w-full font-mono text-sm" placeholder="000.000.000-00" autocomplete="off">
+            </div>
+            <div>
                 <label class="text-[10px] font-extrabold text-amber-600 uppercase">Grupo de Apostas</label>
                 <select id="swal-grupo-aposta" class="swal2-select m-0 w-full text-sm rounded-lg border-amber-200 bg-amber-50 text-amber-700" style="display:flex;">
                     ${optionsHtml}
                 </select>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-                <div><label class="text-xs font-bold text-gray-500 uppercase">Pontos</label><input id="swal-pontos" type="number" class="swal2-input m-0 w-full" value="0"></div>
-                <div>
-                    <label class="text-xs font-bold text-gray-500 uppercase">Perfil</label>
-                    <select id="swal-perfil" class="swal2-select m-0 w-full" style="display:flex;">
+            <div class="grid grid-cols-2 gap-2 items-start">
+                <div class="flex min-w-0 flex-col gap-1">
+                    <label class="text-xs font-bold text-gray-500 uppercase leading-none">Pontos</label>
+                    <input id="swal-pontos" type="number" class="swal2-input !m-0 box-border h-10 w-full" value="0">
+                </div>
+                <div class="flex min-w-0 flex-col gap-1">
+                    <label class="text-xs font-bold text-gray-500 uppercase leading-none">Perfil</label>
+                    <select id="swal-perfil" class="swal2-select !m-0 box-border flex h-10 w-full items-center">
                         <option value="USER">Usuário</option><option value="ADMIN">Admin</option><option value="PORTARIA">Portaria</option>
                     </select>
                 </div>
@@ -710,6 +752,9 @@ export class UserListComponent implements OnInit {
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Criar',
+      didOpen: () => {
+        this.wireCpfComMascara('swal-cpf');
+      },
       preConfirm: () => {
         const grp = (document.getElementById('swal-grupo-aposta') as HTMLSelectElement).value;
         const motivo = (document.getElementById('swal-motivo') as HTMLInputElement).value;
@@ -719,11 +764,20 @@ export class UserListComponent implements OnInit {
           return false;
         }
 
+        const cpfDigits = normalizarCpfDigits(
+          (document.getElementById('swal-cpf') as HTMLInputElement).value,
+        );
+        if (!validarCpf(cpfDigits)) {
+          Swal.showValidationMessage('Informe um CPF válido.');
+          return false;
+        }
+
         return {
           nome_completo: (document.getElementById('swal-nome') as HTMLInputElement).value,
           email: (document.getElementById('swal-email') as HTMLInputElement).value,
           username: (document.getElementById('swal-username') as HTMLInputElement).value,
           senha: (document.getElementById('swal-senha') as HTMLInputElement).value,
+          cpf: cpfDigits,
           perfil: (document.getElementById('swal-perfil') as HTMLSelectElement).value,
           grupo_id: grp === 'null' ? null : Number(grp),
           empresa_id: null,
@@ -739,12 +793,14 @@ export class UserListComponent implements OnInit {
       this.loading = true;
       this.userService.createUser(formValues).subscribe({
         next: () => {
+          this.loading = false;
           Swal.fire('Sucesso', 'Usuário criado!', 'success');
           this.carregarDados(); // Como é um novo, recarregamos para buscar o ID correto gerado no banco
         },
         error: (err) => {
           this.loading = false;
-          Swal.fire('Erro', err.error?.message, 'error');
+          const msg = err.error?.message || err.error?.error || 'Erro ao criar utilizador';
+          Swal.fire('Erro', msg, 'error');
         },
       });
     }
@@ -776,6 +832,10 @@ export class UserListComponent implements OnInit {
                  <div><label class="text-xs font-bold text-gray-500 uppercase">E-mail</label><input id="edit-email" class="swal2-input m-0 w-full" value="${user.email}"></div>
                  <div><label class="text-xs font-bold text-gray-500 uppercase">Pontos</label><input id="edit-pontos" type="number" class="swal2-input m-0 w-full" value="${user.pontos}"></div>
             </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">CPF</label>
+                <input id="edit-cpf" maxlength="14" class="swal2-input m-0 w-full font-mono text-sm" value="${formatarInputCpf(user.cpf)}" placeholder="000.000.000-00" autocomplete="off">
+            </div>
             <div><label class="text-xs font-bold text-amber-600 uppercase">Nova Senha (Opcional)</label><input id="edit-senha" type="password" class="swal2-input m-0 w-full" placeholder="Deixe em branco para não alterar"></div>
             
             <div class="mt-1 border-t border-gray-100 pt-3">
@@ -787,6 +847,9 @@ export class UserListComponent implements OnInit {
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Salvar',
+      didOpen: () => {
+        this.wireCpfComMascara('edit-cpf');
+      },
       preConfirm: () => {
         const grp = (document.getElementById('edit-grupo-aposta') as HTMLSelectElement).value;
         const motivo = (document.getElementById('edit-motivo') as HTMLInputElement).value;
@@ -796,11 +859,20 @@ export class UserListComponent implements OnInit {
           return false;
         }
 
+        const cpfDigits = normalizarCpfDigits(
+          (document.getElementById('edit-cpf') as HTMLInputElement).value,
+        );
+        if (!validarCpf(cpfDigits)) {
+          Swal.showValidationMessage('Informe um CPF válido.');
+          return false;
+        }
+
         return {
           nome_completo: (document.getElementById('edit-nome') as HTMLInputElement).value,
           email: (document.getElementById('edit-email') as HTMLInputElement).value,
           username: (document.getElementById('edit-username') as HTMLInputElement).value,
           senha: (document.getElementById('edit-senha') as HTMLInputElement).value,
+          cpf: cpfDigits,
           grupo_id: grp === 'null' ? null : Number(grp),
           empresa_id: user.empresa_id || null,
           setor_id: user.setor_id || null,
@@ -816,6 +888,10 @@ export class UserListComponent implements OnInit {
         Swal.fire('Atenção', 'Nome, E-mail e Login são obrigatórios.', 'warning');
         return;
       }
+      if (!validarCpf(normalizarCpfDigits(formValues.cpf))) {
+        Swal.fire('Atenção', 'CPF inválido.', 'warning');
+        return;
+      }
 
       this.loading = true;
 
@@ -826,6 +902,7 @@ export class UserListComponent implements OnInit {
           user.email = formValues.email;
           user.username = formValues.username;
           user.pontos = Number(formValues.pontos);
+          user.cpf = formValues.cpf;
           user.grupo_id = formValues.grupo_id;
 
           if (user.grupo_id) {
@@ -845,9 +922,10 @@ export class UserListComponent implements OnInit {
             showConfirmButton: false,
           });
         },
-        error: () => {
+        error: (err) => {
           this.loading = false;
-          Swal.fire('Erro', 'Falha ao salvar.', 'error');
+          const msg = err.error?.message || err.error?.error || 'Falha ao salvar.';
+          Swal.fire('Erro', msg, 'error');
         },
       });
     }

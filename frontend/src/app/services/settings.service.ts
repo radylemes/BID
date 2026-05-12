@@ -49,12 +49,13 @@ const DEFAULT_LISTA_PORTARIA_FIELDS: ExportFieldConfig[] = [
 const DEFAULT_USUARIOS_FIELDS: ExportFieldConfig[] = [
   { key: 'nome', label: 'Nome', order: 1, enabled: true },
   { key: 'email', label: 'Email', order: 2, enabled: true },
-  { key: 'empresa', label: 'Empresa', order: 3, enabled: true },
-  { key: 'setor', label: 'Setor', order: 4, enabled: true },
-  { key: 'grupo_apostas', label: 'Grupo Apostas', order: 5, enabled: true },
-  { key: 'pontos', label: 'Pontos', order: 6, enabled: true },
-  { key: 'status', label: 'Status', order: 7, enabled: true },
-  { key: 'perfil', label: 'Perfil', order: 8, enabled: true },
+  { key: 'cpf', label: 'CPF', order: 3, enabled: true },
+  { key: 'empresa', label: 'Empresa', order: 4, enabled: true },
+  { key: 'setor', label: 'Setor', order: 5, enabled: true },
+  { key: 'grupo_apostas', label: 'Grupo Apostas', order: 6, enabled: true },
+  { key: 'pontos', label: 'Pontos', order: 7, enabled: true },
+  { key: 'status', label: 'Status', order: 8, enabled: true },
+  { key: 'perfil', label: 'Perfil', order: 9, enabled: true },
 ];
 
 @Injectable({
@@ -163,14 +164,33 @@ export class SettingsService {
       const parsed = JSON.parse(raw) as ExportFieldConfig[];
       if (Array.isArray(parsed) && parsed.length) {
         const defaults = this.getUsuariosFields();
-        const byKey = new Map(defaults.map((d) => [d.key, d]));
-        return parsed
-          .map((p) => ({
-            ...byKey.get(p.key) ?? { key: p.key, label: p.label, order: p.order },
-            ...p,
-            enabled: p.enabled !== false,
-          }))
-          .sort((a, b) => a.order - b.order);
+        const defaultByKey = new Map(defaults.map((d) => [d.key, d]));
+        const merged: ExportFieldConfig[] = [];
+        for (const d of defaults) {
+          const p = parsed.find((x) => x.key === d.key);
+          if (p) {
+            merged.push({
+              ...d,
+              ...p,
+              label: p.label || d.label,
+              order: p.order ?? d.order,
+              enabled: p.enabled !== false,
+            });
+          } else {
+            merged.push({ ...d });
+          }
+        }
+        for (const p of parsed) {
+          if (!defaultByKey.has(p.key)) {
+            merged.push({
+              key: p.key,
+              label: p.label,
+              order: p.order,
+              enabled: p.enabled !== false,
+            });
+          }
+        }
+        return merged.sort((a, b) => a.order - b.order);
       }
     } catch {}
     return this.getUsuariosFields();
