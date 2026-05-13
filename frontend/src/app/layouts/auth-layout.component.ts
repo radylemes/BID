@@ -8,16 +8,24 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule, RouterOutlet],
   template: `
     <div class="min-h-screen w-full flex overflow-hidden">
-      <!-- Coluna esquerda: imagem do estádio + logo Allianz -->
-      <div
-        class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative bg-cover bg-center bg-no-repeat"
-        [style.backgroundImage]="'url(assets/allianz_parque_fiel.png)'"
-      >
-        <div class="absolute bottom-0 left-0 p-6" *ngIf="showAllianzLogo">
+      <!-- Coluna esquerda: vídeo de fundo + logo Allianz -->
+      <div class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative overflow-hidden">
+        <video
+          class="absolute inset-0 h-full w-full object-cover"
+          src="assets/HOME-SITE.prproj.mp4"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="auto"
+          poster="assets/allianz_parque_fiel.png"
+          aria-hidden="true"
+        ></video>
+        <div class="absolute bottom-0 left-0 z-10 pl-3 pr-4 leading-none sm:pl-4" *ngIf="showAllianzLogo">
           <img
-            src="assets/Logo-Allianz-Parque-Light.svg"
-            alt="Allianz Parque"
-            class="h-12 w-auto max-w-[200px] object-contain"
+            src="assets/NBP_WT.png"
+            alt="Nubank Parque"
+            class="block h-32 w-auto max-w-[min(72%,280px)] object-contain object-left drop-shadow-md sm:h-36 lg:h-40"
             (error)="showAllianzLogo = false"
           />
         </div>

@@ -189,93 +189,108 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
               Ainda não há inscrições WT Pass no seu histórico.
             </h3>
           </div>
-          <div
-            *ngIf="!loadingWt && historicoWt.length > 0"
-            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pb-10"
-          >
+          <div *ngIf="!loadingWt && historicoWt.length > 0" class="flex flex-col gap-3 sm:gap-4 lg:gap-6 pb-10">
             <div
               *ngFor="let h of historicoWt"
-              class="bg-[var(--color-bg-surface)] rounded-2xl hover:-translate-y-1 border border-[var(--app-border)] overflow-hidden transition-all duration-300 flex flex-col relative group h-full"
+              class="bg-[var(--color-bg-surface)] rounded-xl lg:rounded-2xl border border-[var(--app-border)] overflow-hidden flex flex-col md:flex-row transition-all"
             >
-              <div class="h-40 w-full bg-gray-200 relative overflow-hidden shrink-0">
+              <div class="relative h-36 sm:h-44 md:h-auto md:w-1/3 lg:w-1/4 bg-gray-900 shrink-0 min-h-0">
                 <img
                   [src]="getWtBannerUrl(h)"
                   [alt]="h.titulo || 'Evento'"
-                  class="w-full h-full object-cover"
+                  class="w-full h-full object-cover opacity-60 grayscale transition-opacity hover:grayscale-0"
                   (error)="$any($event.target).src = 'assets/placeholder.jpg'"
                 />
-                <div class="absolute inset-0 bg-black/20"></div>
-                <div class="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-[1]">
+                <div
+                  class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-gray-900/90 to-transparent"
+                ></div>
+
+                <div class="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex justify-between items-start gap-2 z-[1]">
                   <span
-                    class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
-                    [ngClass]="{
-                      'bg-emerald-500 text-white': statusBadgeWtHistorico(h) === 'Aberto',
-                      'bg-blue-600 text-white': statusBadgeWtHistorico(h) === 'Em Breve',
-                      'bg-gray-800 text-white': statusBadgeWtHistorico(h) === 'Fechado'
-                    }"
+                    class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm inline-block max-w-[65%] truncate"
                   >
-                    {{ statusBadgeWtHistorico(h) }}
+                    Evento em {{ formatarDataCurtaWt(h.data_evento) }}
                   </span>
-                  <span
-                    *ngIf="seloDestaqueHistoricoWt(h) as selo"
-                    class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
-                    [ngClass]="{
-                      'bg-amber-500 text-white': selo.tone === 'amber',
-                      'bg-emerald-600 text-white': selo.tone === 'emerald',
-                      'bg-slate-600 text-white': selo.tone === 'slate'
-                    }"
-                  >
-                    {{ selo.texto }}
-                  </span>
+                  <div class="flex flex-col items-end gap-1.5 shrink-0">
+                    <span
+                      class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                      [ngClass]="{
+                        'bg-emerald-500 text-white': statusBadgeWtHistorico(h) === 'Aberto',
+                        'bg-blue-600 text-white': statusBadgeWtHistorico(h) === 'Em Breve',
+                        'bg-gray-800 text-white': statusBadgeWtHistorico(h) === 'Fechado'
+                      }"
+                    >
+                      {{ statusBadgeWtHistorico(h) }}
+                    </span>
+                    <span
+                      *ngIf="seloDestaqueHistoricoWt(h) as selo"
+                      class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                      [ngClass]="{
+                        'bg-amber-500 text-white': selo.tone === 'amber',
+                        'bg-emerald-600 text-white': selo.tone === 'emerald',
+                        'bg-slate-600 text-white': selo.tone === 'slate'
+                      }"
+                    >
+                      {{ selo.texto }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4">
+                  <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words line-clamp-2">
+                    {{ h.titulo || 'Sem título' }}
+                  </h3>
                 </div>
               </div>
-              <div class="p-4 flex-1 flex flex-col">
-                <div class="mb-4">
-                  <h2 class="text-xl font-black text-[var(--app-text)] leading-tight line-clamp-2 pr-1 min-w-0">
-                    {{ h.titulo || 'Sem título' }}
-                  </h2>
-                </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 text-xs pb-4 border-b border-[var(--app-border)]">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded text-[10px] uppercase shrink-0"
-                      >GERAL</span
-                    >
-                    <div class="flex items-center gap-1.5 text-[var(--app-text-muted)] min-w-0">
-                      <span class="text-rose-500 text-sm shrink-0">📍</span>
-                      <span class="font-medium truncate max-w-[120px]">{{ h.local || 'Local a definir' }}</span>
-                    </div>
-                  </div>
-                  <div class="flex flex-col items-end shrink-0">
-                    <span class="text-[9px] font-bold uppercase text-[var(--app-text-muted)]">Data do Evento</span>
-                    <div class="flex items-center gap-1 text-[var(--app-text)]">
-                      <span class="text-indigo-400">📅</span>
-                      <span class="font-bold">{{ formatarDataCurtaWt(h.data_evento) }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 items-stretch">
+              <div class="p-3 sm:p-4 md:p-5 lg:p-8 flex-1 flex flex-col justify-center gap-3 sm:gap-4 lg:gap-6 min-w-0">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
                   <div
-                    class="rounded-xl lg:rounded-2xl border px-2 sm:px-3 py-3 text-center flex flex-col items-center justify-center min-h-[5.5rem] sm:min-h-[6rem] min-w-0 h-full"
+                    class="bg-indigo-50/50 border border-indigo-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
+                    role="group"
+                    title="Vagas ocupadas no evento"
+                    [attr.aria-label]="h.ocupadas + ' de ' + (h.vagas || 0) + ' vagas ocupadas'"
+                  >
+                    <span class="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-widest"
+                      >Vagas Ocupadas</span
+                    >
+                    <span class="text-lg sm:text-xl lg:text-2xl font-black text-indigo-700 leading-none mt-0.5 sm:mt-1 truncate max-w-full tabular-nums">
+                      {{ h.ocupadas }}
+                    </span>
+                    <span class="text-[9px] sm:text-[10px] text-indigo-400 font-bold mt-0.5">de {{ h.vagas || 0 }} vagas</span>
+                  </div>
+
+                  <div
+                    class="bg-emerald-50/50 border border-emerald-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
+                  >
+                    <span class="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest"
+                      >Vagas Livres</span
+                    >
+                    <span class="text-lg sm:text-xl lg:text-2xl font-black text-emerald-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full tabular-nums">
+                      {{ h.vagas_restantes }}
+                    </span>
+                    <span class="text-[9px] sm:text-[10px] text-emerald-400">vagas</span>
+                  </div>
+
+                  <div
+                    class="p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0 border"
                     [ngClass]="
                       situacaoWtHistoricoCancelada(h)
-                        ? 'border bg-[var(--wt-pink-surface)] border-[var(--wt-pink-border)]'
-                        : 'border-emerald-100 bg-emerald-50/50 dark:bg-emerald-500/10 dark:border-emerald-400/20'
+                        ? 'bg-[var(--wt-pink-surface)] border-[var(--wt-pink-border)]'
+                        : 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-400/20'
                     "
                   >
-                    <div
+                    <span
                       class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest"
                       [ngClass]="
                         situacaoWtHistoricoCancelada(h)
                           ? 'text-[var(--wt-pink-muted)]'
                           : 'text-emerald-400'
                       "
+                      >Situação</span
                     >
-                      Situação
-                    </div>
-                    <div
-                      class="text-base sm:text-lg font-black leading-tight mt-0.5 sm:mt-1 line-clamp-2"
+                    <span
+                      class="text-base sm:text-lg lg:text-xl font-black leading-tight mt-0.5 sm:mt-1 line-clamp-2 max-w-full"
                       [ngClass]="
                         situacaoWtHistoricoCancelada(h)
                           ? 'text-[var(--wt-pink-strong)]'
@@ -283,36 +298,40 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                       "
                     >
                       {{ labelSituacaoWtHistorico(h) }}
-                    </div>
+                    </span>
                   </div>
-                  <div
-                    class="rounded-xl lg:rounded-2xl border border-indigo-100 bg-indigo-50/50 dark:bg-indigo-500/10 dark:border-indigo-400/20 px-2 sm:px-3 py-3 flex flex-col items-center justify-center gap-1 min-h-[5.5rem] sm:min-h-[6rem] min-w-0 h-full text-center"
-                    role="group"
-                    title="Ocupação do evento: vagas preenchidas e disponíveis"
-                    [attr.aria-label]="
-                      h.ocupadas +
-                      ' de ' +
-                      (h.vagas || 0) +
-                      ' vagas ocupadas, ' +
-                      h.vagas_restantes +
-                      ' vagas livres'
-                    "
-                  >
-                    <div class="text-sm sm:text-base font-black tabular-nums leading-tight px-0.5 text-[var(--app-text)]">
-                      <span>{{ h.ocupadas }}</span>
-                      <span class="text-[var(--app-text-muted)] font-bold"> de </span>
-                      <span>{{ h.vagas || 0 }}</span>
-                      <span
-                        class="block text-[10px] sm:text-[11px] font-black text-[var(--app-text-muted)] normal-case tracking-normal mt-0.5"
-                        >vagas ocupadas</span
-                      >
-                    </div>
-                    <div
-                      class="text-[10px] sm:text-[11px] font-black tabular-nums leading-tight text-[var(--app-text)]"
+                </div>
+              </div>
+
+              <div
+                class="w-full md:w-auto p-4 sm:p-5 md:p-6 lg:p-8 border-t md:border-t-0 md:border-l border-[var(--app-border)] flex flex-col items-center justify-center shrink-0 bg-[var(--color-bg-surface-alt)] md:w-64"
+              >
+                <div class="text-center mb-3 sm:mb-4 w-full">
+                  <span class="text-3xl sm:text-4xl block mb-1.5 sm:mb-2">🎟️</span>
+                  <h4 class="text-[10px] sm:text-xs font-black text-[var(--app-text-muted)] uppercase tracking-widest">
+                    Inscrição WT Pass
+                  </h4>
+                  <p class="text-xs sm:text-sm font-bold text-[var(--app-text)] mt-1 break-words">
+                    <ng-container *ngIf="h.data_inscricao; else semDataInscricao">
+                      Inscrito em {{ formatarDataCurtaWt(h.data_inscricao) }}
+                    </ng-container>
+                    <ng-template #semDataInscricao>Sem inscrição</ng-template>
+                  </p>
+                  <p class="text-[10px] sm:text-[11px] text-[var(--app-text-muted)] font-medium mt-2 flex items-center justify-center gap-1 break-words px-1">
+                    <span class="shrink-0">📍</span>
+                    <span>{{ h.local || 'Local a definir' }}</span>
+                  </p>
+                  <div class="mt-3 flex justify-center">
+                    <span
+                      class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                      [ngClass]="{
+                        'bg-emerald-500 text-white': statusBadgeWtHistorico(h) === 'Aberto',
+                        'bg-blue-600 text-white': statusBadgeWtHistorico(h) === 'Em Breve',
+                        'bg-gray-800 text-white': statusBadgeWtHistorico(h) === 'Fechado'
+                      }"
                     >
-                      <span>{{ h.vagas_restantes }}</span>
-                      <span class="text-[var(--app-text-muted)] font-bold"> vagas livres</span>
-                    </div>
+                      {{ statusBadgeWtHistorico(h) }}
+                    </span>
                   </div>
                 </div>
               </div>

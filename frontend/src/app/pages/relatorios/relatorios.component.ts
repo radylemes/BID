@@ -27,7 +27,7 @@ type AbaRelatorio = 'wt_pass' | 'bids';
             class="rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-4 py-4 min-h-[180px] sm:min-h-[200px] flex flex-col"
           >
             <p class="text-[11px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide">Eventos realizados</p>
-            <p class="text-[10px] text-[var(--app-text-muted)] mt-0.5 mb-3">WT Pass (REALIZADO) · BIDs finalizados</p>
+            <p class="text-[10px] text-[var(--app-text-muted)] mt-0.5 mb-3">WT Pass (inscrições encerradas) · BIDs finalizados</p>
             <div *ngIf="loadingWt || loadingBids" class="flex-1 flex items-center justify-center text-xs text-[var(--app-text-muted)]">
               A carregar…
             </div>
@@ -479,15 +479,9 @@ export class RelatoriosComponent implements OnInit {
     }));
   }
 
-  /** WT Pass contados como «realizado» (estado REALIZADO), entre eventos encerrados. */
+  /** WT Pass: mesma base que a lista do relatório (`isWtPassEncerrado`). */
   get eventosRealizadosWt(): number {
-    return this.eventosWt.filter(
-      (ev) =>
-        this.isWtPassEncerrado(ev) &&
-        String(ev?.status ?? '')
-          .toUpperCase()
-          .trim() === 'REALIZADO',
-    ).length;
+    return this.eventosWt.filter((ev) => this.isWtPassEncerrado(ev)).length;
   }
 
   /** BIDs com leilão finalizado. */

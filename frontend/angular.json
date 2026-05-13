@@ -71,6 +71,9 @@
           "defaultConfiguration": "production"
         },
         "serve": {
+          "options": {
+            "allowedHosts": ["bid.allianzparque.com.br"]
+         },
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
