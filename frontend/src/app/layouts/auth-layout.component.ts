@@ -1,6 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DOCUMENT } from '@angular/common';
 
 @Component({
   selector: 'app-auth-layout',
@@ -12,18 +12,18 @@ import { CommonModule } from '@angular/common';
       <div class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative overflow-hidden">
         <video
           class="absolute inset-0 h-full w-full object-cover"
-          src="assets/HOME-SITE.mp4"
+          [src]="videoSrc"
           autoplay
           muted
           loop
           playsinline
           preload="auto"
-          poster="assets/allianz_parque_fiel.png"
+          [poster]="posterSrc"
           aria-hidden="true"
         ></video>
         <div class="absolute bottom-0 left-0 z-10 pl-3 pr-4 leading-none sm:pl-4" *ngIf="showAllianzLogo">
           <img
-            src="assets/NBP_WT.png"
+            [src]="logoSrc"
             alt="Nubank Parque"
             class="block h-32 w-auto max-w-[min(72%,280px)] object-contain object-left drop-shadow-md sm:h-36 lg:h-40"
             (error)="showAllianzLogo = false"
@@ -49,5 +49,12 @@ import { CommonModule } from '@angular/common';
   `,
 })
 export class AuthLayoutComponent {
+  private readonly document = inject(DOCUMENT);
+
+  /** Resolve contra `document.baseURI` (respeita `<base href>` no deploy). */
+  readonly videoSrc = new URL('assets/HOME-SITE.mp4', this.document.baseURI).href;
+  readonly posterSrc = new URL('assets/allianz_parque_fiel.png', this.document.baseURI).href;
+  readonly logoSrc = new URL('assets/NBP_WT.png', this.document.baseURI).href;
+
   showAllianzLogo = true;
 }
