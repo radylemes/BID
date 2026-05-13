@@ -220,7 +220,7 @@ export class MyBetsComponent implements OnInit {
           const optionsHtml = convidados
             .map((c) => {
               const isSelected = ticket.nome === c.nome_completo ? 'selected' : '';
-              return `<option value="${c.id}" ${isSelected}>${c.nome_completo} (CPF: ${c.cpf})</option>`;
+              return `<option value="${c.id}" ${isSelected}>${c.nome_completo}</option>`;
             })
             .join('');
 

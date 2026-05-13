@@ -1,4 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ChangeDetectorRef,
+  HostListener,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { of, forkJoin } from 'rxjs';
@@ -187,7 +194,7 @@ interface MatchWizardState {
         </div>
 
         <div
-          *ngIf="!loading && matches.length > 0 && displayedMatches.length > 0"
+          *ngIf="!loading && matches.length > 0 && matchesNaAba.length > 0"
           class="overflow-x-auto overflow-y-visible border-t border-[var(--app-border)] -mx-2 sm:mx-0 px-2 sm:px-0"
         >
           <table class="min-w-[760px] sm:min-w-[980px] w-full text-sm">
@@ -210,9 +217,71 @@ interface MatchWizardState {
                   Datas
                 </th>
                 <th
-                  class="w-[110px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle"
+                  class="min-w-[120px] w-[120px] px-2 sm:px-3 py-3 sm:py-3.5 text-center align-middle"
                 >
-                  Status
+                  <div
+                    #statusFiltroHost
+                    class="relative inline-flex items-center justify-center gap-1.5"
+                  >
+                    <span
+                      class="text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap"
+                    >Status</span>
+                    <button
+                      type="button"
+                      class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface-alt)]"
+                      [attr.aria-expanded]="menuFiltroStatusAberto"
+                      aria-haspopup="true"
+                      aria-label="Filtrar por status"
+                      (click)="menuFiltroStatusAberto = !menuFiltroStatusAberto"
+                    >
+                      <svg
+                        class="h-3.5 w-3.5"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <div
+                      *ngIf="menuFiltroStatusAberto"
+                      class="absolute left-1/2 top-full z-30 mt-1 min-w-[10.5rem] -translate-x-1/2 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+                      role="menu"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+                        [class.font-semibold]="!filtroStatus"
+                        (click)="selectStatusFiltro('')"
+                      >
+                        Todos
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+                        [class.font-semibold]="filtroStatus === 'ABERTA'"
+                        (click)="selectStatusFiltro('ABERTA')"
+                      >
+                        Aberta
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+                        [class.font-semibold]="filtroStatus === 'FINALIZADA'"
+                        (click)="selectStatusFiltro('FINALIZADA')"
+                      >
+                        Finalizada
+                      </button>
+                    </div>
+                  </div>
                 </th>
                 <th
                   class="w-[210px] px-3 sm:px-4 py-3 sm:py-3.5 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
@@ -227,6 +296,17 @@ interface MatchWizardState {
               </tr>
             </thead>
             <tbody class="bg-[var(--color-bg-surface)] divide-y divide-[var(--app-border)]">
+              <tr
+                *ngIf="matchesNaAba.length > 0 && displayedMatches.length === 0"
+                class="bg-[var(--color-bg-surface)]"
+              >
+                <td
+                  colspan="6"
+                  class="px-6 py-12 text-center text-sm text-[var(--app-text-muted)]"
+                >
+                  Nenhum BID corresponde aos filtros.
+                </td>
+              </tr>
               <tr *ngFor="let m of displayedMatches" class="group hover:bg-[var(--app-nav-hover-bg)] transition-colors">
                 <td class="min-w-[220px] sm:min-w-[280px] sm:w-auto sticky left-0 z-10 bg-[var(--color-bg-surface)] group-hover:bg-[var(--app-nav-hover-bg)] px-3 sm:px-5 py-3 sm:py-4 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)] align-middle">
                   <div class="flex items-start gap-3 min-w-0">
@@ -436,19 +516,18 @@ interface MatchWizardState {
           </table>
         </div>
         <div
-          *ngIf="!loading && matches.length > 0 && displayedMatches.length === 0"
+          *ngIf="!loading && matches.length > 0 && matchesNaAba.length === 0"
           class="p-8 text-center text-[var(--app-text-muted)]"
         >
-          <ng-container *ngIf="matchesNaAba.length > 0 && (filtroBusca || '').trim(); else emptyTabMsg">
-            Nenhum BID corresponde à busca.
-          </ng-container>
-          <ng-template #emptyTabMsg>Nenhum BID nesta aba.</ng-template>
+          Nenhum BID nesta aba.
         </div>
       </div>
     </div>
   `,
 })
 export class MatchManagerComponent implements OnInit {
+  @ViewChild('statusFiltroHost', { read: ElementRef }) statusFiltroHost?: ElementRef<HTMLElement>;
+
   matches: any[] = [];
   groups: any[] = [];
   setoresEvento: any[] = [];
@@ -456,6 +535,22 @@ export class MatchManagerComponent implements OnInit {
   loading: boolean = false;
   abaAtiva: 'atuais' | 'anteriores' = 'atuais';
   filtroBusca = '';
+  filtroStatus = '';
+  menuFiltroStatusAberto = false;
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    if (!this.menuFiltroStatusAberto) return;
+    const host = this.statusFiltroHost?.nativeElement;
+    if (host && !host.contains(ev.target as Node)) {
+      this.menuFiltroStatusAberto = false;
+    }
+  }
+
+  selectStatusFiltro(val: string): void {
+    this.filtroStatus = val;
+    this.menuFiltroStatusAberto = false;
+  }
 
   setAba(value: string): void {
     this.abaAtiva = value === 'anteriores' ? 'anteriores' : 'atuais';
@@ -525,8 +620,10 @@ export class MatchManagerComponent implements OnInit {
   get displayedMatches(): any[] {
     const base = [...this.matchesNaAba].sort((a, b) => this.compareByDataEvento(a, b));
     const q = (this.filtroBusca || '').trim().toLowerCase();
-    if (!q) return base;
-    return base.filter((m) => this.bidMatchesSearch(m, q));
+    const afterSearch = !q ? base : base.filter((m) => this.bidMatchesSearch(m, q));
+    const st = (this.filtroStatus || '').trim().toUpperCase();
+    if (!st) return afterSearch;
+    return afterSearch.filter((m) => String(m?.status || '').toUpperCase() === st);
   }
 
   private compareByDataEvento(a: any, b: any): number {
