@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
       <div class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative overflow-hidden">
         <video
           class="absolute inset-0 h-full w-full object-cover"
-          src="assets/HOME-SITE.prproj.mp4"
+          src="assets/HOME-SITE.mp4"
           autoplay
           muted
           loop
