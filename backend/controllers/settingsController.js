@@ -101,6 +101,47 @@ exports.getBidPolicyDocument = async (req, res) => {
   }
 };
 
+exports.getWtPassPolicy = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT chave, valor FROM configuracoes WHERE chave IN ('wt_pass_policy_html', 'wt_pass_policy_pdf_path')",
+    );
+    const data = rows.reduce((acc, curr) => {
+      acc[curr.chave] = curr.valor;
+      return acc;
+    }, {});
+    res.json({
+      html: data.wt_pass_policy_html || "",
+      hasPdf: Boolean(data.wt_pass_policy_pdf_path),
+    });
+  } catch (error) {
+    await logErro("SETTINGS_CONTROLLER_GET_WT_PASS_POLICY", error);
+    res.status(500).json({ error: "Erro ao carregar política de acesso do WT Pass." });
+  }
+};
+
+exports.getWtPassPolicyDocument = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT valor FROM configuracoes WHERE chave = 'wt_pass_policy_pdf_path' LIMIT 1",
+    );
+    const pathVal = rows[0]?.valor;
+    if (!pathVal) {
+      return res.status(404).json({ error: "PDF da política WT Pass não configurado." });
+    }
+    const pathValNorm = pathVal.replace(/\\/g, "/").trim();
+    const fullPath = path.join(__dirname, "..", "uploads", ...pathValNorm.split("/"));
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: "Ficheiro PDF da política WT Pass não encontrado." });
+    }
+    res.setHeader("Content-Type", "application/pdf");
+    res.sendFile(path.resolve(fullPath));
+  } catch (error) {
+    await logErro("SETTINGS_CONTROLLER_GET_WT_PASS_POLICY_DOCUMENT", error);
+    res.status(500).json({ error: "Erro ao obter PDF da política WT Pass." });
+  }
+};
+
 /** Lê as configurações do WT Pass (faltas permitidas e duração do bloqueio). */
 exports.getWtPassSettings = async (req, res) => {
   try {
@@ -301,6 +342,42 @@ exports.uploadBidPolicyPdf = async (req, res) => {
     await connection.rollback();
     await logErro("SETTINGS_CONTROLLER_UPLOAD_BID_POLICY_PDF", error);
     res.status(500).json({ error: "Erro ao guardar PDF da política." });
+  } finally {
+    connection.release();
+  }
+};
+
+exports.uploadWtPassPolicyPdf = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Nenhum ficheiro enviado." });
+  }
+  const mimetype = req.file.mimetype || "";
+  const ext = path.extname(req.file.originalname || "").toLowerCase();
+  if (mimetype !== "application/pdf" || ext !== ".pdf") {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({
+      error: "Formato não permitido. Envie um ficheiro PDF.",
+    });
+  }
+  const relativePath = path.join("wt-pass-policy", path.basename(req.file.path)).replace(/\\/g, "/");
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await upsertConfig(connection, "wt_pass_policy_pdf_path", relativePath.replace(/\\/g, "/"));
+    await gravarAuditoria(
+      connection,
+      req.body?.adminId || req.user?.id,
+      "CONFIG_SISTEMA",
+      "UPLOAD_WT_PASS_POLICY_PDF",
+      null,
+      { path: relativePath },
+    );
+    await connection.commit();
+    res.json({ path: relativePath, message: "PDF da política WT Pass atualizado." });
+  } catch (error) {
+    await connection.rollback();
+    await logErro("SETTINGS_CONTROLLER_UPLOAD_WT_PASS_POLICY_PDF", error);
+    res.status(500).json({ error: "Erro ao guardar PDF da política WT Pass." });
   } finally {
     connection.release();
   }

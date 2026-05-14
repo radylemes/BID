@@ -31,6 +31,18 @@ const bidPolicyStorage = multer.diskStorage({
   },
 });
 const uploadBidPolicy = multer({ storage: bidPolicyStorage });
+const wtPassPolicyStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "..", "uploads", "wt-pass-policy");
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "wt-pass-policy-" + uniqueSuffix + ".pdf");
+  },
+});
+const uploadWtPassPolicy = multer({ storage: wtPassPolicyStorage });
 
 // Busca as configurações atuais (ADMIN)
 router.get("/", authMiddleware, authorizeRoles("ADMIN"), settingsController.getSettings);
@@ -41,6 +53,10 @@ router.get("/export", authMiddleware, settingsController.getExportSettings);
 // Política de acesso dos lances (qualquer utilizador autenticado)
 router.get("/bid-policy", authMiddleware, settingsController.getBidPolicy);
 router.get("/bid-policy/document", authMiddleware, settingsController.getBidPolicyDocument);
+
+// Política de acesso WT Pass (qualquer utilizador autenticado)
+router.get("/wt-pass-policy", authMiddleware, settingsController.getWtPassPolicy);
+router.get("/wt-pass-policy/document", authMiddleware, settingsController.getWtPassPolicyDocument);
 
 // Configurações específicas do WT Pass (ADMIN)
 router.get(
@@ -79,6 +95,14 @@ router.post(
   authorizeRoles("ADMIN"),
   uploadBidPolicy.single("bid_policy_file"),
   settingsController.uploadBidPolicyPdf,
+);
+
+router.post(
+  "/wt-pass-policy/pdf",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  uploadWtPassPolicy.single("wt_pass_policy_file"),
+  settingsController.uploadWtPassPolicyPdf,
 );
 
 // Obter ficheiro do papel timbrado (qualquer utilizador autenticado, para usar na exportação PDF)

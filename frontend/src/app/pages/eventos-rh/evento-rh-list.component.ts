@@ -828,17 +828,17 @@ export class EventoRhListComponent implements OnInit {
   }
 
   abrirModalInscricao(ev: any) {
-    const policyUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/politica-acesso`;
+    const policyUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/politica-acesso-wt-pass`;
     Swal.fire({
       title: `Inscrição: ${ev.titulo || 'Evento'}`,
       html: `
-        <p class="text-left text-sm mb-3 text-slate-600">Confirme que leu a política de acesso antes de se inscrever.</p>
+        <p class="text-left text-sm mb-3 text-slate-600">Confirme que leu a política de acesso WT Pass antes de se inscrever.</p>
         <p class="text-left text-sm mb-3">
-          <a href="${policyUrl}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-bold underline">Abrir Política de Acesso</a>
+          <a href="${policyUrl}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-bold underline">Abrir Política de Acesso WT Pass</a>
         </p>
         <label class="flex items-start gap-2 text-left text-sm cursor-pointer">
           <input type="checkbox" id="rh-aceite-politica" class="mt-1 rounded border-slate-300" />
-          <span>Li e aceito a política de acesso e as condições de participação.</span>
+          <span>Li e aceito a política de acesso WT Pass e as condições de participação.</span>
         </label>
       `,
       showCancelButton: true,
@@ -848,7 +848,7 @@ export class EventoRhListComponent implements OnInit {
       preConfirm: () => {
         const el = document.getElementById('rh-aceite-politica') as HTMLInputElement | null;
         if (!el?.checked) {
-          Swal.showValidationMessage('É obrigatório aceitar a política de acesso.');
+          Swal.showValidationMessage('É obrigatório aceitar a política de acesso WT Pass.');
           return false;
         }
         return true;

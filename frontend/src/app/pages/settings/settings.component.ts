@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 import { EditorComponent } from '@tinymce/tinymce-angular';
 import { SettingsService } from '../../services/settings.service';
@@ -355,6 +356,67 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
           </div>
 
           <div *ngIf="abaAtual === 'wt-pass' && !loading" class="space-y-6">
+            <div class="space-y-5 border-b border-[var(--app-border)] pb-8">
+              <h3 class="text-xl font-black text-[var(--app-text)]">Política de acesso WT Pass</h3>
+              <p class="text-sm text-[var(--app-text-muted)]">
+                Conteúdo apresentado aos utilizadores na página dedicada e no fluxo de inscrição nos eventos.
+              </p>
+              <div class="rounded-xl border border-[var(--app-border)] p-4 bg-[var(--color-bg-surface-alt)] space-y-3">
+                <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase">
+                  PDF da política (alternativa ao conteúdo HTML)
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  (change)="onWtPassPolicyPdfSelected($event)"
+                  class="block w-full text-sm text-[var(--app-text)] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-100 file:text-indigo-700 file:font-bold hover:file:bg-indigo-200"
+                />
+                <div class="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    (click)="uploadWtPassPolicyPdf()"
+                    [disabled]="!wtPassPolicyPdfFile"
+                    class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg"
+                  >
+                    Enviar PDF
+                  </button>
+                  <a
+                    href="/politica-acesso-wt-pass"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-sm text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+                  >
+                    Abrir PDF / página atual
+                  </a>
+                </div>
+              </div>
+              <div class="rounded-xl border border-[var(--app-border)] overflow-hidden">
+                <editor
+                  [(ngModel)]="wtPassPolicyHtml"
+                  [init]="tinymceInitWtPass"
+                  licenseKey="gpl"
+                  outputFormat="html"
+                ></editor>
+              </div>
+              <div class="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  (click)="salvarPoliticaWtPass()"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow"
+                >
+                  Guardar política WT Pass
+                </button>
+                <a
+                  href="/politica-acesso-wt-pass"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+                >
+                  Abrir página da política WT Pass
+                </a>
+              </div>
+            </div>
+
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 class="text-xl font-black text-[var(--app-text)]">Bloqueio do WT Pass</h3>
@@ -454,6 +516,8 @@ export class SettingsComponent implements OnInit {
   appBaseUrl = '';
   bidPolicyHtml = '';
   bidPolicyPdfFile: File | null = null;
+  wtPassPolicyHtml = '';
+  wtPassPolicyPdfFile: File | null = null;
 
   listas: ListaEmail[] = [];
   templates: TemplateEmail[] = [];
@@ -477,6 +541,13 @@ export class SettingsComponent implements OnInit {
       placeholder: 'Descreva aqui a política de acesso aos lances...',
       content_style:
         'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }',
+    };
+  }
+
+  get tinymceInitWtPass(): Record<string, unknown> {
+    return {
+      ...this.tinymceInit,
+      placeholder: 'Descreva aqui a política de acesso aos eventos WT Pass...',
     };
   }
 
@@ -531,10 +602,14 @@ export class SettingsComponent implements OnInit {
 
   carregarWtPassSettings() {
     this.loading = true;
-    this.settingsService.getWtPassSettings().subscribe({
-      next: (cfg) => {
+    forkJoin({
+      cfg: this.settingsService.getWtPassSettings(),
+      pol: this.settingsService.getWtPassPolicy(),
+    }).subscribe({
+      next: ({ cfg, pol }) => {
         this.wtPassFaltasPermitidas = Number(cfg?.wt_pass_faltas_permitidas) || 1;
         this.wtPassEventosBloqueio = Number(cfg?.wt_pass_eventos_bloqueio) || 5;
+        this.wtPassPolicyHtml = pol?.html ?? '';
         this.loading = false;
         this.cd.detectChanges();
       },
@@ -648,6 +723,56 @@ export class SettingsComponent implements OnInit {
         });
       },
       error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao enviar PDF da política.', 'error'),
+    });
+  }
+
+  salvarPoliticaWtPass() {
+    const payload: Record<string, string> = {
+      wt_pass_policy_html: this.wtPassPolicyHtml || '',
+    };
+    this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
+      next: () =>
+        Swal.fire({
+          icon: 'success',
+          title: 'Política WT Pass guardada com sucesso.',
+          timer: 1500,
+          showConfirmButton: false,
+        }),
+      error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao guardar política WT Pass.', 'error'),
+    });
+  }
+
+  onWtPassPolicyPdfSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file) {
+      this.wtPassPolicyPdfFile = null;
+      return;
+    }
+    if (file.type !== 'application/pdf') {
+      this.wtPassPolicyPdfFile = null;
+      Swal.fire('Formato inválido', 'Selecione um arquivo PDF.', 'warning');
+      return;
+    }
+    this.wtPassPolicyPdfFile = file;
+  }
+
+  uploadWtPassPolicyPdf() {
+    if (!this.wtPassPolicyPdfFile) {
+      Swal.fire('Atenção', 'Selecione um PDF para enviar.', 'warning');
+      return;
+    }
+    this.settingsService.uploadWtPassPolicyPdf(this.wtPassPolicyPdfFile, this.currentUser?.id).subscribe({
+      next: () => {
+        this.wtPassPolicyPdfFile = null;
+        Swal.fire({
+          icon: 'success',
+          title: 'PDF da política WT Pass guardado com sucesso.',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      },
+      error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao enviar PDF da política WT Pass.', 'error'),
     });
   }
 

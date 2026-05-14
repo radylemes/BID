@@ -49,6 +49,20 @@ export const routes: Routes = [
     data: { roles: ['ADMIN', 'PORTARIA'] },
   },
 
+  // Política de acesso (lances): tela simples sem menu/header do painel
+  {
+    path: 'politica-acesso',
+    component: PolicyAccessComponent,
+    canActivate: [AuthGuard],
+    data: { roles: ['ADMIN', 'USER'], policyScope: 'bids' },
+  },
+  {
+    path: 'politica-acesso-wt-pass',
+    component: PolicyAccessComponent,
+    canActivate: [AuthGuard],
+    data: { roles: ['ADMIN', 'USER'], policyScope: 'wtPass' },
+  },
+
   // ==========================================
   // SISTEMA PRINCIPAL (COM MENU LATERAL)
   // ==========================================
@@ -61,7 +75,6 @@ export const routes: Routes = [
 
       // Tela Inicial (Usuário vê stats e aposta)
       { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
-      { path: 'politica-acesso', component: PolicyAccessComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
       { path: 'eventos-rh', component: EventoRhListComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
       { path: 'eventos-rh/manage', component: EventoRhManagerComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'minhas-apostas', component: MyBetsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },

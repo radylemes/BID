@@ -102,7 +102,7 @@ interface MatchWizardState {
         </div>
       </div>
 
-      <div class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] overflow-hidden">
+      <div class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)]">
         <div *ngIf="loading" class="p-8 text-center text-[var(--app-text-muted)]">
           <span class="animate-pulse">Carregando BIDs...</span>
         </div>
@@ -132,7 +132,7 @@ interface MatchWizardState {
                 type="button"
                 role="tab"
                 [attr.aria-current]="abaAtiva === 'atuais' ? 'page' : null"
-                (click)="abaAtiva = 'atuais'"
+                (click)="setAba('atuais')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtiva === 'atuais',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtiva !== 'atuais'
@@ -148,7 +148,7 @@ interface MatchWizardState {
                 type="button"
                 role="tab"
                 [attr.aria-current]="abaAtiva === 'anteriores' ? 'page' : null"
-                (click)="abaAtiva = 'anteriores'"
+                (click)="setAba('anteriores')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtiva === 'anteriores',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaAtiva !== 'anteriores'
@@ -195,7 +195,7 @@ interface MatchWizardState {
 
         <div
           *ngIf="!loading && matches.length > 0 && matchesNaAba.length > 0"
-          class="overflow-x-auto overflow-y-visible border-t border-[var(--app-border)] -mx-2 sm:mx-0 px-2 sm:px-0"
+          class="border-t border-[var(--app-border)] -mx-2 sm:mx-0 px-2 sm:px-0 overflow-x-auto overflow-y-visible"
         >
           <table class="min-w-[760px] sm:min-w-[980px] w-full text-sm">
             <thead class="sticky top-0 z-20">
@@ -216,9 +216,7 @@ interface MatchWizardState {
                 >
                   Datas
                 </th>
-                <th
-                  class="min-w-[120px] w-[120px] px-2 sm:px-3 py-3 sm:py-3.5 text-center align-middle"
-                >
+                <th class="min-w-[120px] w-[120px] px-2 sm:px-3 py-3 sm:py-3.5 text-center align-middle">
                   <div
                     #statusFiltroHost
                     class="relative inline-flex items-center justify-center gap-1.5"
@@ -232,7 +230,7 @@ interface MatchWizardState {
                       [attr.aria-expanded]="menuFiltroStatusAberto"
                       aria-haspopup="true"
                       aria-label="Filtrar por status"
-                      (click)="menuFiltroStatusAberto = !menuFiltroStatusAberto"
+                      (click)="toggleFiltroStatusMenu($event)"
                     >
                       <svg
                         class="h-3.5 w-3.5"
@@ -248,39 +246,6 @@ interface MatchWizardState {
                         />
                       </svg>
                     </button>
-                    <div
-                      *ngIf="menuFiltroStatusAberto"
-                      class="absolute left-1/2 top-full z-30 mt-1 min-w-[10.5rem] -translate-x-1/2 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
-                      role="menu"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
-                        [class.font-semibold]="!filtroStatus"
-                        (click)="selectStatusFiltro('')"
-                      >
-                        Todos
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
-                        [class.font-semibold]="filtroStatus === 'ABERTA'"
-                        (click)="selectStatusFiltro('ABERTA')"
-                      >
-                        Aberta
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
-                        [class.font-semibold]="filtroStatus === 'FINALIZADA'"
-                        (click)="selectStatusFiltro('FINALIZADA')"
-                      >
-                        Finalizada
-                      </button>
-                    </div>
                   </div>
                 </th>
                 <th
@@ -516,6 +481,43 @@ interface MatchWizardState {
           </table>
         </div>
         <div
+          *ngIf="menuFiltroStatusAberto"
+          #statusFiltroPanel
+          class="fixed z-[200] rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+          [style.top.px]="statusFiltroPanelTop"
+          [style.left.px]="statusFiltroPanelLeft"
+          [style.minWidth.px]="statusFiltroPanelMinWidth"
+          role="menu"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="!filtroStatus"
+            (click)="selectStatusFiltro('')"
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="filtroStatus === 'ABERTA'"
+            (click)="selectStatusFiltro('ABERTA')"
+          >
+            Aberta
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="filtroStatus === 'FINALIZADA'"
+            (click)="selectStatusFiltro('FINALIZADA')"
+          >
+            Finalizada
+          </button>
+        </div>
+        <div
           *ngIf="!loading && matches.length > 0 && matchesNaAba.length === 0"
           class="p-8 text-center text-[var(--app-text-muted)]"
         >
@@ -527,6 +529,7 @@ interface MatchWizardState {
 })
 export class MatchManagerComponent implements OnInit {
   @ViewChild('statusFiltroHost', { read: ElementRef }) statusFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('statusFiltroPanel', { read: ElementRef }) statusFiltroPanel?: ElementRef<HTMLElement>;
 
   matches: any[] = [];
   groups: any[] = [];
@@ -537,14 +540,50 @@ export class MatchManagerComponent implements OnInit {
   filtroBusca = '';
   filtroStatus = '';
   menuFiltroStatusAberto = false;
+  statusFiltroPanelTop = 0;
+  statusFiltroPanelLeft = 0;
+  statusFiltroPanelMinWidth = 168;
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(ev: MouseEvent): void {
     if (!this.menuFiltroStatusAberto) return;
-    const host = this.statusFiltroHost?.nativeElement;
-    if (host && !host.contains(ev.target as Node)) {
-      this.menuFiltroStatusAberto = false;
+    const t = ev.target as Node;
+    if (this.statusFiltroHost?.nativeElement?.contains(t)) return;
+    if (this.statusFiltroPanel?.nativeElement?.contains(t)) return;
+    this.menuFiltroStatusAberto = false;
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.menuFiltroStatusAberto) {
+      this.updateStatusFiltroMenuPosition();
     }
+  }
+
+  toggleFiltroStatusMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.menuFiltroStatusAberto = !this.menuFiltroStatusAberto;
+    if (this.menuFiltroStatusAberto) {
+      requestAnimationFrame(() => this.updateStatusFiltroMenuPosition());
+    }
+  }
+
+  private updateStatusFiltroMenuPosition(): void {
+    const hostEl = this.statusFiltroHost?.nativeElement;
+    if (!hostEl) return;
+    const r = hostEl.getBoundingClientRect();
+    const gap = 4;
+    const minW = 168;
+    let left = r.left + r.width / 2 - minW / 2;
+    const top = r.bottom + gap;
+    const pad = 8;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    if (left < pad) left = pad;
+    if (left + minW > vw - pad) left = Math.max(pad, vw - pad - minW);
+    this.statusFiltroPanelTop = top;
+    this.statusFiltroPanelLeft = left;
+    this.statusFiltroPanelMinWidth = minW;
+    this.cdr.markForCheck();
   }
 
   selectStatusFiltro(val: string): void {
@@ -554,6 +593,7 @@ export class MatchManagerComponent implements OnInit {
 
   setAba(value: string): void {
     this.abaAtiva = value === 'anteriores' ? 'anteriores' : 'atuais';
+    this.menuFiltroStatusAberto = false;
   }
 
   private get hojeInicio(): Date {
