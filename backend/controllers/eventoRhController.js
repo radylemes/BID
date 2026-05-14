@@ -136,6 +136,40 @@ async function getBloqueioAtivoUsuario(connection, usuarioId) {
   return rows[0] || null;
 }
 
+/**
+ * Por cada `bloqueio_id` em `bloqueios_eventos_rh_alvos`, numera os eventos 1..N
+ * por `data_evento` (e `id`) para a contagem distinta por cartão (ex.: 3/1, 3/2).
+ */
+function wtPassAplicarOrdemAlvosBloqueio(list) {
+  if (!Array.isArray(list)) return;
+  const dataEventoMs = (ev) => {
+    const raw = ev?.data_evento;
+    if (raw == null || String(raw).trim() === "") return 0;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
+  };
+  const byBloqueio = new Map();
+  for (const ev of list) {
+    const bid = ev.wt_pass_bloqueio_alvo_id;
+    if (bid == null || !Number.isFinite(Number(bid)) || Number(bid) <= 0) continue;
+    const key = Number(bid);
+    if (!byBloqueio.has(key)) byBloqueio.set(key, []);
+    byBloqueio.get(key).push(ev);
+  }
+  for (const evs of byBloqueio.values()) {
+    evs.sort((a, b) => {
+      const d = dataEventoMs(a) - dataEventoMs(b);
+      if (d !== 0) return d;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+    const n = evs.length;
+    for (let i = 0; i < n; i++) {
+      evs[i].wt_pass_bloqueio_ordem_alvo = i + 1;
+      evs[i].wt_pass_bloqueio_qtd_alvos = n;
+    }
+  }
+}
+
 exports.listEventos = async (req, res) => {
   try {
     const usuarioId = Number(req.user?.id);
@@ -167,10 +201,38 @@ exports.listEventos = async (req, res) => {
                 LIMIT 1
               )
           ) AS minha_posicao_ativa,
-          (SELECT COUNT(*) FROM bloqueios_eventos_rh_alvos ba WHERE ba.evento_id = e.id AND ba.usuario_id = ?) AS bloqueado_para_mim
+          (SELECT COUNT(*) FROM bloqueios_eventos_rh_alvos ba WHERE ba.evento_id = e.id AND ba.usuario_id = ?) AS bloqueado_para_mim,
+          (
+            SELECT eo.titulo
+            FROM bloqueios_eventos_rh_alvos ba
+            INNER JOIN bloqueios_eventos_rh br ON br.id = ba.bloqueio_id
+            INNER JOIN eventos_rh eo ON eo.id = br.evento_origem_id
+            WHERE ba.evento_id = e.id AND ba.usuario_id = ?
+            LIMIT 1
+          ) AS wt_pass_evento_origem_bloqueio_titulo,
+          (
+            SELECT br.eventos_total
+            FROM bloqueios_eventos_rh_alvos ba
+            INNER JOIN bloqueios_eventos_rh br ON br.id = ba.bloqueio_id
+            WHERE ba.evento_id = e.id AND ba.usuario_id = ?
+            LIMIT 1
+          ) AS wt_pass_bloqueio_eventos_total,
+          (
+            SELECT br.eventos_restantes
+            FROM bloqueios_eventos_rh_alvos ba
+            INNER JOIN bloqueios_eventos_rh br ON br.id = ba.bloqueio_id
+            WHERE ba.evento_id = e.id AND ba.usuario_id = ?
+            LIMIT 1
+          ) AS wt_pass_bloqueio_eventos_restantes,
+          (
+            SELECT ba.bloqueio_id
+            FROM bloqueios_eventos_rh_alvos ba
+            WHERE ba.evento_id = e.id AND ba.usuario_id = ?
+            LIMIT 1
+          ) AS wt_pass_bloqueio_alvo_id
          FROM eventos_rh e
          ORDER BY e.data_evento ASC`,
-        [usuarioId, usuarioId, usuarioId, usuarioId],
+        [usuarioId, usuarioId, usuarioId, usuarioId, usuarioId, usuarioId, usuarioId, usuarioId],
       );
 
       const list = eventos.map((row) => {
@@ -195,8 +257,20 @@ exports.listEventos = async (req, res) => {
           meu_status: row.meu_status || null,
           usuario_inscrito: Boolean(row.meu_status && ["INSCRITO", "FILA_ESPERA"].includes(row.meu_status)),
           bloqueado_para_mim: Number(row.bloqueado_para_mim) > 0,
+          wt_pass_evento_origem_bloqueio_titulo:
+            row.wt_pass_evento_origem_bloqueio_titulo != null
+              ? String(row.wt_pass_evento_origem_bloqueio_titulo)
+              : null,
+          wt_pass_bloqueio_eventos_total:
+            row.wt_pass_bloqueio_eventos_total != null ? Number(row.wt_pass_bloqueio_eventos_total) : null,
+          wt_pass_bloqueio_eventos_restantes:
+            row.wt_pass_bloqueio_eventos_restantes != null ? Number(row.wt_pass_bloqueio_eventos_restantes) : null,
+          wt_pass_bloqueio_alvo_id:
+            row.wt_pass_bloqueio_alvo_id != null ? Number(row.wt_pass_bloqueio_alvo_id) : null,
         };
       });
+
+      wtPassAplicarOrdemAlvosBloqueio(list);
 
       res.json({
         eventos: list,
@@ -1077,14 +1151,41 @@ exports.marcarPresenca = async (req, res) => {
   }
 };
 
+/** Só o campo `descricao` (TEXT) — para editar/clonar sem inflacionar `GET /admin/todos`. */
+exports.getEventoAdminDescricao = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "ID inválido." });
+
+    const [rows] = await db.execute(`SELECT descricao FROM eventos_rh WHERE id = ? LIMIT 1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: "Evento não encontrado." });
+
+    const raw = rows[0].descricao;
+    res.json({ descricao: raw != null ? String(raw) : "" });
+  } catch (error) {
+    await logErro("EVENTO_RH_ADMIN_DESCRICAO", error);
+    res.status(500).json({ error: "Erro ao carregar descrição do evento." });
+  }
+};
+
 exports.listAllForAdmin = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT e.*,
-        (SELECT COUNT(*) FROM inscricoes_rh i WHERE i.evento_id = e.id AND i.status IN ('INSCRITO','PRESENTE','FALTOU')) AS ocupadas,
-        (SELECT COUNT(*) FROM inscricoes_rh i WHERE i.evento_id = e.id AND i.status = 'INSCRITO') AS ocupadas_inscrito,
-        (SELECT COUNT(*) FROM inscricoes_rh i WHERE i.evento_id = e.id AND i.status = 'FILA_ESPERA') AS fila_count
+      `SELECT e.id, e.titulo, e.banner, e.subtitulo, e.local,
+        e.data_inicio_inscricao, e.data_limite_inscricao, e.data_evento,
+        e.vagas, e.permitir_lista_espera, e.auto_encerrar, e.status, e.partida_id, e.criado_em,
+        COALESCE(s.ocupadas, 0) AS ocupadas,
+        COALESCE(s.ocupadas_inscrito, 0) AS ocupadas_inscrito,
+        COALESCE(s.fila_count, 0) AS fila_count
        FROM eventos_rh e
+       LEFT JOIN (
+         SELECT evento_id,
+           SUM(status IN ('INSCRITO','PRESENTE','FALTOU')) AS ocupadas,
+           SUM(status = 'INSCRITO') AS ocupadas_inscrito,
+           SUM(status = 'FILA_ESPERA') AS fila_count
+         FROM inscricoes_rh
+         GROUP BY evento_id
+       ) s ON s.evento_id = e.id
        ORDER BY e.data_evento DESC`,
     );
     res.json(

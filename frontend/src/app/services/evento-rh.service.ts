@@ -3,7 +3,23 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
+/** Metadados WT Pass opcionais em cada item de `EventoRhListResponse.eventos` (`GET /eventos-rh`). */
+export interface EventoRhListEventoWtPassMeta {
+  /** Título do evento onde ocorreu a falta (bloqueio ligado via `bloqueios_eventos_rh_alvos`), p.ex. quando não há `bloqueio_ativo`. */
+  wt_pass_evento_origem_bloqueio_titulo?: string | null;
+  /** Contagem do bloqueio associado ao vínculo deste evento (`total/restantes` na UI). */
+  wt_pass_bloqueio_eventos_total?: number | null;
+  wt_pass_bloqueio_eventos_restantes?: number | null;
+  /** `bloqueios_eventos_rh.id` do vínculo em `alvos` (para ordenar cartões). */
+  wt_pass_bloqueio_alvo_id?: number | null;
+  /** Posição 1..N deste evento entre os alvos do mesmo bloqueio (por `data_evento`). */
+  wt_pass_bloqueio_ordem_alvo?: number;
+  /** Quantidade de eventos alvo desse bloqueio na lista. */
+  wt_pass_bloqueio_qtd_alvos?: number;
+}
+
 export interface EventoRhListResponse {
+  /** Itens do evento + campos opcionais como `EventoRhListEventoWtPassMeta`. */
   eventos: any[];
   bloqueio_ativo: {
     eventos_restantes: number;
@@ -71,6 +87,11 @@ export class EventoRhService {
 
   listAdminTodos(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/admin/todos`);
+  }
+
+  /** Campo `descricao` (TEXT) só — usado ao editar/clonar para não pesar na lista admin. */
+  getEventoAdminDescricao(eventoId: number): Observable<{ descricao: string }> {
+    return this.http.get<{ descricao: string }>(`${this.apiUrl}/admin/evento/${eventoId}/descricao`);
   }
 
   getEvento(id: number): Observable<any> {

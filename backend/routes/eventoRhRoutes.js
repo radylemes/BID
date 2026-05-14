@@ -17,6 +17,12 @@ router.get(
   authorizeRoles("ADMIN"),
   eventoRhController.listAllForAdmin,
 );
+router.get(
+  "/admin/evento/:id/descricao",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  eventoRhController.getEventoAdminDescricao,
+);
 router.get("/", authMiddleware, eventoRhController.listEventos);
 router.get("/historico", authMiddleware, eventoRhController.listHistoricoUsuario);
 

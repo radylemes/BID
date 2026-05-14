@@ -37,7 +37,7 @@ import Swal from 'sweetalert2';
             <li class="w-full">
               <button
                 type="button"
-                (click)="abaAtiva='atuais'"
+                (click)="definirAba('atuais')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtiva==='atuais',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] border-transparent hover:border-[var(--app-border)]': abaAtiva!=='atuais'
@@ -50,7 +50,7 @@ import Swal from 'sweetalert2';
             <li class="w-full">
               <button
                 type="button"
-                (click)="abaAtiva='anteriores'"
+                (click)="definirAba('anteriores')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaAtiva==='anteriores',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] border-transparent hover:border-[var(--app-border)]': abaAtiva!=='anteriores'
@@ -65,6 +65,7 @@ import Swal from 'sweetalert2';
             <input
               type="text"
               [(ngModel)]="busca"
+              (ngModelChange)="atualizarListagemUi()"
               placeholder="Buscar por título, local ou status..."
               class="w-full px-3 py-2.5 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] text-[var(--app-text)] text-sm"
             />
@@ -87,7 +88,7 @@ import Swal from 'sweetalert2';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ev of eventosFiltrados" class="border-t border-[var(--app-border)]">
+              <tr *ngFor="let ev of eventosFiltrados; trackBy: trackByEventoId" class="border-t border-[var(--app-border)]">
                 <td class="px-3 py-3 align-middle w-14">
                   <div
                     class="w-11 h-11 rounded-lg overflow-hidden border border-[var(--app-border)] bg-[var(--color-bg-surface)] shrink-0 shadow-sm"
@@ -232,6 +233,10 @@ import Swal from 'sweetalert2';
 })
 export class EventoRhManagerComponent implements OnInit {
   eventos: any[] = [];
+  /** Lista já filtrada por aba + busca e ordenada (evita refiltrar a cada ciclo de deteção de alterações). */
+  eventosFiltrados: any[] = [];
+  eventosAtuaisCount = 0;
+  eventosAnterioresCount = 0;
   loading = false;
   currentUser: any = {};
   abaAtiva: 'atuais' | 'anteriores' = 'atuais';
@@ -262,15 +267,21 @@ export class EventoRhManagerComponent implements OnInit {
     private settingsService: SettingsService,
   ) {}
 
-  get eventosAtuaisCount(): number {
-    return this.eventos.filter((ev) => this.isAtual(ev)).length;
+  trackByEventoId(_index: number, ev: { id?: number }): number {
+    return Number(ev?.id) || _index;
   }
 
-  get eventosAnterioresCount(): number {
-    return this.eventos.filter((ev) => !this.isAtual(ev)).length;
+  definirAba(aba: 'atuais' | 'anteriores'): void {
+    if (this.abaAtiva === aba) return;
+    this.abaAtiva = aba;
+    this.atualizarListagemUi();
   }
 
-  get eventosFiltrados(): any[] {
+  /** Recalcula contadores das abas e a tabela visível (chamar após carregar dados ou alterar busca/aba). */
+  atualizarListagemUi(): void {
+    this.eventosAtuaisCount = this.eventos.filter((ev) => this.isAtual(ev)).length;
+    this.eventosAnterioresCount = this.eventos.length - this.eventosAtuaisCount;
+
     const q = this.busca.trim().toLowerCase();
     const list = this.eventos.filter((ev) => {
       const atual = this.isAtual(ev);
@@ -285,12 +296,13 @@ export class EventoRhManagerComponent implements OnInit {
       );
     });
     const ordem = this.abaAtiva === 'anteriores' ? 'desc' : 'asc';
-    return [...list].sort((a, b) => this.compararPorDataEvento(a, b, ordem));
+    this.eventosFiltrados = [...list].sort((a, b) => this.compararPorDataEvento(a, b, ordem));
   }
 
   ngOnInit() {
     const u = localStorage.getItem('currentUser');
     this.currentUser = u ? JSON.parse(u) : {};
+    this.atualizarListagemUi();
     this.carregar();
     this.preencherDatasPadrao();
     this.carregarWtPassConfig();
@@ -573,8 +585,24 @@ export class EventoRhManagerComponent implements OnInit {
   }
 
   clonar(ev: any): void {
-    this.aplicarFonteClone(ev);
-    this.abrirCriacao({ clone: true });
+    Swal.fire({
+      title: 'A preparar cópia…',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+    this.eventoRhService.getEventoAdminDescricao(Number(ev.id)).subscribe({
+      next: (tx) => {
+        Swal.close();
+        const merged = { ...ev, descricao: tx.descricao ?? '' };
+        this.aplicarFonteClone(merged);
+        this.abrirCriacao({ clone: true });
+      },
+      error: () => {
+        Swal.close();
+        Swal.fire('Erro', 'Não foi possível carregar os dados do evento para clonar.', 'error');
+      },
+    });
   }
 
   private escapeHtml(s: unknown): string {
@@ -758,6 +786,7 @@ export class EventoRhManagerComponent implements OnInit {
       next: (data) => {
         this.eventos = data;
         this.loading = false;
+        this.atualizarListagemUi();
       },
       error: () => {
         this.loading = false;
@@ -1022,6 +1051,27 @@ export class EventoRhManagerComponent implements OnInit {
       );
       return;
     }
+
+    Swal.fire({
+      title: 'A carregar…',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+    this.eventoRhService.getEventoAdminDescricao(Number(ev.id)).subscribe({
+      next: (tx) => {
+        Swal.close();
+        this.abrirModalEditarEvento({ ...ev, descricao: tx.descricao ?? '' });
+      },
+      error: () => {
+        Swal.close();
+        Swal.fire('Erro', 'Não foi possível carregar os detalhes do evento.', 'error');
+      },
+    });
+  }
+
+  /** Modal SweetAlert de edição (após termos a `descricao` vinda do endpoint leve). */
+  private abrirModalEditarEvento(ev: any): void {
     const vInicio = this.isoParaDatetimeLocal(ev.data_inicio_inscricao);
     const vLimite = this.isoParaDatetimeLocal(ev.data_limite_inscricao);
     const vEvento = this.isoParaData(ev.data_evento);

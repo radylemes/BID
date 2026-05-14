@@ -298,7 +298,7 @@ import { FormsModule } from '@angular/forms';
               </span>
             </div>
           </div>
-          <div class="p-4 flex-1 flex flex-col">
+          <div class="p-4 flex-1 flex flex-col min-h-0">
             <div class="mb-4">
               <h2 class="text-xl font-black text-[var(--app-text)] leading-tight line-clamp-2 pr-1 min-w-0">
                 {{ ev.titulo || 'Sem título' }}
@@ -333,35 +333,50 @@ import { FormsModule } from '@angular/forms';
               </div>
             </div>
 
-            <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 items-stretch">
+            <div
+              class="mt-2 grid gap-2 sm:gap-2.5 min-h-0"
+              [ngClass]="
+                bloqueadoPenalidadeNoEvento(ev)
+                  ? 'flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)]'
+                  : 'grid-cols-1 sm:grid-cols-2 items-stretch'
+              "
+            >
               <div
-                class="rounded-xl lg:rounded-2xl border px-2 sm:px-3 py-2.5 text-center flex flex-col items-center justify-center min-h-[4.5rem] sm:min-h-[4.75rem] min-w-0 h-full"
+                class="rounded-xl lg:rounded-2xl border px-2 sm:px-3 text-center flex flex-col items-center justify-center min-w-0"
                 [ngClass]="
-                  situacaoWtCardCancelada(ev)
-                    ? 'border bg-[var(--wt-pink-surface)] border-[var(--wt-pink-border)]'
-                    : 'border-emerald-100 bg-emerald-50/50 dark:bg-emerald-500/10 dark:border-emerald-400/20'
+                  bloqueadoPenalidadeNoEvento(ev)
+                    ? 'h-full min-h-[5rem] py-5 sm:py-8 border bg-[var(--wt-pink-surface)] border-[var(--wt-pink-border)]'
+                    : situacaoWtCardCancelada(ev)
+                      ? 'min-h-[5rem] sm:min-h-[5.25rem] py-2.5 border bg-[var(--wt-pink-surface)] border-[var(--wt-pink-border)]'
+                      : 'min-h-[4.5rem] sm:min-h-[4.75rem] py-2.5 border-emerald-100 bg-emerald-50/50 dark:bg-emerald-500/10 dark:border-emerald-400/20'
                 "
+                [attr.title]="bloqueadoPenalidadeNoEvento(ev) ? labelSituacaoWtCard(ev) : null"
               >
                 <div
-                  class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest"
+                  class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest shrink-0"
                   [ngClass]="
-                    situacaoWtCardCancelada(ev) ? 'text-[var(--wt-pink-muted)]' : 'text-emerald-400'
+                    bloqueadoPenalidadeNoEvento(ev) || situacaoWtCardCancelada(ev)
+                      ? 'text-[var(--wt-pink-muted)]'
+                      : 'text-emerald-400'
                   "
                 >
                   Situação
                 </div>
                 <div
-                  class="text-base sm:text-lg font-black leading-tight mt-0.5 sm:mt-1 line-clamp-2"
+                  class="font-black leading-snug mt-0.5 sm:mt-1 w-full max-w-full"
                   [ngClass]="
-                    situacaoWtCardCancelada(ev)
-                      ? 'text-[var(--wt-pink-strong)]'
-                      : 'text-emerald-600 dark:text-emerald-300'
+                    bloqueadoPenalidadeNoEvento(ev)
+                      ? 'text-sm sm:text-base text-[var(--wt-pink-strong)] line-clamp-none px-1 sm:px-2'
+                      : situacaoWtCardCancelada(ev)
+                        ? 'text-base sm:text-lg text-[var(--wt-pink-strong)] line-clamp-2'
+                        : 'text-base sm:text-lg text-emerald-600 dark:text-emerald-300 line-clamp-2'
                   "
                 >
                   {{ labelSituacaoWtCard(ev) }}
                 </div>
               </div>
               <div
+                *ngIf="!bloqueadoPenalidadeNoEvento(ev)"
                 class="rounded-xl lg:rounded-2xl border border-indigo-100 bg-indigo-50/50 dark:bg-indigo-500/10 dark:border-indigo-400/20 px-2 sm:px-3 py-2.5 flex flex-col items-center justify-center gap-1 min-h-[4.5rem] sm:min-h-[4.75rem] min-w-0 h-full text-center"
                 role="group"
                 title="Ocupação do evento: vagas preenchidas e disponíveis"
@@ -389,7 +404,7 @@ import { FormsModule } from '@angular/forms';
                 </div>
               </div>
             </div>
-            <div class="mt-2 sm:mt-3 flex flex-col gap-2">
+            <div class="mt-2 sm:mt-3 flex flex-col gap-2 shrink-0">
               <div
                 *ngIf="
                   statusBadge(ev) === 'Fechado' &&
@@ -432,6 +447,7 @@ import { FormsModule } from '@angular/forms';
               <button
                 *ngIf="
                   bloqueadoParaUsuario(ev) &&
+                  !bloqueadoPenalidadeNoEvento(ev) &&
                   !podeInscrever(ev) &&
                   !podeCancelar(ev) &&
                   !participacaoFinalizada(ev)
@@ -754,8 +770,53 @@ export class EventoRhListComponent implements OnInit {
     }
   }
 
+  /**
+   * Texto de contagem do bloqueio no cartão:
+   * — com vínculo em `alvos`: `eventos_total/ordem` por data (ex.: 3/1, 3/2) + «restam X» se o bloqueio estiver ativo;
+   * — senão: `total/restantes` global ou do registo expirado.
+   */
+  private textoContagemBloqueioParaCard(ev: any): string | null {
+    const ordem = Number(ev?.wt_pass_bloqueio_ordem_alvo);
+    const temOrdem = Number.isFinite(ordem) && ordem > 0;
+
+    let total = 0;
+    let rest = 0;
+    if (this.bloqueioAtivo) {
+      total = this.bloqueioTotal;
+      rest = Number(this.bloqueioAtivo.eventos_restantes);
+    } else {
+      total = Number(ev?.wt_pass_bloqueio_eventos_total) || 0;
+      rest = Number(ev?.wt_pass_bloqueio_eventos_restantes);
+    }
+    const totalOk = total > 0;
+    const restOk = Number.isFinite(rest);
+
+    if (temOrdem && totalOk) {
+      let s = `${total}/${ordem}`;
+      if (this.bloqueioAtivo && restOk) {
+        s += ` · restam ${rest}`;
+      } else if (!this.bloqueioAtivo && restOk && rest > 0) {
+        s += ` · restam ${rest}`;
+      }
+      return s;
+    }
+    if (totalOk && restOk) return `${total}/${rest}`;
+    if (totalOk) return `${total}/0`;
+    return null;
+  }
+
   /** Cartão «Situação» — período de inscrições igual ao badge «Aberto». */
   labelSituacaoWtCard(ev: any): string {
+    if (this.bloqueadoPenalidadeNoEvento(ev)) {
+      const titulo =
+        this.bloqueioAtivo?.evento_origem_titulo ??
+        ev?.wt_pass_evento_origem_bloqueio_titulo ??
+        '—';
+      let msg = `Bloqueado devido a falta no evento ${titulo}`;
+      const cont = this.textoContagemBloqueioParaCard(ev);
+      if (cont) msg += ` (${cont})`;
+      return msg;
+    }
     return rotuloSituacaoInscricaoWtPass(ev, 'Sem inscrição', this.statusBadge(ev) === 'Aberto');
   }
 
@@ -792,6 +853,16 @@ export class EventoRhListComponent implements OnInit {
     if (ev?.bloqueado_para_mim) return true;
     if (this.bloqueioAtivo) return true;
     return false;
+  }
+
+  /**
+   * Penalidade aplicada a este evento (`bloqueios_eventos_rh_alvos`).
+   * Só nestes cartões se usa a mensagem «Bloqueado devido a falta…» e o layout rosa expandido;
+   * `bloqueioAtivo` sozinho bloqueia inscrições em geral sem marcar cada card como penalidade.
+   */
+  bloqueadoPenalidadeNoEvento(ev: any): boolean {
+    if (ev?.usuario_inscrito) return false;
+    return Boolean(ev?.bloqueado_para_mim);
   }
 
   /**

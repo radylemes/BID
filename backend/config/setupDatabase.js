@@ -527,6 +527,22 @@ async function initializeDatabase() {
       }
     }
 
+    // Índice para agregações por evento/status (lista admin WT Pass, contagens).
+    try {
+      const [idx] = await connection.query(
+        `SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'inscricoes_rh' AND INDEX_NAME = 'idx_inscricoes_rh_evento_status'`,
+        [process.env.DB_NAME],
+      );
+      if (idx.length === 0) {
+        await connection.query(
+          `CREATE INDEX idx_inscricoes_rh_evento_status ON inscricoes_rh (evento_id, status)`,
+        );
+        console.log("✅ Índice idx_inscricoes_rh_evento_status criado em inscricoes_rh.");
+      }
+    } catch (e) {
+      console.warn("Aviso ao criar índice idx_inscricoes_rh_evento_status:", e.message);
+    }
+
     // ============================================================
     // 7. CONFIGURAÇÕES E REGRAS DE PONTUAÇÃO
     // ============================================================
