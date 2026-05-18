@@ -91,6 +91,30 @@ async function getOrCreateEmpresaSetor(connection, empNome, setNome) {
   return { empId, setId };
 }
 
+async function getOrCreateGrupo(connection, nomeGrupo, mapaGrupos) {
+  if (!nomeGrupo || String(nomeGrupo).trim() === "") return null;
+  const key = String(nomeGrupo).toUpperCase().trim();
+  if (mapaGrupos[key]) return mapaGrupos[key];
+
+  const nomeTrim = String(nomeGrupo).trim();
+  const [rows] = await connection.execute(
+    "SELECT id FROM grupos WHERE UPPER(TRIM(nome)) = ? LIMIT 1",
+    [key],
+  );
+  if (rows.length > 0) {
+    mapaGrupos[key] = rows[0].id;
+    return rows[0].id;
+  }
+
+  const [result] = await connection.execute(
+    "INSERT INTO grupos (nome, descricao) VALUES (?, ?)",
+    [nomeTrim, ""],
+  );
+  const newId = result.insertId;
+  mapaGrupos[key] = newId;
+  return newId;
+}
+
 exports.getAllUsers = async (req, res) => {
   try {
     const [rows] = await db.execute(`
@@ -478,7 +502,6 @@ exports.bulkUpdate = async (req, res) => {
         item.setor,
       );
 
-      let grupoIdFinal = null;
       const nomeGrupoExcel =
         item.grupo ||
         item.Grupo ||
@@ -488,12 +511,9 @@ exports.bulkUpdate = async (req, res) => {
         item.GrupoApostas ||
         item["Grupo Apostas"] ||
         item["GrupoApostas"];
-      if (
-        nomeGrupoExcel &&
-        mapaGrupos[String(nomeGrupoExcel).toUpperCase().trim()]
-      ) {
-        grupoIdFinal = mapaGrupos[String(nomeGrupoExcel).toUpperCase().trim()];
-      }
+      const grupoIdFinal = nomeGrupoExcel
+        ? await getOrCreateGrupo(connection, nomeGrupoExcel, mapaGrupos)
+        : null;
 
       const [rowsUser] = await connection.execute(
         "SELECT id, pontos, cpf FROM usuarios WHERE email = ?",
