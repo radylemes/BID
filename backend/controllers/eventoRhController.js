@@ -1,17 +1,30 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
-const { safeAuditoriaDetalhes, truncateMotivo } = require("../utils/dbHelpers");
+const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
+
+/** Inteiro positivo para parâmetros de prepared statements (evita mysqld_stmt_execute). */
+function requireSqlInt(val, label) {
+  const n = safeInt(val);
+  if (n == null || n < 1) {
+    const err = new Error(`${label} inválido.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return n;
+}
 
 async function gravarAuditoria(connection, adminId, modulo, acao, registroId, detalhes) {
   try {
     const executor = connection || db;
+    const adminSqlId = safeInt(adminId) ?? 1;
+    const registroSqlId = safeInt(registroId);
     await executor.execute(
       `INSERT INTO auditoria (admin_id, modulo, acao, registro_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
       [
-        adminId || 1,
+        adminSqlId,
         modulo,
         acao,
-        registroId || null,
+        registroSqlId,
         safeAuditoriaDetalhes(detalhes),
       ],
     );
@@ -92,8 +105,8 @@ async function getWtPassConfig(connection) {
     return acc;
   }, {});
   return {
-    faltasPermitidas: Math.max(1, Number(mapa.wt_pass_faltas_permitidas) || 1),
-    eventosBloqueio: Math.max(1, Number(mapa.wt_pass_eventos_bloqueio) || 5),
+    faltasPermitidas: Math.max(1, Math.floor(Number(mapa.wt_pass_faltas_permitidas)) || 1),
+    eventosBloqueio: Math.max(1, Math.floor(Number(mapa.wt_pass_eventos_bloqueio)) || 5),
   };
 }
 
@@ -484,9 +497,10 @@ exports.listInscritos = async (req, res) => {
 
     const [inscritos] = await db.execute(
       `SELECT i.id, i.evento_id, i.usuario_id, i.posicao, i.status, i.aceitou_politica, i.data_inscricao,
-              u.nome_completo, u.email, u.foto, u.cpf, s.nome AS setor_nome
+              u.nome_completo, u.email, u.foto, u.cpf, s.nome AS setor_nome,
+              (u.id IS NULL) AS usuario_removido
        FROM inscricoes_rh i
-       INNER JOIN usuarios u ON u.id = i.usuario_id
+       LEFT JOIN usuarios u ON u.id = i.usuario_id
        LEFT JOIN setores s ON s.id = u.setor_id
        WHERE i.evento_id = ? AND i.status != 'CANCELADO'
        ORDER BY i.posicao ASC, i.id ASC`,
@@ -496,6 +510,8 @@ exports.listInscritos = async (req, res) => {
     res.json(
       inscritos.map((r) => ({
         ...r,
+        nome_completo: r.nome_completo || `(utilizador #${r.usuario_id} removido)`,
+        usuario_removido: Boolean(r.usuario_removido),
         data_inscricao: r.data_inscricao ? dbUtcToISO(r.data_inscricao) : null,
         aceitou_politica: Boolean(r.aceitou_politica),
       })),
@@ -1033,7 +1049,10 @@ exports.cancelarInscricao = async (req, res) => {
  * Mantém o mesmo comportamento que existia em `marcarPresenca` para status FALTOU.
  */
 async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId) {
+  const usuarioId = requireSqlInt(alvoId, "ID do utilizador");
+  const eventoOrigemId = requireSqlInt(eventoId, "ID do evento");
   const cfg = await getWtPassConfig(connection);
+  const limiteEventos = cfg.eventosBloqueio;
 
   const [[faltasRow]] = await connection.execute(
     `SELECT COUNT(*) AS total
@@ -1041,27 +1060,40 @@ async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId
       WHERE usuario_id = ?
         AND status = 'FALTOU'
         AND bloqueio_consumido_id IS NULL`,
-    [alvoId],
+    [usuarioId],
   );
   const faltasAtuais = Number(faltasRow?.total) || 0;
 
-  if (faltasAtuais < cfg.faltasPermitidas) return;
+  if (faltasAtuais < cfg.faltasPermitidas) return false;
 
   const [[usuarioRow]] = await connection.execute(
     `SELECT id FROM usuarios WHERE id = ? LIMIT 1`,
-    [alvoId],
+    [usuarioId],
   );
   if (!usuarioRow) {
-    const err = new Error(`Utilizador ${alvoId} inexistente; bloqueio WT Pass não aplicado.`);
-    err.code = "WT_PASS_USUARIO_INEXISTENTE";
-    throw err;
+    console.warn(
+      `[WT Pass] Bloqueio ignorado: utilizador #${usuarioId} não existe (inscrição órfã).`,
+    );
+    return false;
+  }
+
+  const [[eventoRow]] = await connection.execute(
+    `SELECT id FROM eventos_rh WHERE id = ? LIMIT 1`,
+    [eventoOrigemId],
+  );
+  if (!eventoRow) {
+    console.warn(
+      `[WT Pass] Bloqueio ignorado: evento origem #${eventoOrigemId} não existe.`,
+    );
+    return false;
   }
 
   const [bloqInsert] = await connection.execute(
     `INSERT INTO bloqueios_eventos_rh (usuario_id, evento_origem_id, eventos_restantes, eventos_total, ativo) VALUES (?, ?, ?, ?, 1)`,
-    [alvoId, eventoId, cfg.eventosBloqueio, cfg.eventosBloqueio],
+    [usuarioId, eventoOrigemId, limiteEventos, limiteEventos],
   );
-  const novoBloqueioId = bloqInsert.insertId;
+  const novoBloqueioId = safeInt(bloqInsert.insertId);
+  if (novoBloqueioId == null) return false;
 
   const [futuros] = await connection.execute(
     `SELECT e.id
@@ -1079,19 +1111,21 @@ async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId
             AND i.status <> 'CANCELADO'
         )
       ORDER BY e.data_evento ASC, e.id ASC
-      LIMIT ?`,
-    [eventoId, alvoId, alvoId, cfg.eventosBloqueio],
+      LIMIT ${limiteEventos}`,
+    [eventoOrigemId, usuarioId, usuarioId],
   );
-  const aVincular = futuros;
-  for (const ev of aVincular) {
+
+  for (const ev of futuros) {
+    const eventoAlvoId = safeInt(ev.id);
+    if (eventoAlvoId == null) continue;
     await connection.execute(
       `INSERT IGNORE INTO bloqueios_eventos_rh_alvos (bloqueio_id, usuario_id, evento_id) VALUES (?, ?, ?)`,
-      [novoBloqueioId, alvoId, ev.id],
+      [novoBloqueioId, usuarioId, eventoAlvoId],
     );
   }
 
-  const vinculadosAgora = aVincular.length;
-  const restantes = Math.max(0, cfg.eventosBloqueio - vinculadosAgora);
+  const vinculadosAgora = futuros.length;
+  const restantes = Math.max(0, limiteEventos - vinculadosAgora);
   if (restantes === 0) {
     await connection.execute(
       `UPDATE bloqueios_eventos_rh SET eventos_restantes = 0, ativo = 0 WHERE id = ?`,
@@ -1110,37 +1144,33 @@ async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId
       WHERE usuario_id = ?
         AND status = 'FALTOU'
         AND bloqueio_consumido_id IS NULL`,
-    [novoBloqueioId, alvoId],
+    [novoBloqueioId, usuarioId],
   );
+  return true;
 }
 
 exports.marcarPresenca = async (req, res) => {
-  const eventoId = Number(req.params.id);
-  const { usuario_id: alvoId, status, adminId } = req.body;
+  let eventoId;
+  let usuarioId;
+  try {
+    eventoId = requireSqlInt(req.params.id, "ID do evento");
+    usuarioId = requireSqlInt(req.body.usuario_id, "ID do utilizador");
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ error: error.message });
+  }
+  const { status, adminId } = req.body;
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
     const [ins] = await connection.execute(
-      `SELECT id, status FROM inscricoes_rh WHERE evento_id = ? AND usuario_id = ? FOR UPDATE`,
-      [eventoId, alvoId],
+      `SELECT id, status, usuario_id FROM inscricoes_rh WHERE evento_id = ? AND usuario_id = ? FOR UPDATE`,
+      [eventoId, usuarioId],
     );
     if (ins.length === 0) {
       await connection.rollback();
       return res.status(404).json({ error: "Inscrição não encontrada." });
-    }
-
-    const [usr] = await connection.execute(
-      `SELECT id FROM usuarios WHERE id = ? LIMIT 1`,
-      [alvoId],
-    );
-    if (usr.length === 0) {
-      await connection.rollback();
-      return res.status(400).json({
-        error:
-          "O utilizador desta inscrição não existe no sistema. Contacte o suporte para corrigir dados inconsistentes.",
-      });
     }
 
     if (!["INSCRITO", "FILA_ESPERA"].includes(ins[0].status)) {
@@ -1148,31 +1178,43 @@ exports.marcarPresenca = async (req, res) => {
       return res.status(400).json({ error: "Só é possível marcar presença/falta para inscrições ativas." });
     }
 
+    const inscricaoId = requireSqlInt(ins[0].id, "ID da inscrição");
+    const usuarioInscricaoId = requireSqlInt(ins[0].usuario_id, "ID do utilizador da inscrição");
     const prev = ins[0].status;
-    await connection.execute(`UPDATE inscricoes_rh SET status = ? WHERE id = ?`, [status, ins[0].id]);
+    await connection.execute(`UPDATE inscricoes_rh SET status = ? WHERE id = ?`, [status, inscricaoId]);
 
+    let bloqueioAplicado = false;
     if (status === "FALTOU" && (prev === "INSCRITO" || prev === "FILA_ESPERA")) {
-      await aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId);
+      bloqueioAplicado = await aplicarRegrasBloqueioAposFaltaWtPass(
+        connection,
+        eventoId,
+        usuarioInscricaoId,
+      );
     }
 
     await gravarAuditoria(connection, adminId, "EVENTOS_RH", "PRESENCA", eventoId, {
-      usuario_id: alvoId,
+      usuario_id: usuarioInscricaoId,
       status,
+      bloqueio_aplicado: bloqueioAplicado,
       motivo: truncateMotivo(`Presença: ${status}`),
     });
 
     await connection.commit();
-    res.json({ message: status === "PRESENTE" ? "Marcado como presente." : "Marcado como falta; bloqueio aplicado se aplicável." });
+    let message =
+      status === "PRESENTE" ? "Marcado como presente." : "Marcado como falta.";
+    if (status === "FALTOU" && !bloqueioAplicado) {
+      message += " Bloqueio WT Pass não foi aplicado (utilizador inexistente ou limite de faltas não atingido).";
+    } else if (status === "FALTOU" && bloqueioAplicado) {
+      message += " Bloqueio WT Pass aplicado.";
+    }
+    res.json({ message, bloqueio_aplicado: bloqueioAplicado });
   } catch (error) {
     try {
       await connection.rollback();
     } catch (_) {}
     await logErro("EVENTO_RH_PRESENCA", error);
-    if (error.code === "WT_PASS_USUARIO_INEXISTENTE") {
-      return res.status(400).json({
-        error:
-          "Não foi possível aplicar o bloqueio: o utilizador desta inscrição não existe no sistema.",
-      });
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message });
     }
     const payload = { error: "Erro ao marcar presença." };
     if (process.env.NODE_ENV !== "production" && error.message) {
@@ -1264,9 +1306,14 @@ exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
       const c = await db.getConnection();
       try {
         await c.beginTransaction();
+        const inscricaoId = safeInt(row.inscricao_id);
+        const eventoIdRow = safeInt(row.evento_id);
+        const usuarioIdRow = safeInt(row.usuario_id);
+        if (inscricaoId == null || eventoIdRow == null || usuarioIdRow == null) continue;
+
         const [u] = await c.execute(
           `SELECT id, status, portaria_checkin FROM inscricoes_rh WHERE id = ? FOR UPDATE`,
-          [row.inscricao_id],
+          [inscricaoId],
         );
         if (
           u.length === 0 ||
@@ -1279,22 +1326,22 @@ exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
 
         const [upd] = await c.execute(
           `UPDATE inscricoes_rh SET status = 'FALTOU' WHERE id = ? AND status = 'INSCRITO' AND IFNULL(portaria_checkin, 0) = 0`,
-          [row.inscricao_id],
+          [inscricaoId],
         );
         if (upd.affectedRows === 0) {
           await c.rollback();
           continue;
         }
 
-        await promoverFilaEspera(c, row.evento_id);
-        await aplicarRegrasBloqueioAposFaltaWtPass(c, row.evento_id, row.usuario_id);
+        await promoverFilaEspera(c, eventoIdRow);
+        await aplicarRegrasBloqueioAposFaltaWtPass(c, eventoIdRow, usuarioIdRow);
 
-        await gravarAuditoria(c, 1, "EVENTOS_RH", "WT_PASS_NAO_RETIRADA_AUTO", row.evento_id, {
+        await gravarAuditoria(c, 1, "EVENTOS_RH", "WT_PASS_NAO_RETIRADA_AUTO", eventoIdRow, {
           motivo: truncateMotivo(
-            `Ingresso WT Pass não retirado após a data do evento (inscrição #${row.inscricao_id}, utilizador #${row.usuario_id}).`,
+            `Ingresso WT Pass não retirado após a data do evento (inscrição #${inscricaoId}, utilizador #${usuarioIdRow}).`,
           ),
-          usuario_id: row.usuario_id,
-          inscricao_id: row.inscricao_id,
+          usuario_id: usuarioIdRow,
+          inscricao_id: inscricaoId,
         });
 
         await c.commit();
