@@ -32,7 +32,6 @@ interface MatchWizardDadosBid {
   banner: string;
   link_extra: string;
   informacoes_extras: string;
-  quantidade_premios: number;
   data_jogo_local: string;
   data_inicio_apostas_local: string;
   data_limite_aposta_local: string;
@@ -41,7 +40,9 @@ interface MatchWizardDadosBid {
 
 interface MatchWizardGruposSel {
   publico: boolean;
+  publico_qtd: number;
   ids: number[];
+  quantidades: Record<number, number>;
 }
 
 interface MatchWizardWtPass {
@@ -1190,6 +1191,23 @@ export class MatchManagerComponent implements OnInit {
     return Number.isNaN(d.getTime()) ? '' : d.toISOString();
   }
 
+  private emptyWizardGruposSel(defaultQtd = 1): MatchWizardGruposSel {
+    const quantidades: Record<number, number> = {};
+    for (const g of this.groups) {
+      quantidades[Number(g.id)] = defaultQtd;
+    }
+    return { publico: false, publico_qtd: defaultQtd, ids: [], quantidades };
+  }
+
+  private getMaxQuantidadeGruposSel(grupos: MatchWizardGruposSel): number {
+    let max = 1;
+    if (grupos.publico) max = Math.max(max, Math.max(1, Number(grupos.publico_qtd) || 1));
+    for (const gid of grupos.ids) {
+      max = Math.max(max, Math.max(1, Number(grupos.quantidades[gid]) || 1));
+    }
+    return max;
+  }
+
   private buildInitialWizardState(match: any | null, isClone: boolean): MatchWizardState {
     const emptyDados: MatchWizardDadosBid = {
       titulo: '',
@@ -1199,7 +1217,6 @@ export class MatchManagerComponent implements OnInit {
       banner: '',
       link_extra: '',
       informacoes_extras: '',
-      quantidade_premios: 1,
       data_jogo_local: '',
       data_inicio_apostas_local: '',
       data_limite_aposta_local: '',
@@ -1220,7 +1237,6 @@ export class MatchManagerComponent implements OnInit {
           match.banner && String(match.banner).startsWith('http') ? String(match.banner) : '',
         link_extra: match.link_extra ? String(match.link_extra) : '',
         informacoes_extras: match.informacoes_extras ? String(match.informacoes_extras) : '',
-        quantidade_premios: Math.max(1, Number(match.quantidade_premios) || 1),
         data_jogo_local: this.formatIsoParaDatetimeLocal(match.data_jogo),
         data_inicio_apostas_local: this.formatIsoParaDatetimeLocal(match.data_inicio_apostas),
         data_limite_aposta_local: this.formatIsoParaDatetimeLocal(match.data_limite_aposta),
@@ -1228,13 +1244,13 @@ export class MatchManagerComponent implements OnInit {
           ? this.formatIsoParaDatetimeLocal(match.data_apuracao)
           : '',
       };
-      const q = dados.quantidade_premios;
+      const cloneQtd = Math.max(1, Number(match.quantidade_premios) || 1);
       return {
         dados,
-        grupos: { publico: false, ids: [] },
+        grupos: this.emptyWizardGruposSel(cloneQtd),
         wtPass: {
           ativo: false,
-          vagas: q,
+          vagas: cloneQtd,
           permitir_lista_espera: true,
           data_inicio_inscricao_local: dados.data_inicio_apostas_local,
           data_limite_inscricao_local: dados.data_limite_aposta_local,
@@ -1246,7 +1262,7 @@ export class MatchManagerComponent implements OnInit {
 
     return {
       dados: emptyDados,
-      grupos: { publico: false, ids: [] },
+      grupos: this.emptyWizardGruposSel(1),
       wtPass: {
         ativo: false,
         vagas: 1,
@@ -1261,8 +1277,7 @@ export class MatchManagerComponent implements OnInit {
 
   private ensureWtPassDefaults(state: MatchWizardState): void {
     const d = state.dados;
-    const q = Math.max(1, Number(d.quantidade_premios) || 1);
-    state.wtPass.vagas = q;
+    state.wtPass.vagas = this.getMaxQuantidadeGruposSel(state.grupos);
     state.wtPass.data_inicio_inscricao_local = d.data_inicio_apostas_local;
     state.wtPass.data_limite_inscricao_local = d.data_limite_aposta_local;
     state.wtPass.data_evento_yyyy_mm_dd = this.dataJogoParaApenasData(d.data_jogo_local);
@@ -1272,6 +1287,7 @@ export class MatchManagerComponent implements OnInit {
     dados: MatchWizardDadosBid,
     grupoId: string,
     motivo: string,
+    quantidadePremios: number,
   ): FormData {
     const toIsoUtc = (v: string) => (v ? new Date(v).toISOString() : '');
     const fd = new FormData();
@@ -1293,7 +1309,7 @@ export class MatchManagerComponent implements OnInit {
       toIsoUtc(dados.data_limite_aposta_local) || dados.data_limite_aposta_local,
     );
     fd.append('data_apuracao', toIsoUtc(dados.data_apuracao_local) || '');
-    fd.append('quantidade_premios', String(Math.max(1, Number(dados.quantidade_premios) || 1)));
+    fd.append('quantidade_premios', String(Math.max(1, Number(quantidadePremios) || 1)));
     fd.append('motivo', motivo);
     fd.append('adminId', String(this.currentUser.id));
     return fd;
@@ -1335,8 +1351,6 @@ export class MatchManagerComponent implements OnInit {
     setVal('bid-w-banner', d.banner);
     setVal('bid-w-linkExtra', d.link_extra);
     setVal('bid-w-informacoesExtras', d.informacoes_extras);
-    const qtd = document.getElementById('bid-w-qtdPremios') as HTMLInputElement | null;
-    if (qtd) qtd.value = String(Math.max(1, Number(d.quantidade_premios) || 1));
     setVal('bid-w-dataEvento', d.data_jogo_local);
     setVal('bid-w-dataInicio', d.data_inicio_apostas_local);
     setVal('bid-w-dataLimite', d.data_limite_aposta_local);
@@ -1362,7 +1376,6 @@ export class MatchManagerComponent implements OnInit {
       banner: getVal('bid-w-banner'),
       link_extra: getVal('bid-w-linkExtra'),
       informacoes_extras: getTa('bid-w-informacoesExtras'),
-      quantidade_premios: Math.max(1, Math.floor(Number(getVal('bid-w-qtdPremios')) || 1)),
       data_jogo_local: dataJogo,
       data_inicio_apostas_local: getVal('bid-w-dataInicio'),
       data_limite_aposta_local: getVal('bid-w-dataLimite'),
@@ -1411,15 +1424,9 @@ export class MatchManagerComponent implements OnInit {
             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Informações extras</label>
             <textarea id="bid-w-informacoesExtras" class="swal2-textarea w-full m-0 text-sm border-gray-300 rounded-lg" rows="3" placeholder="Texto livre (opcional)"></textarea>
           </div>
-          <div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <div>
-                 <label class="block text-xs font-bold text-blue-600 uppercase mb-1">Qtd. Ingressos</label>
-                 <input id="bid-w-qtdPremios" type="number" min="1" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="1">
-              </div>
-              <div>
-                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Data do Show/Jogo</label>
-                 <input id="bid-w-dataEvento" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="">
-              </div>
+          <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Data do Show/Jogo</label>
+              <input id="bid-w-dataEvento" type="datetime-local" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" value="">
           </div>
 
           <div class="grid grid-cols-3 gap-4">
@@ -1509,24 +1516,61 @@ export class MatchManagerComponent implements OnInit {
     if (el) el.textContent = String(n);
   }
 
+  private wizardGrupoQtdInputHtml(value: number, disabled: boolean, grupoId?: number): string {
+    const idAttr =
+      grupoId != null
+        ? `data-bid-w-qtd-for="${grupoId}"`
+        : 'id="bid-w-g-publico-qtd"';
+    return `<input type="number" min="1" ${idAttr} class="swal2-input w-16 m-0 h-8 text-sm border-gray-300 rounded-lg shrink-0" value="${value}" ${disabled ? 'disabled' : ''} />`;
+  }
+
+  private syncWizardGrupoQtdDisabled(): void {
+    const pubCb = document.getElementById('bid-w-g-publico') as HTMLInputElement | null;
+    const pubQtd = document.getElementById('bid-w-g-publico-qtd') as HTMLInputElement | null;
+    if (pubQtd) pubQtd.disabled = !pubCb?.checked;
+    document.querySelectorAll<HTMLInputElement>('[data-bid-w-gid]').forEach((cb) => {
+      const id = cb.getAttribute('data-bid-w-gid');
+      const qtd = document.querySelector(
+        `[data-bid-w-qtd-for="${id}"]`,
+      ) as HTMLInputElement | null;
+      if (qtd) qtd.disabled = !cb.checked;
+    });
+  }
+
+  private readWizardQtdFromInput(el: HTMLInputElement | null): number | null {
+    if (!el) return null;
+    const n = Math.floor(Number(el.value));
+    if (!Number.isFinite(n) || n < 1) return null;
+    return n;
+  }
+
   private buildWizardFase2Html(state: MatchWizardState): string {
+    const qtdLabel =
+      '<span class="text-[10px] font-bold text-blue-600 uppercase shrink-0 w-24 text-right">Qtd. ingressos</span>';
+    const publicoQtd = Math.max(1, Number(state.grupos.publico_qtd) || 1);
     const gruposHtml = this.groups
       .map((g) => {
-        const checked = state.grupos.ids.includes(Number(g.id)) ? 'checked' : '';
+        const gid = Number(g.id);
+        const checked = state.grupos.ids.includes(gid);
+        const qtd = Math.max(1, Number(state.grupos.quantidades[gid]) || 1);
         return `<label class="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 cursor-pointer">
-          <input type="checkbox" data-bid-w-gid="${g.id}" class="rounded border-gray-300" ${checked} />
-          <span class="text-sm text-gray-800">🎲 ${this.escapeHtmlWizard(g.nome)}</span>
+          <input type="checkbox" data-bid-w-gid="${g.id}" class="rounded border-gray-300 shrink-0" ${checked ? 'checked' : ''} />
+          <span class="text-sm text-gray-800 flex-1 min-w-0">🎲 ${this.escapeHtmlWizard(g.nome)}</span>
+          ${qtdLabel}
+          ${this.wizardGrupoQtdInputHtml(qtd, !checked, gid)}
         </label>`;
       })
       .join('');
     return `
       <div class="text-left space-y-3 px-1">
         <p class="text-sm text-gray-600">Serão criados <strong id="bid-wizard-count">0</strong> BID(s) (um por opção selecionada).</p>
-        <p class="text-xs text-gray-500">Marque <strong>Público</strong> e/ou um ou mais grupos.</p>
-        <div class="max-h-52 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+        <p class="text-xs text-gray-500">Marque <strong>Público</strong> e/ou um ou mais grupos e defina a quantidade de ingressos de cada um.</p>
+        <div class="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50/80 p-3">
           <label class="flex items-center gap-2 py-2 border-b border-amber-100 mb-1 cursor-pointer font-medium text-amber-800">
-            <input type="checkbox" id="bid-w-g-publico" class="rounded border-amber-300" ${state.grupos.publico ? 'checked' : ''} />
-            <span>👥 Público (Todos)</span>
+            <input type="checkbox" id="bid-w-g-publico" class="rounded border-amber-300 shrink-0" ${state.grupos.publico ? 'checked' : ''} />
+            <span class="flex-1 min-w-0">👥 Público (Todos)</span>
+            ${qtdLabel}
+            ${this.wizardGrupoQtdInputHtml(publicoQtd, !state.grupos.publico)}
           </label>
           ${gruposHtml || '<p class="text-gray-400 text-sm py-2">Nenhum grupo cadastrado.</p>'}
         </div>
@@ -1535,7 +1579,10 @@ export class MatchManagerComponent implements OnInit {
   }
 
   private attachWizardFase2Handlers(): void {
-    const upd = () => this.updateWizardGrupoCount();
+    const upd = () => {
+      this.updateWizardGrupoCount();
+      this.syncWizardGrupoQtdDisabled();
+    };
     document.getElementById('bid-w-g-publico')?.addEventListener('change', upd);
     document.querySelectorAll('[data-bid-w-gid]').forEach((el) => el.addEventListener('change', upd));
     upd();
@@ -1552,14 +1599,40 @@ export class MatchManagerComponent implements OnInit {
       Swal.showValidationMessage('Selecione pelo menos Público ou um grupo.');
       return false;
     }
-    state.grupos = { publico, ids };
+    let publico_qtd = state.grupos.publico_qtd;
+    if (publico) {
+      const q = this.readWizardQtdFromInput(
+        document.getElementById('bid-w-g-publico-qtd') as HTMLInputElement,
+      );
+      if (q === null) {
+        Swal.showValidationMessage('Público: informe uma quantidade de ingressos válida (≥ 1).');
+        return false;
+      }
+      publico_qtd = q;
+    }
+    const quantidades = { ...state.grupos.quantidades };
+    for (const gid of ids) {
+      const qtdEl = document.querySelector(
+        `[data-bid-w-qtd-for="${gid}"]`,
+      ) as HTMLInputElement | null;
+      const q = this.readWizardQtdFromInput(qtdEl);
+      if (q === null) {
+        const g = this.groups.find((x) => Number(x.id) === gid);
+        Swal.showValidationMessage(
+          `Grupo "${g?.nome || gid}": quantidade de ingressos inválida (≥ 1).`,
+        );
+        return false;
+      }
+      quantidades[gid] = q;
+    }
+    state.grupos = { publico, publico_qtd, ids, quantidades };
     return true;
   }
 
   private runWizardFase2(state: MatchWizardState): Promise<'cancel' | 'back' | 'next'> {
     return Swal.fire({
       title: 'Grupos — Etapa 2 de 3',
-      width: '520px',
+      width: '600px',
       html: this.buildWizardFase2Html(state),
       focusConfirm: false,
       showCancelButton: true,
@@ -1730,11 +1803,21 @@ export class MatchManagerComponent implements OnInit {
 
   private submitWizardState(state: MatchWizardState, match: any | null, isClone: boolean): void {
     const titulo = state.dados.titulo.trim();
-    const targets: { grupo_id: string; label: string }[] = [];
-    if (state.grupos.publico) targets.push({ grupo_id: 'null', label: 'Público' });
+    const targets: { grupo_id: string; label: string; quantidade: number }[] = [];
+    if (state.grupos.publico) {
+      targets.push({
+        grupo_id: 'null',
+        label: 'Público',
+        quantidade: Math.max(1, Number(state.grupos.publico_qtd) || 1),
+      });
+    }
     for (const gid of state.grupos.ids) {
       const g = this.groups.find((x) => Number(x.id) === Number(gid));
-      targets.push({ grupo_id: String(gid), label: g?.nome || `Grupo ${gid}` });
+      targets.push({
+        grupo_id: String(gid),
+        label: g?.nome || `Grupo ${gid}`,
+        quantidade: Math.max(1, Number(state.grupos.quantidades[gid]) || 1),
+      });
     }
 
     const baseMotivo = isClone
@@ -1744,7 +1827,12 @@ export class MatchManagerComponent implements OnInit {
     const requests = targets.map((t) =>
       this.matchService
         .createMatch(
-          this.buildMatchFormDataForGrupo(state.dados, t.grupo_id, `${baseMotivo} [${t.label}]`),
+          this.buildMatchFormDataForGrupo(
+            state.dados,
+            t.grupo_id,
+            `${baseMotivo} [${t.label}]`,
+            t.quantidade,
+          ),
         )
         .pipe(
           map((res: { id?: number }) => ({
