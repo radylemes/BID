@@ -629,19 +629,27 @@ export class MatchManagerComponent implements OnInit {
     return Date.now() > apuracao.getTime();
   }
 
+  private readonly apostasBufferMs = 60 * 1000;
+
   isPrazoApostasEncerrado(m: any): boolean {
     const limite = this.parseDate(m?.data_limite_aposta);
     if (!limite) return false;
-    return Date.now() > limite.getTime();
+    return Date.now() > limite.getTime() + this.apostasBufferMs;
   }
 
   canEditMatch(m: any): boolean {
     return m?.status === 'ABERTA' && !this.isApuracaoEncerrada(m);
   }
 
+  isEdicaoSomenteSetor(m: any): boolean {
+    return this.canEditMatch(m) && this.isPrazoApostasEncerrado(m);
+  }
+
   getEditTooltip(m: any): string {
     if (this.isApuracaoEncerrada(m)) return 'Edição bloqueada: data de apuração encerrada';
     if (m?.status !== 'ABERTA') return 'Edição não permitida';
+    if (this.isEdicaoSomenteSetor(m))
+      return 'Edição limitada: apenas setor do evento (período de apostas encerrado)';
     return 'Editar';
   }
 
@@ -1961,8 +1969,15 @@ export class MatchManagerComponent implements OnInit {
 
   async abrirFormulario(match: any = null, isClone: boolean = false) {
     const isEdit = !!match && !isClone;
+    const somenteSetor = isEdit && this.isEdicaoSomenteSetor(match);
 
-    const tituloModal = isEdit ? '✏️ Editar BID' : isClone ? '📑 Clonar BID' : 'Novo BID';
+    const tituloModal = somenteSetor
+      ? '✏️ Editar BID — apenas setor'
+      : isEdit
+        ? '✏️ Editar BID'
+        : isClone
+          ? '📑 Clonar BID'
+          : 'Novo BID';
     const tituloInput = isClone ? `${match.titulo} (Cópia)` : match?.titulo || '';
 
     /** Converte ISO (UTC) para "YYYY-MM-DDTHH:mm" em horário local do usuário (valor do datetime-local). */
@@ -2007,6 +2022,14 @@ export class MatchManagerComponent implements OnInit {
           if (linkExtraEl && match.link_extra) linkExtraEl.value = match.link_extra;
           if (dataApuracaoEl && match.data_apuracao) dataApuracaoEl.value = formatData(match.data_apuracao);
         }
+        if (somenteSetor) {
+          document.querySelectorAll('.swal2-input, .swal2-select, .swal2-textarea').forEach((el) => {
+            const node = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+            if (node.id === 'setorEventoId') return;
+            node.disabled = true;
+            node.classList.add('opacity-60', 'cursor-not-allowed');
+          });
+        }
         if (!isEdit && !isClone) {
           const titleEl = document.querySelector('.swal2-title') as HTMLElement | null;
           if (titleEl) {
@@ -2022,6 +2045,13 @@ export class MatchManagerComponent implements OnInit {
       },
       html: `
         <div class="text-left space-y-4 px-2">
+          ${
+            somenteSetor
+              ? `<div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  O período de apostas encerrou. Apenas o <strong>setor do evento</strong> pode ser alterado.
+                </div>`
+              : ''
+          }
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do BID</label>
@@ -2100,45 +2130,92 @@ export class MatchManagerComponent implements OnInit {
       confirmButtonText: 'Salvar BID',
       preConfirm: () => {
         const getVal = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value;
-        const titulo = getVal('titulo');
-        const dataJogo = getVal('dataEvento');
-
-        // Geração do motivo de auditoria 100% invisível e automático
-        let motivo = '';
-        if (isClone) {
-          motivo = `Clonagem do evento: ${match.titulo} -> ${titulo}`;
-        } else if (isEdit) {
-          motivo = `Edição do evento: ${titulo}`;
-        } else {
-          motivo = `Criação do evento: ${titulo}`;
-        }
-
-        if (!titulo || !dataJogo) {
-          Swal.showValidationMessage('Título e Data do Show/Jogo são obrigatórios.');
-          return false;
-        }
-
         const getTextarea = (id: string) => (document.getElementById(id) as HTMLTextAreaElement)?.value ?? '';
-        /** Envia data/hora em ISO UTC para o backend gravar em UTC (evita diferença de fuso). */
         const toIsoUtc = (v: string) => (v ? new Date(v).toISOString() : '');
+        const toIsoUtcFromMatch = (iso: string | undefined | null) =>
+          iso ? new Date(iso).toISOString() : '';
+
+        const setorVal =
+          (document.getElementById('setorEventoId') as HTMLSelectElement)?.value ?? 'null';
+
+        let titulo: string;
+        let dataJogo: string;
+        let motivo: string;
+
+        if (somenteSetor) {
+          titulo = match.titulo;
+          dataJogo = formatData(match.data_jogo);
+          motivo = `Edição restrita (pós-fim apostas): setor do evento — ${match.titulo}`;
+        } else {
+          titulo = getVal('titulo');
+          dataJogo = getVal('dataEvento');
+          if (isClone) {
+            motivo = `Clonagem do evento: ${match.titulo} -> ${titulo}`;
+          } else if (isEdit) {
+            motivo = `Edição do evento: ${titulo}`;
+          } else {
+            motivo = `Criação do evento: ${titulo}`;
+          }
+          if (!titulo || !dataJogo) {
+            Swal.showValidationMessage('Título e Data do Show/Jogo são obrigatórios.');
+            return false;
+          }
+        }
 
         const formData = new FormData();
         formData.append('titulo', titulo);
-        formData.append('grupo_id', getVal('grupoId'));
         formData.append(
-          'setor_evento_id',
-          (document.getElementById('setorEventoId') as HTMLSelectElement)?.value ?? 'null',
+          'grupo_id',
+          somenteSetor
+            ? match.grupo_id != null
+              ? String(match.grupo_id)
+              : 'null'
+            : getVal('grupoId'),
         );
-        formData.append('banner', getVal('banner'));
-        formData.append('subtitulo', getVal('subtitulo'));
-        formData.append('informacoes_extras', getTextarea('informacoesExtras'));
-        formData.append('link_extra', getVal('linkExtra'));
-        formData.append('local', getVal('local'));
-        formData.append('data_jogo', toIsoUtc(dataJogo) || dataJogo);
-        formData.append('data_inicio_apostas', toIsoUtc(getVal('dataInicio')) || getVal('dataInicio'));
-        formData.append('data_limite_aposta', toIsoUtc(getVal('dataLimite')) || getVal('dataLimite'));
-        formData.append('data_apuracao', toIsoUtc(getVal('dataApuracao')) || '');
-        formData.append('quantidade_premios', String(Number(getVal('qtdPremios')) || 1));
+        formData.append('setor_evento_id', setorVal);
+        formData.append(
+          'banner',
+          somenteSetor
+            ? match.banner && String(match.banner).startsWith('http')
+              ? String(match.banner)
+              : ''
+            : getVal('banner'),
+        );
+        formData.append('subtitulo', somenteSetor ? match.subtitulo || '' : getVal('subtitulo'));
+        formData.append(
+          'informacoes_extras',
+          somenteSetor ? match.informacoes_extras || '' : getTextarea('informacoesExtras'),
+        );
+        formData.append('link_extra', somenteSetor ? match.link_extra || '' : getVal('linkExtra'));
+        formData.append('local', somenteSetor ? match.local || '' : getVal('local'));
+        formData.append(
+          'data_jogo',
+          somenteSetor ? toIsoUtcFromMatch(match.data_jogo) : toIsoUtc(dataJogo) || dataJogo,
+        );
+        formData.append(
+          'data_inicio_apostas',
+          somenteSetor
+            ? toIsoUtcFromMatch(match.data_inicio_apostas)
+            : toIsoUtc(getVal('dataInicio')) || getVal('dataInicio'),
+        );
+        formData.append(
+          'data_limite_aposta',
+          somenteSetor
+            ? toIsoUtcFromMatch(match.data_limite_aposta)
+            : toIsoUtc(getVal('dataLimite')) || getVal('dataLimite'),
+        );
+        formData.append(
+          'data_apuracao',
+          somenteSetor
+            ? match.data_apuracao
+              ? toIsoUtcFromMatch(match.data_apuracao)
+              : ''
+            : toIsoUtc(getVal('dataApuracao')) || '',
+        );
+        formData.append(
+          'quantidade_premios',
+          String(somenteSetor ? Number(match.quantidade_premios) || 1 : Number(getVal('qtdPremios')) || 1),
+        );
         formData.append('motivo', motivo);
         formData.append('adminId', String(this.currentUser.id));
 
@@ -2163,9 +2240,10 @@ export class MatchManagerComponent implements OnInit {
           });
           this.carregar();
         },
-        error: () => {
+        error: (err: { error?: { error?: string } }) => {
           this.loading = false;
-          Swal.fire('Erro', 'Falha ao salvar BID.', 'error');
+          const msg = err?.error?.error || 'Falha ao salvar BID.';
+          Swal.fire('Erro', msg, 'error');
         },
       });
     }

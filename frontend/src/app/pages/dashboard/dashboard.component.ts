@@ -558,6 +558,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  private readonly MSG_PRAZO_ENCERRADO =
+    'A aposta não foi realizada: o prazo para lances já encerrou.';
+
   /** Verifica se ainda estamos na janela de lances (evita 400 por diferença de relógio com o servidor). */
   private estaNaJanelaDeLances(match: any, bufferMs: number = 0): { ok: boolean; msg?: string } {
     if (!match.data_inicio_apostas || !match.data_limite_aposta) return { ok: true };
@@ -567,6 +570,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (agora < inicio) return { ok: false, msg: 'O período de lances ainda não iniciou.' };
     if (agora >= fim) return { ok: false, msg: 'O tempo para lances acabou.' };
     return { ok: true };
+  }
+
+  private notificarPrazoEncerrado(): void {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Prazo encerrado',
+      text: this.MSG_PRAZO_ENCERRADO,
+    });
+  }
+
+  private isErroPrazoEncerrado(err: any): boolean {
+    const msg = String(err?.error?.error || err?.error?.message || '').toLowerCase();
+    return (
+      msg.includes('prazo_encerrado') ||
+      msg.includes('período de lances já encerrou') ||
+      msg.includes('periodo de lances ja encerrou')
+    );
   }
 
   async apostar(match: any, previousValues: number[] = []) {
@@ -596,6 +616,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     let lancesAtivosNoPopup = Math.max(1, previousValues.length);
     const saldoInicial = this.currentUser.pontos || 0;
+    let prazoCheckInterval: ReturnType<typeof setInterval> | null = null;
 
     const { value: valores, isDismissed } = await Swal.fire({
       title: `<span class="text-xl font-black text-gray-800 tracking-tight">🎟️ Realizar Lances</span>`,
@@ -644,6 +665,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
         ${lancesQuePodeDar > lancesAtivosNoPopup ? `<button id="add-lance-btn" type="button" class="w-full mt-2 py-2 border-2 border-dashed border-gray-200 rounded-lg text-black text-[10px] font-black hover:border-indigo-300 transition-all">+ Adicionar outro lance (${lancesQuePodeDar - lancesAtivosNoPopup} vaga(s) restante(s))</button>` : ''}
       </div>`,
       didOpen: () => {
+        prazoCheckInterval = setInterval(() => {
+          if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+            if (prazoCheckInterval) clearInterval(prazoCheckInterval);
+            prazoCheckInterval = null;
+            Swal.close();
+            this.notificarPrazoEncerrado();
+          }
+        }, 1000);
+
         const btn = document.getElementById('add-lance-btn');
         const totalLancesEl = document.getElementById('total-lances');
         const saldoRestanteEl = document.getElementById('saldo-restante');
@@ -702,7 +732,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
         });
       },
+      willClose: () => {
+        if (prazoCheckInterval) {
+          clearInterval(prazoCheckInterval);
+          prazoCheckInterval = null;
+        }
+      },
       preConfirm: () => {
+        if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+          Swal.showValidationMessage(this.MSG_PRAZO_ENCERRADO);
+          return false;
+        }
         const inputsValidos = [];
         for (let i = 1; i <= lancesAtivosNoPopup; i++) {
           const el = document.getElementById(`lance-${i}`) as HTMLInputElement;
@@ -767,6 +807,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         cancelButtonText: 'Voltar para revisar',
         reverseButtons: true,
         preConfirm: () => {
+          if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+            Swal.showValidationMessage(this.MSG_PRAZO_ENCERRADO);
+            return false;
+          }
           const aceite = document.getElementById(
             'aceite-politica-lances',
           ) as HTMLInputElement | null;
@@ -811,6 +855,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         return;
       }
 
+      if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+        match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
+        this.cd.detectChanges();
+        this.notificarPrazoEncerrado();
+        return;
+      }
+
       this.matchService
         .placeBet({ partidaId, usuarioId, valores: valoresInt })
         .subscribe({
@@ -846,6 +897,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
           error: (err) => {
             match.tickets_comprados = (match.tickets_comprados || 0) - valores.length;
             this.cd.detectChanges();
+            if (this.isErroPrazoEncerrado(err)) {
+              this.notificarPrazoEncerrado();
+              return;
+            }
             const msg = err.error?.error || err.error?.message || 'Erro ao processar';
             if (err.error != null) console.error('[placeBet] Resposta do servidor (400):', err.error);
             Swal.fire('Erro', msg, 'error');

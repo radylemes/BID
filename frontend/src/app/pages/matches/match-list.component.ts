@@ -69,11 +69,39 @@ export class MatchListComponent implements OnInit {
     return uploadsPublicUrl(match.banner);
   }
 
+  private readonly MSG_PRAZO_ENCERRADO =
+    'A aposta não foi realizada: o prazo para lances já encerrou.';
+
+  private estaNaJanelaDeLances(match: any, bufferMs: number = 0): { ok: boolean } {
+    if (!match.data_inicio_apostas || !match.data_limite_aposta) return { ok: true };
+    const agora = Date.now();
+    const inicio = new Date(match.data_inicio_apostas).getTime() + bufferMs;
+    const fim = new Date(match.data_limite_aposta).getTime();
+    if (agora < inicio || agora >= fim) return { ok: false };
+    return { ok: true };
+  }
+
+  private notificarPrazoEncerrado(): void {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Prazo encerrado',
+      text: this.MSG_PRAZO_ENCERRADO,
+    });
+  }
+
+  private isErroPrazoEncerrado(err: any): boolean {
+    const msg = String(err?.error?.error || err?.error?.message || '').toLowerCase();
+    return (
+      msg.includes('prazo_encerrado') ||
+      msg.includes('período de lances já encerrou') ||
+      msg.includes('periodo de lances ja encerrou')
+    );
+  }
+
   // --- LÓGICA ATUALIZADA: COMPRA DE TICKET ---
   async apostar(match: any) {
-    // 1. Verifica Data Limite
-    if (new Date() > new Date(match.data_limite_aposta)) {
-      Swal.fire('Fechado', 'Inscrições encerradas.', 'warning');
+    if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+      this.notificarPrazoEncerrado();
       return;
     }
 
@@ -96,9 +124,14 @@ export class MatchListComponent implements OnInit {
       showCancelButton: true,
       confirmButtonText: 'Confirmar',
       preConfirm: () => {
+        if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+          Swal.showValidationMessage(this.MSG_PRAZO_ENCERRADO);
+          return false;
+        }
         const v = (document.getElementById('valorAposta') as HTMLInputElement).value;
         if (Number(v) < match.custo_aposta) {
           Swal.showValidationMessage(`Mínimo é ${match.custo_aposta}`);
+          return false;
         }
         return Number(v);
       },
@@ -111,7 +144,11 @@ export class MatchListComponent implements OnInit {
         return;
       }
 
-      // 5. Envia para o Serviço com a NOVA estrutura
+      if (!this.estaNaJanelaDeLances(match, 60 * 1000).ok) {
+        this.notificarPrazoEncerrado();
+        return;
+      }
+
       this.matchService
         .placeBet({
           partidaId: Number(match.id),
@@ -126,7 +163,13 @@ export class MatchListComponent implements OnInit {
             localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
             this.carregarJogos();
           },
-          error: (err) => Swal.fire('Falha', err.error?.error || 'Erro ao apostar', 'error'),
+          error: (err) => {
+            if (this.isErroPrazoEncerrado(err)) {
+              this.notificarPrazoEncerrado();
+              return;
+            }
+            Swal.fire('Falha', err.error?.error || 'Erro ao apostar', 'error');
+          },
         });
     }
   }

@@ -46,8 +46,8 @@ export class AuthInterceptor implements HttpInterceptor {
 
     return next.handle(authReq).pipe(
       catchError((error: HttpErrorResponse) => {
-        if (error.status === 401 || error.status === 403) {
-          // Limpa sessão e volta para o login
+        // 403 = permissão/negócio (ex.: edição restrita); não encerrar sessão
+        if (error.status === 401) {
           this.authService.logout();
         }
         return throwError(() => error);

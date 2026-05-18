@@ -47,6 +47,35 @@ const formatarDataLocal = (dataString) => {
   return dateToUtcString(d);
 };
 
+const APOSTAS_BUFFER_MS = 60 * 1000;
+
+const parseDbUtcDate = (val) => {
+  if (!val) return null;
+  const s = String(val).trim().replace(" ", "T");
+  const iso = s.endsWith("Z") ? s : `${s}Z`;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const normNullableId = (v) =>
+  v != null && String(v) !== "null" && String(v).trim() !== ""
+    ? Number(v)
+    : null;
+
+const normText = (v) => {
+  const s = v != null ? String(v).trim() : "";
+  return s || null;
+};
+
+const datasUtcIguais = (dbVal, incomingVal) =>
+  formatarDataLocal(dbVal) === formatarDataLocal(incomingVal);
+
+const isPrazoApostasEncerrado = (dataLimiteAposta) => {
+  const limite = parseDbUtcDate(dataLimiteAposta);
+  if (!limite) return false;
+  return Date.now() > limite.getTime() + APOSTAS_BUFFER_MS;
+};
+
 exports.getGroups = async (req, res) => {
   try {
     const [rows] = await db.execute(
@@ -331,29 +360,27 @@ exports.updateMatch = async (req, res) => {
     grupo_id && String(grupo_id) !== "null" ? grupo_id : null;
   const setorEventoIdFinal =
     setor_evento_id && String(setor_evento_id) !== "null" ? setor_evento_id : null;
-  if (!data_jogo)
-    return res.status(400).json({ error: "Data do evento obrigatória." });
 
   const connection = await db.getConnection();
   try {
     const [statusRows] = await connection.execute(
-      "SELECT status, data_apuracao FROM partidas WHERE id = ?",
+      `SELECT titulo, banner, subtitulo, informacoes_extras, link_extra, local,
+        data_jogo, data_inicio_apostas, data_limite_aposta, data_apuracao,
+        quantidade_premios, grupo_id, setor_evento_id, status
+       FROM partidas WHERE id = ?`,
       [id],
     );
     if (statusRows.length === 0)
       return res.status(404).json({ error: "Evento não encontrado." });
-    if (statusRows[0].status !== "ABERTA")
+    const atual = statusRows[0];
+    if (atual.status !== "ABERTA")
       return res.status(403).json({
         error: "Não é permitido editar BID encerrado.",
       });
-    const dataApuracaoAtual = statusRows[0].data_apuracao;
+    const dataApuracaoAtual = atual.data_apuracao;
     if (dataApuracaoAtual) {
-      const apuracaoUtc = new Date(
-        String(dataApuracaoAtual).trim().replace(" ", "T").endsWith("Z")
-          ? String(dataApuracaoAtual).trim().replace(" ", "T")
-          : String(dataApuracaoAtual).trim().replace(" ", "T") + "Z",
-      );
-      if (!Number.isNaN(apuracaoUtc.getTime()) && Date.now() > apuracaoUtc.getTime()) {
+      const apuracaoUtc = parseDbUtcDate(dataApuracaoAtual);
+      if (apuracaoUtc && Date.now() > apuracaoUtc.getTime()) {
         return res.status(403).json({
           error: "Não é permitido editar BID após o término da data de apuração.",
         });
@@ -364,41 +391,70 @@ exports.updateMatch = async (req, res) => {
     const subtituloVal = subtitulo && String(subtitulo).trim() ? String(subtitulo).trim() : null;
     const informacoesExtrasVal = informacoes_extras && String(informacoes_extras).trim() ? String(informacoes_extras).trim() : null;
     const linkExtraVal = link_extra && String(link_extra).trim() ? String(link_extra).trim() : null;
+    const localVal = local && String(local).trim() ? String(local).trim() : "Local a definir";
+    const qtdPremiosVal = Number(quantidade_premios) || 1;
+    const dataApuracaoVal = data_apuracao ? formatarDataLocal(data_apuracao) : null;
+
+    const prazoEncerrado = isPrazoApostasEncerrado(atual.data_limite_aposta);
+
+    if (!prazoEncerrado && !data_jogo) {
+      return res.status(400).json({ error: "Data do evento obrigatória." });
+    }
 
     await connection.beginTransaction();
-    const [result] = await connection.execute(
-      `UPDATE partidas SET titulo = ?, banner = ?, subtitulo = ?, informacoes_extras = ?, link_extra = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, data_apuracao = ?, quantidade_premios = ?, grupo_id = ?, setor_evento_id = ? WHERE id = ?`,
-      [
-        titulo,
-        bannerUrl,
-        subtituloVal,
-        informacoesExtrasVal,
-        linkExtraVal,
-        local || "Local a definir",
-        formatarDataLocal(data_jogo),
-        formatarDataLocal(data_inicio_apostas),
-        formatarDataLocal(data_limite_aposta),
-        data_apuracao ? formatarDataLocal(data_apuracao) : null,
-        quantidade_premios || 1,
-        grupoIdFinal,
-        setorEventoIdFinal,
-        id,
-      ],
-    );
+
+    const tituloAuditoria = atual.titulo;
+    const motivoAuditoria = prazoEncerrado
+      ? motivo ||
+        `Edição restrita (pós-fim apostas): setor do evento — ${tituloAuditoria}`
+      : motivo || `Edição do evento: ${titulo}`;
+
+    let result;
+    if (prazoEncerrado) {
+      [result] = await connection.execute(
+        `UPDATE partidas SET setor_evento_id = ? WHERE id = ?`,
+        [setorEventoIdFinal, id],
+      );
+    } else {
+      [result] = await connection.execute(
+        `UPDATE partidas SET titulo = ?, banner = ?, subtitulo = ?, informacoes_extras = ?, link_extra = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, data_apuracao = ?, quantidade_premios = ?, grupo_id = ?, setor_evento_id = ? WHERE id = ?`,
+        [
+          titulo,
+          bannerUrl,
+          subtituloVal,
+          informacoesExtrasVal,
+          linkExtraVal,
+          localVal,
+          formatarDataLocal(data_jogo),
+          formatarDataLocal(data_inicio_apostas),
+          formatarDataLocal(data_limite_aposta),
+          dataApuracaoVal,
+          qtdPremiosVal,
+          grupoIdFinal,
+          setorEventoIdFinal,
+          id,
+        ],
+      );
+    }
 
     if (result.affectedRows === 0) throw new Error("Evento não encontrado.");
 
     if (adminId) {
+      const rotuloEdicao = prazoEncerrado
+        ? `Admin: Editou setor do BID #${id} (${tituloAuditoria})`
+        : `Admin: Editou BID #${id} (${titulo})`;
       await connection.execute(
         `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
-        [adminId, adminId, truncateMotivo(`Admin: Editou BID #${id} (${titulo})`)],
+        [adminId, adminId, truncateMotivo(rotuloEdicao)],
       );
     }
 
     await gravarAuditoria(connection, adminId, "BIDS", "UPDATE_BID", id, {
-      titulo,
+      titulo: tituloAuditoria,
       grupo_id: grupoIdFinal,
-      motivo: motivo || `Edição do evento: ${titulo}`,
+      setor_evento_id: setorEventoIdFinal,
+      edicao_restrita: prazoEncerrado,
+      motivo: motivoAuditoria,
     });
     await connection.commit();
     res.json({ message: "Evento atualizado com sucesso!" });
@@ -461,8 +517,8 @@ exports.placeBet = async (req, res) => {
         ").";
       throw new Error(msg);
     }
-    if (agora.getTime() > limiteApostas.getTime() + bufferMs)
-      throw new Error("O período de lances já encerrou.");
+    if (agora.getTime() > limiteApostas.getTime())
+      throw new Error("PRAZO_ENCERRADO: O período de lances já encerrou.");
 
     const totalValor = lancesParaProcessar.reduce((acc, v) => acc + v, 0);
 

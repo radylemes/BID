@@ -38,13 +38,25 @@ async function resetDatabase() {
 
     // 2. Limpar todas as tabelas (ordem: dependentes primeiro; FK checks desligados)
     const tables = [
+      // WT Pass (eventos_rh / inscrições / bloqueios)
+      "bloqueios_eventos_rh_alvos",
+      "inscricoes_rh",
+      "bloqueios_eventos_rh",
+      "eventos_rh",
+      // Ingressos e partidas
       "ingressos",
       "transferencias_ingressos",
+      "acrescimos_ingressos",
       "apostas",
       "partidas",
       "historico_pontos",
       "convidados",
       "regras_pontuacao",
+      // E-mail
+      "listas_email_itens",
+      "listas_email",
+      "templates_email",
+      // Sistema
       "auditoria",
       "logs_erros",
       "usuarios",
