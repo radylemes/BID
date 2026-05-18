@@ -17,6 +17,15 @@ export function formatarInputCpf(raw: unknown): string {
   return v;
 }
 
+/** Motivo legível para falha de validação de CPF (importação / formulários). */
+export function descreverErroCpf(cpf: unknown): string {
+  const digits = normalizarCpfDigits(cpf);
+  if (!digits) return 'CPF em falta';
+  if (digits.length !== 11) return `CPF com ${digits.length} dígitos (esperado 11)`;
+  if (/^(\d)\1{10}$/.test(digits)) return 'CPF inválido (sequência repetida)';
+  return 'CPF inválido (dígitos verificadores)';
+}
+
 /** Valida dígitos verificadores do CPF brasileiro (11 dígitos). */
 export function validarCpf(cpf: unknown): boolean {
   const digits = normalizarCpfDigits(cpf);

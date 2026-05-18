@@ -424,9 +424,15 @@ exports.bulkUpdate = async (req, res) => {
     }
     const cpfDigits = normalizarCpfDigits(item.cpf ?? item.CPF ?? item.documento);
     if (!validarCpf(cpfDigits)) {
-      return res.status(400).json({
-        error: `Linha ${i + 1} (${emailLinha}): CPF obrigatório ou inválido.`,
-      });
+      const [existing] = await db.execute(
+        "SELECT id FROM usuarios WHERE email = ? LIMIT 1",
+        [emailLinha],
+      );
+      if (existing.length === 0) {
+        return res.status(400).json({
+          error: `Linha ${i + 1} (${emailLinha}): CPF obrigatório ou inválido (novo utilizador).`,
+        });
+      }
     }
   }
 
@@ -444,7 +450,7 @@ exports.bulkUpdate = async (req, res) => {
     for (const item of alteracoes) {
       const emailTrim = String(item.email).trim();
       if (!emailTrim) continue;
-      const cpfDigits = normalizarCpfDigits(item.cpf ?? item.CPF ?? item.documento);
+      let cpfDigits = normalizarCpfDigits(item.cpf ?? item.CPF ?? item.documento);
       let ativoFinal = 1;
       const vStatus = item.ativo !== undefined ? item.ativo : item.status;
       if (
@@ -490,12 +496,16 @@ exports.bulkUpdate = async (req, res) => {
       }
 
       const [rowsUser] = await connection.execute(
-        "SELECT id, pontos FROM usuarios WHERE email = ?",
+        "SELECT id, pontos, cpf FROM usuarios WHERE email = ?",
         [emailTrim],
       );
 
       if (rowsUser.length > 0) {
         const u = rowsUser[0];
+        if (!validarCpf(cpfDigits)) {
+          const cpfDb = normalizarCpfDigits(u.cpf);
+          cpfDigits = validarCpf(cpfDb) ? cpfDb : cpfDigits || cpfDb || null;
+        }
         const [cpfOutro] = await connection.execute(
           "SELECT id FROM usuarios WHERE cpf = ? AND id <> ? LIMIT 1",
           [cpfDigits, u.id],
@@ -521,6 +531,12 @@ exports.bulkUpdate = async (req, res) => {
           ],
         );
       } else {
+        if (!validarCpf(cpfDigits)) {
+          await connection.rollback();
+          return res.status(400).json({
+            error: `CPF obrigatório ou inválido para novo utilizador (${emailTrim}).`,
+          });
+        }
         const [cpfExiste] = await connection.execute(
           "SELECT id FROM usuarios WHERE cpf = ? LIMIT 1",
           [cpfDigits],

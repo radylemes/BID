@@ -10,7 +10,12 @@ import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { formatarInputCpf, normalizarCpfDigits, validarCpf } from '../../utils/cpf';
+import {
+  descreverErroCpf,
+  formatarInputCpf,
+  normalizarCpfDigits,
+  validarCpf,
+} from '../../utils/cpf';
 
 @Component({
   selector: 'app-user-list',
@@ -241,103 +246,214 @@ export class UserListComponent implements OnInit {
     }
   }
 
-  async onFileChange(evt: any) {
-    const target: DataTransfer = <DataTransfer>evt.target;
-    if (target.files.length !== 1) return;
+  async onFileChange(evt: Event) {
+    const input = evt.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      this.resetImportFileInput(input);
+      return;
+    }
+
     const { value: motivoGlobal } = await Swal.fire({
       title: 'Motivo da Importação',
       input: 'text',
       showCancelButton: true,
       inputValidator: (value) => (!value ? 'Obrigatório!' : null),
     });
-    if (!motivoGlobal) return;
+    if (!motivoGlobal) {
+      this.resetImportFileInput(input);
+      return;
+    }
 
     this.loading = true;
-    const reader: FileReader = new FileReader();
-    reader.onload = (e: any) => {
-      const bstr: string = e.target.result;
-      const wb: XLSX.WorkBook = XLSX.read(bstr, { type: 'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rawData = XLSX.utils.sheet_to_json(ws);
-      const formattedData = rawData
-        .map((item: any) => {
-          const normHeader = (k: string) =>
-            k
-              .toLowerCase()
-              .trim()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/\s+/g, ' ');
-          const getVal = (candidates: string[]) => {
-            const key = Object.keys(item).find((k) => candidates.includes(normHeader(k)));
-            return key ? item[key] : null;
-          };
-          /** Colunas de exportação / Excel: GrupoApostas, Grupo Apostas, grupo de apostas, etc. */
-          const getGrupoImport = (): string | null => {
-            const grupoCandidates = [
-              'grupo',
-              'group',
-              'grupoapostas',
-              'grupo apostas',
-              'grupo de apostas',
-              'grupoaposta',
-              'grupo aposta',
-              'apostas',
-            ];
-            const direct = getVal(grupoCandidates);
-            if (direct != null && direct !== '') return String(direct).trim();
-            const compact = (s: string) => normHeader(s).replace(/\s/g, '');
-            const key = Object.keys(item).find((k) => {
-              const c = compact(k);
-              if (grupoCandidates.some((g) => compact(g) === c)) return true;
-              return c.includes('grupo') && c.includes('aposta');
-            });
-            if (!key) return null;
-            const v = item[key];
-            return v != null && v !== '' ? String(v).trim() : null;
-          };
-          return {
-            nome_completo: getVal(['nome', 'funcionario', 'name']),
-            email: getVal(['email', 'mail']),
-            cpf: getVal(['cpf', 'documento']),
-            setor: getVal(['setor', 'area', 'departamento']),
-            grupo: getGrupoImport(),
-            pontos: getVal(['pontos', 'pts']),
-            empresa: getVal(['empresa', 'company']),
-            perfil: getVal(['perfil', 'role']),
-            status: getVal(['status', 'ativo']),
-          };
-        })
-        .filter((u) => u.email && String(u.email).trim());
+    const cpfCandidates = await new Promise<string[]>((resolve) => {
+      this.settingsService
+        .getExportSettings()
+        .pipe(catchError(() => of(null)))
+        .subscribe((settings) => resolve(this.getCpfImportCandidates(settings)));
+    });
 
-      const comCpfInvalido = formattedData.find(
-        (u) => !validarCpf(normalizarCpfDigits(u.cpf)),
-      );
-      if (comCpfInvalido) {
-        this.loading = false;
-        Swal.fire(
-          'Erro',
-          'Cada linha com e-mail deve ter um CPF válido (coluna CPF ou Documento). Verifique o ficheiro.',
-          'error',
-        );
-        return;
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      try {
+        const bstr = e.target?.result;
+        if (typeof bstr !== 'string') {
+          throw new Error('Ficheiro inválido');
+        }
+        const wb: XLSX.WorkBook = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws) {
+          throw new Error('Planilha vazia');
+        }
+        const rawData = XLSX.utils.sheet_to_json(ws, { raw: false }) as Record<string, unknown>[];
+        this.processImportSpreadsheet(rawData, cpfCandidates, motivoGlobal, input);
+      } catch {
+        this.finalizarImportacao(input);
+        Swal.fire('Erro', 'Não foi possível ler o ficheiro Excel. Verifique o formato.', 'error');
       }
-
-      this.userService.updateEmMassa(formattedData, this.getAdminId(), motivoGlobal).subscribe({
-        next: () => {
-          this.loading = false;
-          Swal.fire('Sucesso', 'Importação concluída.', 'success');
-          this.carregarDados();
-          (document.querySelector('input[type="file"]') as HTMLInputElement).value = '';
-        },
-        error: (err) => {
-          this.loading = false;
-          const msg = err.error?.message || err.error?.error || 'Falha na importação';
-          Swal.fire('Erro', msg, 'error');
-        },
-      });
     };
-    reader.readAsBinaryString(target.files[0]);
+    reader.onerror = () => {
+      this.finalizarImportacao(input);
+      Swal.fire('Erro', 'Não foi possível ler o ficheiro.', 'error');
+    };
+    reader.readAsBinaryString(file);
+  }
+
+  private resetImportFileInput(input?: HTMLInputElement | null): void {
+    const el =
+      input ??
+      (document.querySelector('input[type="file"]') as HTMLInputElement | null);
+    if (el) el.value = '';
+  }
+
+  private finalizarImportacao(input?: HTMLInputElement | null): void {
+    this.loading = false;
+    this.resetImportFileInput(input);
+    this.cd.detectChanges();
+  }
+
+  private normHeaderImport(k: string): string {
+    return k
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+  }
+
+  private getCpfImportCandidates(settings: Record<string, string> | null): string[] {
+    const candidates = ['cpf', 'documento'];
+    const fields = this.settingsService.parseUsuariosFields(settings);
+    const cpfField = fields.find((f) => f.key === 'cpf');
+    if (cpfField?.label) {
+      const norm = this.normHeaderImport(cpfField.label);
+      if (!candidates.includes(norm)) candidates.push(norm);
+    }
+    return candidates;
+  }
+
+  private emailExistsInList(email: unknown): boolean {
+    const e = String(email ?? '').trim().toLowerCase();
+    if (!e) return false;
+    return this.users.some((u) => String(u.email ?? '').trim().toLowerCase() === e);
+  }
+
+  private processImportSpreadsheet(
+    rawData: Record<string, unknown>[],
+    cpfCandidates: string[],
+    motivoGlobal: string,
+    fileInput: HTMLInputElement,
+  ): void {
+    const formattedData = rawData
+      .map((item, idx) => {
+        const normHeader = (k: string) => this.normHeaderImport(k);
+        const getVal = (candidates: string[]) => {
+          const key = Object.keys(item).find((k) => candidates.includes(normHeader(k)));
+          return key ? item[key] : null;
+        };
+        const getGrupoImport = (): string | null => {
+          const grupoCandidates = [
+            'grupo',
+            'group',
+            'grupoapostas',
+            'grupo apostas',
+            'grupo de apostas',
+            'grupoaposta',
+            'grupo aposta',
+            'apostas',
+          ];
+          const direct = getVal(grupoCandidates);
+          if (direct != null && direct !== '') return String(direct).trim();
+          const compact = (s: string) => normHeader(s).replace(/\s/g, '');
+          const key = Object.keys(item).find((k) => {
+            const c = compact(k);
+            if (grupoCandidates.some((g) => compact(g) === c)) return true;
+            return c.includes('grupo') && c.includes('aposta');
+          });
+          if (!key) return null;
+          const v = item[key];
+          return v != null && v !== '' ? String(v).trim() : null;
+        };
+        return {
+          sheetLine: idx + 2,
+          nome_completo: getVal(['nome', 'funcionario', 'name']),
+          email: getVal(['email', 'mail']),
+          cpf: getVal(cpfCandidates),
+          setor: getVal(['setor', 'area', 'departamento']),
+          grupo: getGrupoImport(),
+          pontos: getVal(['pontos', 'pts']),
+          empresa: getVal(['empresa', 'company']),
+          perfil: getVal(['perfil', 'role']),
+          status: getVal(['status', 'ativo']),
+        };
+      })
+      .filter((u) => u.email && String(u.email).trim());
+
+    const invalidCpfRows: { sheetLine: number; email: string; motivo: string }[] = [];
+    for (const u of formattedData) {
+      if (validarCpf(normalizarCpfDigits(u.cpf))) continue;
+      if (this.emailExistsInList(u.email)) continue;
+      invalidCpfRows.push({
+        sheetLine: u.sheetLine,
+        email: String(u.email).trim(),
+        motivo: descreverErroCpf(u.cpf),
+      });
+    }
+
+    if (invalidCpfRows.length > 0) {
+      this.finalizarImportacao(fileInput);
+      const first = invalidCpfRows[0];
+      const extra =
+        invalidCpfRows.length > 1
+          ? ` (+${invalidCpfRows.length - 1} linha(s) com o mesmo problema)`
+          : '';
+      Swal.fire(
+        'Erro',
+        `Linha ${first.sheetLine} (${first.email}): ${first.motivo}.${extra} ` +
+          'Cada linha com e-mail de novo utilizador deve ter um CPF válido (coluna CPF ou Documento). ' +
+          'Utilizadores já existentes podem deixar o CPF em branco para manter o valor atual.',
+        'error',
+      );
+      return;
+    }
+
+    const payload = formattedData.map(({ sheetLine: _sl, ...row }) => row);
+
+    this.userService.updateEmMassa(payload, this.getAdminId(), motivoGlobal).subscribe({
+      next: () => {
+        this.finalizarImportacao(fileInput);
+        Swal.fire('Sucesso', 'Importação concluída.', 'success');
+        this.carregarDados();
+      },
+      error: (err) => {
+        this.finalizarImportacao(fileInput);
+        const msg = err.error?.message || err.error?.error || 'Falha na importação';
+        Swal.fire('Erro', msg, 'error');
+      },
+    });
+  }
+
+  /** Formata coluna CPF como texto no Excel para preservar zeros à esquerda. */
+  private aplicarColunaCpfComoTexto(ws: XLSX.WorkSheet, cpfHeaderLabel: string): void {
+    const ref = ws['!ref'];
+    if (!ref) return;
+    const range = XLSX.utils.decode_range(ref);
+    let colIdx = -1;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: range.s.r, c })];
+      if (cell && this.normHeaderImport(String(cell.v)) === this.normHeaderImport(cpfHeaderLabel)) {
+        colIdx = c;
+        break;
+      }
+    }
+    if (colIdx < 0) return;
+    for (let r = range.s.r + 1; r <= range.e.r; r++) {
+      const addr = XLSX.utils.encode_cell({ r, c: colIdx });
+      const cell = ws[addr];
+      if (!cell || cell.v == null || cell.v === '') continue;
+      const v = normalizarCpfDigits(cell.v) || String(cell.v).trim();
+      ws[addr] = { t: 's', v, w: v };
+    }
   }
 
   private getValorCampoUsuario(u: any, key: string): string | number {
@@ -368,6 +484,8 @@ export class UserListComponent implements OnInit {
           return row;
         });
         const ws = colunas.length ? XLSX.utils.json_to_sheet(dados) : XLSX.utils.aoa_to_sheet([[]]);
+        const cpfField = fields.find((f) => f.key === 'cpf');
+        if (cpfField?.label) this.aplicarColunaCpfComoTexto(ws, cpfField.label);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
         XLSX.writeFile(wb, 'Relatorio_Usuarios.xlsx');
@@ -385,6 +503,7 @@ export class UserListComponent implements OnInit {
           Perfil: u.perfil,
         }));
         const ws = XLSX.utils.json_to_sheet(dados);
+        this.aplicarColunaCpfComoTexto(ws, 'CPF');
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
         XLSX.writeFile(wb, 'Relatorio_Usuarios.xlsx');
