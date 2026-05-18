@@ -1047,6 +1047,16 @@ async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId
 
   if (faltasAtuais < cfg.faltasPermitidas) return;
 
+  const [[usuarioRow]] = await connection.execute(
+    `SELECT id FROM usuarios WHERE id = ? LIMIT 1`,
+    [alvoId],
+  );
+  if (!usuarioRow) {
+    const err = new Error(`Utilizador ${alvoId} inexistente; bloqueio WT Pass não aplicado.`);
+    err.code = "WT_PASS_USUARIO_INEXISTENTE";
+    throw err;
+  }
+
   const [bloqInsert] = await connection.execute(
     `INSERT INTO bloqueios_eventos_rh (usuario_id, evento_origem_id, eventos_restantes, eventos_total, ativo) VALUES (?, ?, ?, ?, 1)`,
     [alvoId, eventoId, cfg.eventosBloqueio, cfg.eventosBloqueio],
@@ -1120,6 +1130,19 @@ exports.marcarPresenca = async (req, res) => {
       await connection.rollback();
       return res.status(404).json({ error: "Inscrição não encontrada." });
     }
+
+    const [usr] = await connection.execute(
+      `SELECT id FROM usuarios WHERE id = ? LIMIT 1`,
+      [alvoId],
+    );
+    if (usr.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        error:
+          "O utilizador desta inscrição não existe no sistema. Contacte o suporte para corrigir dados inconsistentes.",
+      });
+    }
+
     if (!["INSCRITO", "FILA_ESPERA"].includes(ins[0].status)) {
       await connection.rollback();
       return res.status(400).json({ error: "Só é possível marcar presença/falta para inscrições ativas." });
@@ -1145,7 +1168,17 @@ exports.marcarPresenca = async (req, res) => {
       await connection.rollback();
     } catch (_) {}
     await logErro("EVENTO_RH_PRESENCA", error);
-    res.status(500).json({ error: "Erro ao marcar presença." });
+    if (error.code === "WT_PASS_USUARIO_INEXISTENTE") {
+      return res.status(400).json({
+        error:
+          "Não foi possível aplicar o bloqueio: o utilizador desta inscrição não existe no sistema.",
+      });
+    }
+    const payload = { error: "Erro ao marcar presença." };
+    if (process.env.NODE_ENV !== "production" && error.message) {
+      payload.detail = error.message;
+    }
+    res.status(500).json(payload);
   } finally {
     connection.release();
   }

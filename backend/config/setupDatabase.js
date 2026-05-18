@@ -435,6 +435,26 @@ async function initializeDatabase() {
       );
     }
 
+    // Migração: garante valores PRESENTE/FALTOU no ENUM de status (bases criadas antes do WT Pass).
+    try {
+      const [enumRow] = await connection.query(
+        `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'inscricoes_rh' AND COLUMN_NAME = 'status'`,
+        [process.env.DB_NAME],
+      );
+      const colType = String(enumRow[0]?.COLUMN_TYPE || "");
+      if (colType && (!colType.includes("PRESENTE") || !colType.includes("FALTOU"))) {
+        await connection.query(
+          `ALTER TABLE inscricoes_rh
+             MODIFY COLUMN status ENUM('INSCRITO','FILA_ESPERA','PRESENTE','FALTOU','CANCELADO')
+             NOT NULL DEFAULT 'INSCRITO'`,
+        );
+        console.log("✅ ENUM 'status' de inscricoes_rh atualizado (PRESENTE/FALTOU).");
+      }
+    } catch (e) {
+      console.warn("Aviso ao atualizar ENUM status em inscricoes_rh:", e.message);
+    }
+
     // Migração: guarda a duração inicial do bloqueio para permitir exibição
     // "restantes/total" (ex.: 4/5) na UI mesmo após a primeira decremento.
     try {
