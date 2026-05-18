@@ -805,8 +805,16 @@ export class EventoRhListComponent implements OnInit {
     return null;
   }
 
+  /** Colaborador registado como ausente neste evento (origem da penalidade). */
+  faltouNesteEvento(ev: { meu_status?: string | null }): boolean {
+    return String(ev?.meu_status ?? '').toUpperCase().trim() === 'FALTOU';
+  }
+
   /** Cartão «Situação» — período de inscrições igual ao badge «Aberto». */
   labelSituacaoWtCard(ev: any): string {
+    if (this.faltouNesteEvento(ev)) {
+      return 'Faltou ao evento';
+    }
     if (this.bloqueadoPenalidadeNoEvento(ev)) {
       const titulo =
         this.bloqueioAtivo?.evento_origem_titulo ??
