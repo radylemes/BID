@@ -77,9 +77,17 @@ app.get("/", (req, res) => {
 
 initAutomations();
 initEventoRhAutoClose();
-// Inicializa Banco e depois sobe o servidor
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  });
-});
+
+async function bootstrap() {
+  try {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    });
+  } catch (error) {
+    console.error("❌ Falha ao inicializar o banco. Servidor não iniciado.", error);
+    process.exit(1);
+  }
+}
+
+bootstrap();

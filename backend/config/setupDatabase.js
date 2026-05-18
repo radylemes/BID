@@ -637,24 +637,38 @@ async function initializeDatabase() {
           "✨ Migration: 'empresa_id' renomeada para 'grupo_id' em 'partidas'.",
         );
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Aviso migration partidas.empresa_id→grupo_id:", e.message);
+    }
 
-    // 2. Garante que colunas novas existam
+    // 2. Garante que colunas novas existam (instalações antigas com CREATE TABLE IF NOT EXISTS)
     const ensureColumns = async (tableName, columns) => {
+      const [tbl] = await connection.query(
+        `SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+        [process.env.DB_NAME, tableName],
+      );
+      if (tbl.length === 0) return;
+
       for (const col of columns) {
         try {
           const [rows] = await connection.query(
-            `SHOW COLUMNS FROM ${tableName} LIKE '${col.nome}'`,
+            `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+            [process.env.DB_NAME, tableName, col.nome],
           );
           if (rows.length === 0) {
             await connection.query(
-              `ALTER TABLE ${tableName} ADD COLUMN ${col.nome} ${col.tipo}`,
+              `ALTER TABLE \`${tableName}\` ADD COLUMN \`${col.nome}\` ${col.tipo}`,
             );
             console.log(
               `✨ Migration: Coluna '${col.nome}' adicionada em '${tableName}'.`,
             );
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn(
+            `Aviso migration ${tableName}.${col.nome}:`,
+            e.message,
+          );
+        }
       }
     };
 
@@ -667,6 +681,7 @@ async function initializeDatabase() {
       { nome: "grupo_id", tipo: "INT NULL" },
       { nome: "avatar_data", tipo: "MEDIUMBLOB NULL" },
       { nome: "avatar_tipo", tipo: "VARCHAR(100) NULL" },
+      { nome: "cpf", tipo: "VARCHAR(11) NULL" },
     ]);
 
     await ensureColumns("partidas", [
@@ -688,6 +703,46 @@ async function initializeDatabase() {
 
     await ensureColumns("templates_email", [
       { nome: "tipo_disparo", tipo: "VARCHAR(50) NULL" },
+    ]);
+
+    await ensureColumns("convidados", [
+      { nome: "vinculo_titular", tipo: "TINYINT(1) NOT NULL DEFAULT 0" },
+    ]);
+
+    await ensureColumns("ingressos", [
+      { nome: "documento", tipo: "LONGTEXT NULL" },
+      { nome: "recebedor_nome", tipo: "VARCHAR(255) NULL" },
+      { nome: "recebedor_cpf", tipo: "VARCHAR(20) NULL" },
+      { nome: "data_checkin", tipo: "DATETIME NULL" },
+    ]);
+
+    await ensureColumns("eventos_rh", [
+      { nome: "titulo", tipo: "VARCHAR(255) NULL" },
+      { nome: "banner", tipo: "VARCHAR(500) NULL" },
+      { nome: "subtitulo", tipo: "VARCHAR(255) NULL" },
+      { nome: "descricao", tipo: "TEXT NULL" },
+      { nome: "local", tipo: "VARCHAR(255) NULL" },
+      { nome: "data_inicio_inscricao", tipo: "DATETIME NULL" },
+      { nome: "data_limite_inscricao", tipo: "DATETIME NULL" },
+      { nome: "data_evento", tipo: "DATETIME NULL" },
+      { nome: "vagas", tipo: "INT NOT NULL DEFAULT 1" },
+      { nome: "permitir_lista_espera", tipo: "TINYINT(1) NOT NULL DEFAULT 1" },
+      { nome: "auto_encerrar", tipo: "TINYINT(1) NOT NULL DEFAULT 1" },
+      { nome: "partida_id", tipo: "INT NULL" },
+    ]);
+
+    await ensureColumns("inscricoes_rh", [
+      { nome: "bloqueio_consumido_id", tipo: "INT NULL" },
+      { nome: "portaria_checkin", tipo: "TINYINT(1) NOT NULL DEFAULT 0" },
+      { nome: "portaria_assinatura", tipo: "LONGTEXT NULL" },
+      { nome: "portaria_documento", tipo: "LONGTEXT NULL" },
+      { nome: "portaria_recebedor_nome", tipo: "VARCHAR(255) NULL" },
+      { nome: "portaria_recebedor_cpf", tipo: "VARCHAR(20) NULL" },
+      { nome: "portaria_data_checkin", tipo: "DATETIME NULL" },
+    ]);
+
+    await ensureColumns("bloqueios_eventos_rh", [
+      { nome: "eventos_total", tipo: "INT NOT NULL DEFAULT 5" },
     ]);
 
     // 2.1 Garante tema_preferido aceita temas claros e variantes escuras (carbon, amber, forest, violet)
@@ -789,6 +844,7 @@ async function initializeDatabase() {
     );
   } catch (error) {
     console.error("❌ Erro fatal:", error);
+    throw error;
   } finally {
     if (connection) await connection.end();
   }

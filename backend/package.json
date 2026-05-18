@@ -4,6 +4,7 @@
   "description": "BID Backend - Ajustado para limite de memória",
   "main": "server.js",
   "scripts": {
+    "migrate": "node --max-old-space-size=4096 scripts/migrate.js",
     "start": "node --max-old-space-size=4096 server.js",
     "dev": "nodemon --max-old-space-size=4096 server.js",
     "reset-db": "node --max-old-space-size=4096 resetDatabase.js"
