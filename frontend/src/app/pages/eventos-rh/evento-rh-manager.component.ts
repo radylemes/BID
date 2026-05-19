@@ -106,12 +106,12 @@ import Swal from 'sweetalert2';
                 <td class="px-4 py-3 text-center align-middle w-px whitespace-nowrap">
                   <span
                     class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--app-border)] bg-[var(--color-bg-surface)] text-xs font-semibold text-[var(--app-text)]"
-                    [attr.title]="
-                      'Inscritos confirmados: ' + (ev.ocupadas || 0) + ' de ' + (ev.vagas || 0) + ' vagas'
-                    "
+                    [attr.title]="tituloContagemInscritos(ev)"
                   >
                     <span aria-hidden="true">🎫</span>
-                    {{ ev.ocupadas || 0 }} <span class="text-[var(--app-text-muted)]">/</span> {{ ev.vagas || 0 }}
+                    {{ totalInscritosAtivos(ev) }}
+                    <span class="text-[var(--app-text-muted)]">/</span>
+                    {{ ev.vagas || 0 }}
                   </span>
                 </td>
                 <td class="px-4 py-3 align-middle w-px whitespace-nowrap">
@@ -270,6 +270,25 @@ export class EventoRhManagerComponent implements OnInit {
 
   trackByEventoId(_index: number, ev: { id?: number }): number {
     return Number(ev?.id) || _index;
+  }
+
+  /** Inscrições ativas (confirmados + fila de espera + presença/falta), alinhado à lista do modal. */
+  totalInscritosAtivos(ev: any): number {
+    const t = Number(ev?.total_inscritos_ativos);
+    if (Number.isFinite(t) && t >= 0) return t;
+    return (Number(ev?.ocupadas) || 0) + (Number(ev?.fila_count) || 0);
+  }
+
+  tituloContagemInscritos(ev: any, totalOverride?: number): string {
+    const total =
+      totalOverride != null && totalOverride >= 0 ? totalOverride : this.totalInscritosAtivos(ev);
+    const ocup = Number(ev?.ocupadas) || 0;
+    const fila = Number(ev?.fila_count) || 0;
+    const vagas = Number(ev?.vagas) || 0;
+    const partes = [`${total} inscrição(ões) ativa(s)`];
+    partes.push(`${ocup} confirmada(s) em ${vagas} vaga(s)`);
+    if (fila > 0) partes.push(`${fila} em fila de espera`);
+    return partes.join(' · ');
   }
 
   definirAba(aba: 'atuais' | 'anteriores'): void {
@@ -631,11 +650,13 @@ export class EventoRhManagerComponent implements OnInit {
   }
 
   /** Banner + resumo (Inscritos / Datas / Status) para o modal de inscrições (HTML escapado). */
-  private htmlCabecalhoEventoInscricoes(ev: any): string {
+  private htmlCabecalhoEventoInscricoes(ev: any, totalInscritos?: number): string {
     const bannerUrl = this.getBannerThumbUrl(ev);
     const imgSrc = this.escapeHtml(bannerUrl);
-    const ocup = Number(ev.ocupadas) || 0;
+    const total =
+      totalInscritos != null && totalInscritos >= 0 ? totalInscritos : this.totalInscritosAtivos(ev);
     const vagas = Number(ev.vagas) || 0;
+    const tituloContagem = this.escapeHtml(this.tituloContagemInscritos(ev, totalInscritos));
     const ini = this.escapeHtml(this.formatarDataHoraCurta(ev.data_inicio_inscricao));
     const lim = this.escapeHtml(this.formatarDataHoraCurta(ev.data_limite_inscricao));
     const diaEvt = this.escapeHtml(this.formatarDataApenasDia(ev.data_evento));
@@ -655,7 +676,7 @@ export class EventoRhManagerComponent implements OnInit {
       '<div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2 sm:h-28">' +
       `<div class="${cardBase}">` +
       '<div class="text-[10px] uppercase tracking-wide text-gray-500 font-bold mb-0.5 sm:mb-0.5">Inscritos</div>' +
-      `<div class="text-sm font-semibold text-gray-900 leading-tight" title="Confirmados / vagas">🎫 ${ocup} <span class="text-gray-400 font-normal">/</span> ${vagas}</div>` +
+      `<div class="text-sm font-semibold text-gray-900 leading-tight" title="${tituloContagem}">🎫 ${total} <span class="text-gray-400 font-normal">/</span> ${vagas}</div>` +
       '</div>' +
       `<div class="${cardBase}">` +
       '<div class="text-[10px] uppercase tracking-wide text-gray-500 font-bold mb-0.5">Datas</div>' +
@@ -672,7 +693,7 @@ export class EventoRhManagerComponent implements OnInit {
   }
 
   private htmlTabelaInscritos(ev: any, rows: any[]): string {
-    const cab = this.htmlCabecalhoEventoInscricoes(ev);
+    const cab = this.htmlCabecalhoEventoInscricoes(ev, rows.length);
     const toolbar =
       '<div class="mb-2 flex justify-end">' +
       '<button type="button" id="rh-inscritos-export-xlsx" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">' +

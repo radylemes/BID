@@ -1328,13 +1328,15 @@ exports.listAllForAdmin = async (req, res) => {
         e.vagas, e.permitir_lista_espera, e.auto_encerrar, e.status, e.partida_id, e.criado_em,
         COALESCE(s.ocupadas, 0) AS ocupadas,
         COALESCE(s.ocupadas_inscrito, 0) AS ocupadas_inscrito,
-        COALESCE(s.fila_count, 0) AS fila_count
+        COALESCE(s.fila_count, 0) AS fila_count,
+        COALESCE(s.total_inscritos_ativos, 0) AS total_inscritos_ativos
        FROM eventos_rh e
        LEFT JOIN (
          SELECT evento_id,
            SUM(status IN ('INSCRITO','PRESENTE','FALTOU')) AS ocupadas,
            SUM(status = 'INSCRITO') AS ocupadas_inscrito,
-           SUM(status = 'FILA_ESPERA') AS fila_count
+           SUM(status = 'FILA_ESPERA') AS fila_count,
+           SUM(status <> 'CANCELADO') AS total_inscritos_ativos
          FROM inscricoes_rh
          GROUP BY evento_id
        ) s ON s.evento_id = e.id
@@ -1346,11 +1348,15 @@ exports.listAllForAdmin = async (req, res) => {
         const vagas = Number(row.vagas) || 1;
         const ocupadas = Number(row.ocupadas) || 0;
         const ocupadasInscrito = Number(row.ocupadas_inscrito) || 0;
+        const filaCount = Number(row.fila_count) || 0;
+        const totalInscritosAtivos =
+          Number(row.total_inscritos_ativos) || ocupadas + filaCount;
         return {
           ...m,
           ocupadas,
           ocupadas_inscrito: ocupadasInscrito,
-          fila_count: Number(row.fila_count) || 0,
+          fila_count: filaCount,
+          total_inscritos_ativos: totalInscritosAtivos,
           vagas_restantes: Math.max(0, vagas - ocupadas),
         };
       }),
