@@ -3,6 +3,17 @@ const BUF_MS = 60_000;
 
 export type SeloDestaqueWtPass = { texto: string; tone: 'amber' | 'emerald' | 'slate' };
 
+/** Estado na BD em que o colaborador ainda pode cancelar a inscrição (até o prazo de 24h). */
+export function eventoStatusPermiteCancelarInscricaoWtPass(ev: {
+  status?: string | null;
+  evento_status?: string | null;
+}): boolean {
+  const st = String(ev?.status ?? ev?.evento_status ?? '')
+    .toUpperCase()
+    .trim();
+  return st === 'ABERTO' || st === 'ENCERRADO';
+}
+
 /** Inscrições ainda dentro do período (calendário): evento `ABERTO` e entre início e fim. */
 export function periodoInscricaoAindaAtivoWtPass(ev: {
   status?: string | null;

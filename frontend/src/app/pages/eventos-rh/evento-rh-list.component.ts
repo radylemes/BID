@@ -2,7 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EventoRhListResponse, EventoRhService } from '../../services/evento-rh.service';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
-import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/wt-pass-inscricao';
+import {
+  eventoStatusPermiteCancelarInscricaoWtPass,
+  rotuloSituacaoInscricaoWtPass,
+  seloDestaqueWtPass,
+} from '../../utils/wt-pass-inscricao';
 import Swal from 'sweetalert2';
 import { FormsModule } from '@angular/forms';
 
@@ -894,10 +898,10 @@ export class EventoRhListComponent implements OnInit {
   }
 
   podeCancelar(ev: any): boolean {
-    if (!this.eventoStatusDbAberto(ev)) return false;
+    if (!eventoStatusPermiteCancelarInscricaoWtPass(ev)) return false;
     if (!ev.usuario_inscrito) return false;
     // Até 24h antes do início do dia do evento (calendário local), mesmo com
-    // inscrições já encerradas por data — alinhado ao backend cancelarInscricao.
+    // inscrições já encerradas (status ENCERRADO ou período expirado) — alinhado ao backend.
     const inicioDia = this.inicioDiaDataEventoLocalMs(ev);
     if (inicioDia != null) {
       const limiteCancelamentoMs = inicioDia - 24 * 60 * 60 * 1000;

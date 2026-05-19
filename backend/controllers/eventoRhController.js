@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
+const { sendWtPassPromovidoFilaEmail } = require("./emailController");
 
 /** Inteiro positivo para parâmetros de prepared statements (evita mysqld_stmt_execute). */
 function requireSqlInt(val, label) {
@@ -73,6 +74,23 @@ function limiteCancelamentoInscricaoWtPassMs(dataEventoRaw) {
   const d = parseDbUtcDate(dataEventoRaw);
   if (!d) return null;
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - 24 * 60 * 60 * 1000;
+}
+
+function normalizarStatusEventoRh(status) {
+  return String(status ?? "").toUpperCase().trim();
+}
+
+/** Colaborador pode desistir da vaga enquanto o evento ainda não foi realizado/cancelado. */
+function eventoStatusPermiteCancelarInscricao(status) {
+  const st = normalizarStatusEventoRh(status);
+  return st === "ABERTO" || st === "ENCERRADO";
+}
+
+function mensagemErroCancelamentoInscricaoStatus(status) {
+  const st = normalizarStatusEventoRh(status);
+  if (st === "CANCELADO") return "Não é possível cancelar: evento foi cancelado.";
+  if (st === "REALIZADO") return "Não é possível cancelar: evento já foi realizado.";
+  return "Não é possível cancelar: o período de inscrições deste evento já foi encerrado.";
 }
 
 function mapEventoRow(row) {
@@ -984,24 +1002,41 @@ exports.inscrever = async (req, res) => {
   }
 };
 
+/**
+ * Promove o próximo da fila de espera enquanto houver vagas livres.
+ * @returns {Promise<Array<{ inscricaoId: number, usuarioId: number }>>}
+ */
 async function promoverFilaEspera(connection, eventoId) {
+  const promovidos = [];
   const [[cnt]] = await connection.execute(
     `SELECT COUNT(*) AS c FROM inscricoes_rh WHERE evento_id = ? AND status = 'INSCRITO'`,
     [eventoId],
   );
   const [ev] = await connection.execute(`SELECT vagas FROM eventos_rh WHERE id = ?`, [eventoId]);
-  if (ev.length === 0) return;
+  if (ev.length === 0) return promovidos;
   const vagas = Number(ev[0].vagas) || 1;
   let ocupadas = Number(cnt.c) || 0;
 
   while (ocupadas < vagas) {
     const [fila] = await connection.execute(
-      `SELECT id FROM inscricoes_rh WHERE evento_id = ? AND status = 'FILA_ESPERA' ORDER BY posicao ASC, id ASC LIMIT 1`,
+      `SELECT id, usuario_id FROM inscricoes_rh WHERE evento_id = ? AND status = 'FILA_ESPERA' ORDER BY posicao ASC, id ASC LIMIT 1`,
       [eventoId],
     );
     if (fila.length === 0) break;
     await connection.execute(`UPDATE inscricoes_rh SET status = 'INSCRITO' WHERE id = ?`, [fila[0].id]);
+    const inscricaoId = safeInt(fila[0].id);
+    const usuarioId = safeInt(fila[0].usuario_id);
+    if (inscricaoId != null && usuarioId != null) {
+      promovidos.push({ inscricaoId, usuarioId });
+    }
     ocupadas++;
+  }
+  return promovidos;
+}
+
+async function notificarPromovidosWtPass(eventoId, promovidos) {
+  for (const p of promovidos) {
+    await sendWtPassPromovidoFilaEmail({ eventoRhId: eventoId, usuarioId: p.usuarioId });
   }
 }
 
@@ -1027,9 +1062,13 @@ exports.cancelarInscricao = async (req, res) => {
       return res.status(404).json({ error: "Evento não encontrado." });
     }
     const ev = evRows[0];
-    if (ev.status !== "ABERTO") {
+    // Permite cancelar com inscrições já encerradas (ENCERRADO) até 24h antes do evento;
+    // bloqueia só após realização ou cancelamento do evento.
+    if (!eventoStatusPermiteCancelarInscricao(ev.status)) {
       await connection.rollback();
-      return res.status(400).json({ error: "Não é possível cancelar: evento não está aberto." });
+      return res.status(400).json({
+        error: mensagemErroCancelamentoInscricaoStatus(ev.status),
+      });
     }
 
     // Cancelamento permitido até 24h antes do início do dia civil do evento
@@ -1058,10 +1097,17 @@ exports.cancelarInscricao = async (req, res) => {
       [ins[0].id],
     );
 
-    if (eraInscrito) await promoverFilaEspera(connection, eventoId);
+    const promovidos = eraInscrito ? await promoverFilaEspera(connection, eventoId) : [];
 
     await gravarAuditoria(connection, usuarioId, "EVENTOS_RH", "CANCELAR_INSCRICAO", eventoId, {});
     await connection.commit();
+
+    if (promovidos.length) {
+      void notificarPromovidosWtPass(eventoId, promovidos).catch((err) =>
+        logErro("EVENTO_RH_EMAIL_PROMOVIDO_FILA", err),
+      );
+    }
+
     res.json({ message: "Inscrição cancelada." });
   } catch (error) {
     try {
@@ -1317,8 +1363,8 @@ exports.listAllForAdmin = async (req, res) => {
 
 /**
  * Job: após o instante `data_evento`, inscrições com vaga (INSCRITO) que nunca
- * fizeram check-in na portaria passam a FALTOU (não retirada), promove fila de
- * espera e aplica as mesmas regras de bloqueio do WT Pass que uma falta manual.
+ * fizeram check-in na portaria passam a FALTOU (não retirada) e aplica as
+ * mesmas regras de bloqueio do WT Pass que uma falta manual.
  */
 exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
   try {
@@ -1364,7 +1410,6 @@ exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
           continue;
         }
 
-        await promoverFilaEspera(c, eventoIdRow);
         await aplicarRegrasBloqueioAposFaltaWtPass(c, eventoIdRow, usuarioIdRow);
 
         await gravarAuditoria(c, 1, "EVENTOS_RH", "WT_PASS_NAO_RETIRADA_AUTO", eventoIdRow, {

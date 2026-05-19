@@ -568,7 +568,13 @@ exports.importUsers = async (req, res) => {
 
 // ==================== TEMPLATES ====================
 
-const TIPOS_DISPARO_VALIDOS = ["BID_ABERTO", "BID_ENCERRADO", "GANHADORES", "USUARIO_CRIADO"];
+const TIPOS_DISPARO_VALIDOS = [
+  "BID_ABERTO",
+  "BID_ENCERRADO",
+  "GANHADORES",
+  "USUARIO_CRIADO",
+  "WT_PASS_PROMOVIDO_FILA",
+];
 
 exports.getTemplates = async (req, res) => {
   try {
@@ -615,7 +621,7 @@ exports.createTemplate = async (req, res) => {
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
       return res.status(400).json({
         error:
-          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES ou USUARIO_CRIADO.",
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
       });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
@@ -661,7 +667,7 @@ exports.updateTemplate = async (req, res) => {
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
       return res.status(400).json({
         error:
-          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES ou USUARIO_CRIADO.",
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
       });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
@@ -811,6 +817,123 @@ exports.sendNovoUsuarioEmail = async ({ email, nomeCompleto, username, senhaPlan
     });
   } catch (error) {
     await logErro("EMAIL_SEND_NOVO_USUARIO", error);
+  }
+};
+
+/**
+ * Monta contexto {{evento.*}} a partir de um registo eventos_rh (WT Pass).
+ */
+async function buildEventoRhEmailContext(row) {
+  const baseUrl = await getBaseUrl();
+  let imagemUrl = "";
+  const banner = row.banner && String(row.banner).trim();
+  if (banner) {
+    imagemUrl = banner.startsWith("http") ? banner : baseUrl ? `${baseUrl}${banner.startsWith("/") ? "" : "/"}${banner}` : banner;
+  }
+  const partesEvento = extrairPartesData(row.data_evento);
+  const partesInicio = extrairPartesData(row.data_inicio_inscricao);
+  const partesLimite = extrairPartesData(row.data_limite_inscricao);
+  return {
+    titulo: row.titulo || DEFAULT_EVENTO.titulo,
+    subtitulo: row.subtitulo || "",
+    local: row.local || DEFAULT_EVENTO.local,
+    data: formatarDataPtBr(row.data_evento) || DEFAULT_EVENTO.data,
+    data_dia: partesEvento.dia,
+    data_mes: partesEvento.mes,
+    data_hora: partesEvento.hora,
+    data_inicio_apostas: formatarDataPtBr(row.data_inicio_inscricao) || "",
+    data_inicio_apostas_dia: partesInicio.dia,
+    data_inicio_apostas_mes: partesInicio.mes,
+    data_inicio_apostas_hora: partesInicio.hora,
+    data_limite_aposta: formatarDataPtBr(row.data_limite_inscricao) || "",
+    data_limite_aposta_dia: partesLimite.dia,
+    data_limite_aposta_mes: partesLimite.mes,
+    data_limite_aposta_hora: partesLimite.hora,
+    imagem: imagemUrl,
+    informacoes_extras: row.descricao || "",
+    link_extra: "",
+    quantidade_premios: row.vagas != null ? String(row.vagas) : "",
+    nome_grupo: "",
+    setor_evento_nome: "",
+    data_apuracao: "",
+    data_apuracao_dia: "",
+    data_apuracao_mes: "",
+    data_apuracao_hora: "",
+  };
+}
+
+/**
+ * E-mail automático quando um utilizador é promovido da fila de espera para INSCRITO (WT Pass).
+ * Falhas são apenas registadas em log; não devem reverter a promoção.
+ */
+exports.sendWtPassPromovidoFilaEmail = async ({ eventoRhId, usuarioId }) => {
+  try {
+    const evId = Number(eventoRhId);
+    const usrId = Number(usuarioId);
+    if (!evId || !usrId) return;
+
+    const [usuarios] = await db.query(
+      "SELECT nome_completo, email, username FROM usuarios WHERE id = ? LIMIT 1",
+      [usrId],
+    );
+    if (usuarios.length === 0) return;
+    const u = usuarios[0];
+    const to = u.email && String(u.email).trim();
+    if (!to) return;
+
+    const [templates] = await db.query(
+      "SELECT assunto, corpo_html FROM templates_email WHERE tipo_disparo = 'WT_PASS_PROMOVIDO_FILA' ORDER BY id ASC LIMIT 1",
+    );
+    if (templates.length === 0) {
+      await logErro(
+        "EMAIL_SEND_WT_PASS_PROMOVIDO_FILA",
+        new Error("Nenhum template com tipo_disparo WT_PASS_PROMOVIDO_FILA encontrado."),
+      );
+      return;
+    }
+    const template = templates[0];
+
+    const [eventos] = await db.query(
+      `SELECT titulo, subtitulo, local, descricao, banner, vagas,
+              data_evento, data_inicio_inscricao, data_limite_inscricao
+         FROM eventos_rh WHERE id = ? LIMIT 1`,
+      [evId],
+    );
+    if (eventos.length === 0) return;
+
+    const transporter = await getSmtpTransporter();
+    if (!transporter) {
+      await logErro("EMAIL_SEND_WT_PASS_PROMOVIDO_FILA", new Error("SMTP não configurado."));
+      return;
+    }
+    const [cfgRows] = await db.query(
+      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'",
+    );
+    const smtpFrom = cfgRows[0]?.valor?.trim();
+    if (!smtpFrom) {
+      await logErro("EMAIL_SEND_WT_PASS_PROMOVIDO_FILA", new Error("smtp_from não configurado."));
+      return;
+    }
+
+    const evento = await buildEventoRhEmailContext(eventos[0]);
+    const usuario = {
+      nome: u.nome_completo || to,
+      email: to,
+      username: u.username || "",
+      ingressos_ganhos: "0",
+    };
+    const context = { evento, usuario };
+    const assunto = replaceTemplateTags(template.assunto, context);
+    const html = replaceTemplateTags(template.corpo_html, context);
+    await transporter.sendMail({
+      from: smtpFrom,
+      to,
+      subject: assunto,
+      html,
+      text: assunto,
+    });
+  } catch (error) {
+    await logErro("EMAIL_SEND_WT_PASS_PROMOVIDO_FILA", error);
   }
 };
 

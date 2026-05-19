@@ -803,34 +803,189 @@ async function initializeDatabase() {
     } catch (e) {}
 
     // 5. Template de e-mail para criação manual de utilizador (USUARIO_CRIADO)
+    const USUARIO_CRIADO_CORPO_HTML = `<table style="background-color: #f0f2f5;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="padding: 30px 10px;" align="center">
+<table style="max-width: 600px; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);" role="presentation" border="0" width="600" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #1a2e4a; background-size: cover; background-position: center; padding: 35px 25px;" align="center">
+<h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; color: #ffffff; font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; line-height: 1.2;">Bem-vindo</h1>
+<table style="margin-top: 18px;" role="presentation" border="0" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td align="center"><span style="color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">Sua conta foi criada<br></span>
+<p style="margin: 8px 0 0; color: #ffffff; font-size: 15px; font-weight: 600; letter-spacing: 1px;">Plataforma de eventos</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p><img src="https://cadeiras.allianzparque.com.br/wp-content/uploads/2026/03/novo-anhangabau.png" alt="" width="164" height="50"></p>
+</td>
+</tr>
+<tr>
+<td style="background-color: #ffffff; padding: 35px 30px;">
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;"><strong>Ol&aacute;, {{usuario.nome}}! &#128075;</strong></span></p>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">A sua conta na plataforma foi criada com sucesso.</span></p>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">Utilize as credenciais abaixo para o primeiro acesso:</span></p>
+<table style="margin: 22px 0 18px;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px 18px; border-radius: 6px;">
+<p style="margin: 0 0 8px; color: #1a2e4a; font-size: 13px; font-weight: 700; font-family: Arial, Helvetica, sans-serif; text-align: center;">Credenciais de acesso</p>
+<p style="margin: 0 0 6px; color: #333333; font-size: 13px; line-height: 1.5; font-family: Arial, Helvetica, sans-serif; text-align: center;"><strong>E-mail:</strong> {{usuario.email}}</p>
+<p style="margin: 0 0 6px; color: #333333; font-size: 13px; line-height: 1.5; font-family: Arial, Helvetica, sans-serif; text-align: center;"><strong>Utilizador:</strong> {{usuario.username}}</p>
+<p style="margin: 0; color: #333333; font-size: 13px; line-height: 1.5; font-family: Arial, Helvetica, sans-serif; text-align: center;"><strong>Senha inicial:</strong> {{senha}}</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">Estamos felizes em ter voc&ecirc; conosco!</span></p>
+<table style="margin-bottom: 18px;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #b5eeff; border-left: 4px solid #2a677b; padding: 14px 16px; border-radius: 0 4px 4px 0;">
+<p style="margin: 0; color: #333333; font-size: 12px; line-height: 1.6; font-family: Arial, Helvetica, sans-serif; text-align: left;"><strong>IMPORTANTE:</strong> Por seguran&ccedil;a, altere a senha assim que poss&iacute;vel ap&oacute;s o primeiro acesso (perfil ou defini&ccedil;&otilde;es do utilizador).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p style="margin: 0; color: #333333; font-size: 12px; text-align: center; font-family: Arial, Helvetica, sans-serif;">Qualquer d&uacute;vida, entre em contato com a &aacute;rea de Recursos Humanos.</p>
+</td>
+</tr>
+<tr>
+<td style="background-color: #1a2e4a; padding: 25px; height: 25px;" align="center"><img class="footer-logo" src="https://cadeiras.allianzparque.com.br/wp-content/uploads/2026/03/wtorre.png" alt="WTORRE" width="176" height="24"></td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>`;
+
     try {
+      const nomeTpl = "Boas-vindas (utilizador criado)";
+      const assuntoTpl = "Bem-vindo(a) — a sua conta foi criada";
       const [tplUsu] = await connection.query(
-        "SELECT id FROM templates_email WHERE tipo_disparo = 'USUARIO_CRIADO' LIMIT 1"
+        "SELECT id, corpo_html FROM templates_email WHERE tipo_disparo = 'USUARIO_CRIADO' LIMIT 1"
       );
       if (tplUsu.length === 0) {
-        const nomeTpl = "Boas-vindas (utilizador criado)";
-        const assuntoTpl = "Bem-vindo(a) — a sua conta foi criada";
-        const corpoHtml = `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"></head>
-<body style="font-family:system-ui,sans-serif;line-height:1.6;color:#1e293b">
-  <p>Olá, <strong>{{usuario.nome}}</strong>,</p>
-  <p>A sua conta na plataforma de apostas foi criada. Utilize as credenciais abaixo para o primeiro acesso:</p>
-  <ul>
-    <li><strong>E-mail:</strong> {{usuario.email}}</li>
-    <li><strong>Utilizador:</strong> {{usuario.username}}</li>
-    <li><strong>Senha inicial:</strong> {{senha}}</li>
-  </ul>
-  <p><strong>Importante:</strong> por segurança, altere a senha assim que possível após entrar (área de perfil ou definições do utilizador).</p>
-  <p>Cumprimentos,<br/>Equipa</p>
-</body></html>`;
         await connection.execute(
           "INSERT INTO templates_email (nome, assunto, corpo_html, tipo_disparo) VALUES (?, ?, ?, 'USUARIO_CRIADO')",
-          [nomeTpl, assuntoTpl, corpoHtml]
+          [nomeTpl, assuntoTpl, USUARIO_CRIADO_CORPO_HTML]
         );
         console.log("✨ Template de e-mail USUARIO_CRIADO inserido.");
+      } else {
+        const corpoAtual = String(tplUsu[0].corpo_html || "");
+        const corpoSimplesAntigo =
+          corpoAtual.includes("A sua conta na plataforma de apostas foi criada") ||
+          corpoAtual.includes("<!DOCTYPE html>") ||
+          !corpoAtual.includes("Bem-vindo");
+        if (corpoSimplesAntigo) {
+          await connection.execute(
+            "UPDATE templates_email SET nome = ?, assunto = ?, corpo_html = ? WHERE id = ?",
+            [nomeTpl, assuntoTpl, USUARIO_CRIADO_CORPO_HTML, tplUsu[0].id]
+          );
+          console.log("✨ Template de e-mail USUARIO_CRIADO atualizado para layout WT Pass.");
+        }
       }
     } catch (e) {
       console.error("Migration template USUARIO_CRIADO:", e);
+    }
+
+    // Template de e-mail: promoção da fila de espera WT Pass (cancelamento de outro inscrito)
+    const WT_PASS_PROMOVIDO_FILA_CORPO_HTML = `<table style="background-color: #f0f2f5;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="padding: 30px 10px;" align="center">
+<table style="max-width: 600px; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);" role="presentation" border="0" width="600" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #1a2e4a; background-size: cover; background-position: center; padding: 35px 25px;" align="center">
+<h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; color: #ffffff; font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; line-height: 1.2;">WT Pass</h1>
+<table style="margin-top: 18px;" role="presentation" border="0" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td align="center"><span style="color: #ffffff; font-size: 20px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">{{evento.titulo}}<br>{{evento.subtitulo}}<br></span>
+<p style="margin: 5px 0 0; color: #ffffff; font-size: 24px; font-weight: 900;">{{evento.data_dia}}.{{evento.data_mes}}</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p><img src="https://cadeiras.allianzparque.com.br/wp-content/uploads/2026/03/novo-anhangabau.png" alt="" width="164" height="50"></p>
+</td>
+</tr>
+<tr>
+<td style="padding: 0; line-height: 0; font-size: 0;"><img style="display: block; width: 100%; max-width: 600px; height: auto; border: 0;" src="{{evento.imagem}}" alt="" width="600"></td>
+</tr>
+<tr>
+<td style="background-color: #ffffff; padding: 35px 30px;">
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;"><strong>Parab&eacute;ns, {{usuario.nome}}! Sua inscri&ccedil;&atilde;o no evento foi confirmada! &#127881;</strong></span></p>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">Uma vaga ficou dispon&iacute;vel e voc&ecirc; saiu da lista de espera.</span></p>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">Agora &eacute; oficial: sua vaga est&aacute; garantida no WT Pass!</span></p>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">Acesse a plataforma para consultar os detalhes do evento e preparar sua participa&ccedil;&atilde;o.</span></p>
+<table style="margin: 22px 0 18px;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px 18px; border-radius: 6px;">
+<p style="margin: 0 0 8px; color: #1a2e4a; font-size: 13px; font-weight: 700; font-family: Arial, Helvetica, sans-serif; text-align: center;">Detalhes do evento</p>
+<p style="margin: 0 0 6px; color: #333333; font-size: 13px; line-height: 1.5; font-family: Arial, Helvetica, sans-serif; text-align: center;"><strong>Local:</strong> {{evento.local}}</p>
+<p style="margin: 0; color: #333333; font-size: 13px; line-height: 1.5; font-family: Arial, Helvetica, sans-serif; text-align: center;"><strong>Data:</strong> {{evento.data}} &nbsp;|&nbsp; <strong>Hor&aacute;rio:</strong> {{evento.data_hora}}</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p style="text-align: center;"><span style="font-family: arial, helvetica, sans-serif;">Obrigado por participar!</span><br><span style="font-family: arial, helvetica, sans-serif;">Esperamos que aproveite bastante! &#128522;</span></p>
+<table style="margin-bottom: 18px;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #b5eeff; border-left: 4px solid #2a677b; padding: 14px 16px; border-radius: 0 4px 4px 0;">
+<p style="margin: 0; color: #333333; font-size: 12px; line-height: 1.6; font-family: Arial, Helvetica, sans-serif; text-align: left;"><strong>ATEN&Ccedil;&Atilde;O:</strong> Confirme sua presen&ccedil;a e retire seu ingresso na portaria dentro do prazo informado na plataforma.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p style="margin: 0; color: #333333; font-size: 12px; text-align: center; font-family: Arial, Helvetica, sans-serif;">Qualquer d&uacute;vida, entre em contato com a &aacute;rea de Recursos Humanos.</p>
+</td>
+</tr>
+<tr>
+<td style="background-color: #1a2e4a; padding: 25px; height: 25px;" align="center"><img class="footer-logo" src="https://cadeiras.allianzparque.com.br/wp-content/uploads/2026/03/wtorre.png" alt="WTORRE" width="176" height="24"></td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>`;
+
+    try {
+      const nomeTplWt = "WT Pass — vaga liberada (lista de espera)";
+      const assuntoTplWt = "Vaga confirmada: {{evento.titulo}}";
+      const [tplWt] = await connection.query(
+        "SELECT id, corpo_html FROM templates_email WHERE tipo_disparo = 'WT_PASS_PROMOVIDO_FILA' LIMIT 1"
+      );
+      if (tplWt.length === 0) {
+        await connection.execute(
+          "INSERT INTO templates_email (nome, assunto, corpo_html, tipo_disparo) VALUES (?, ?, ?, 'WT_PASS_PROMOVIDO_FILA')",
+          [nomeTplWt, assuntoTplWt, WT_PASS_PROMOVIDO_FILA_CORPO_HTML]
+        );
+        console.log("✨ Template de e-mail WT_PASS_PROMOVIDO_FILA inserido.");
+      } else {
+        const corpoAtual = String(tplWt[0].corpo_html || "");
+        const corpoSimplesAntigo =
+          corpoAtual.includes("Uma vaga ficou disponível e a sua inscrição") ||
+          corpoAtual.includes("Aceda à plataforma para consultar os detalhes");
+        if (corpoSimplesAntigo || !corpoAtual.includes("WT Pass")) {
+          await connection.execute(
+            "UPDATE templates_email SET nome = ?, assunto = ?, corpo_html = ? WHERE id = ?",
+            [nomeTplWt, assuntoTplWt, WT_PASS_PROMOVIDO_FILA_CORPO_HTML, tplWt[0].id]
+          );
+          console.log("✨ Template de e-mail WT_PASS_PROMOVIDO_FILA atualizado para layout WT Pass.");
+        }
+      }
+    } catch (e) {
+      console.error("Migration template WT_PASS_PROMOVIDO_FILA:", e);
     }
 
     // População Básica se estiver vazio

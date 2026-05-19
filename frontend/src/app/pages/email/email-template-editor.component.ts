@@ -181,7 +181,13 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
   }
 
   private normalizeTipoDisparoForSelect(raw: unknown): string {
-    const valid = new Set(['BID_ABERTO', 'BID_ENCERRADO', 'GANHADORES', 'USUARIO_CRIADO']);
+    const valid = new Set([
+      'BID_ABERTO',
+      'BID_ENCERRADO',
+      'GANHADORES',
+      'USUARIO_CRIADO',
+      'WT_PASS_PROMOVIDO_FILA',
+    ]);
     if (raw == null || raw === '') return '';
     const s = String(raw).trim();
     return valid.has(s) ? s : '';

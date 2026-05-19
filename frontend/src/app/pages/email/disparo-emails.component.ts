@@ -1102,6 +1102,7 @@ export class DisparoEmailsComponent implements OnInit {
           if (t === 'BID_ENCERRADO') return 'Bid Encerrado';
           if (t === 'GANHADORES') return 'Ganhadores';
           if (t === 'USUARIO_CRIADO') return 'Criação de utilizador';
+          if (t === 'WT_PASS_PROMOVIDO_FILA') return 'WT Pass — vaga na fila';
           return t || '—';
         };
         Swal.fire({
@@ -1418,6 +1419,8 @@ export class DisparoEmailsComponent implements OnInit {
         return 'Ganhadores';
       case 'USUARIO_CRIADO':
         return 'Criação de utilizador';
+      case 'WT_PASS_PROMOVIDO_FILA':
+        return 'WT Pass — vaga na fila';
       default:
         return tipo;
     }
