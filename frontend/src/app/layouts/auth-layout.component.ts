@@ -8,7 +8,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
   imports: [CommonModule, RouterOutlet],
   template: `
     <div class="min-h-screen w-full flex overflow-hidden">
-      <!-- Coluna esquerda: vídeo de fundo + logo Allianz -->
+      <!-- Coluna esquerda: vídeo de fundo -->
       <div class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative overflow-hidden">
         <video
           class="absolute inset-0 h-full w-full object-cover"
@@ -21,14 +21,6 @@ import { CommonModule, DOCUMENT } from '@angular/common';
           [poster]="posterSrc"
           aria-hidden="true"
         ></video>
-        <div class="absolute bottom-0 left-0 z-10 pl-3 pr-4 leading-none sm:pl-4" *ngIf="showAllianzLogo">
-          <img
-            [src]="logoSrc"
-            alt="Nubank Parque"
-            class="block h-32 w-auto max-w-[min(72%,280px)] object-contain object-left drop-shadow-md sm:h-36 lg:h-40"
-            (error)="showAllianzLogo = false"
-          />
-        </div>
       </div>
 
       <!-- Coluna direita: painel azul escuro fixo para login -->
@@ -54,7 +46,4 @@ export class AuthLayoutComponent {
   /** Resolve contra `document.baseURI` (respeita `<base href>` no deploy). */
   readonly videoSrc = new URL('assets/HOME-SITE.mp4', this.document.baseURI).href;
   readonly posterSrc = new URL('assets/allianz_parque_fiel.png', this.document.baseURI).href;
-  readonly logoSrc = new URL('assets/NBP_WT.png', this.document.baseURI).href;
-
-  showAllianzLogo = true;
 }
