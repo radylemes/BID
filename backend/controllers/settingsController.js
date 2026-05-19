@@ -3,6 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
+const {
+  liberarTodosBloqueiosWtPass,
+  parseWtPassBloqueioHabilitado,
+} = require("./eventoRhController");
 
 async function gravarAuditoria(
   connection,
@@ -146,15 +150,17 @@ exports.getWtPassPolicyDocument = async (req, res) => {
 exports.getWtPassSettings = async (req, res) => {
   try {
     const [rows] = await db.query(
-      "SELECT chave, valor FROM configuracoes WHERE chave IN ('wt_pass_faltas_permitidas', 'wt_pass_eventos_bloqueio')",
+      "SELECT chave, valor FROM configuracoes WHERE chave IN ('wt_pass_faltas_permitidas', 'wt_pass_eventos_bloqueio', 'wt_pass_bloqueio_habilitado')",
     );
     const mapa = rows.reduce((acc, r) => {
       acc[r.chave] = r.valor;
       return acc;
     }, {});
+    const habilitado = parseWtPassBloqueioHabilitado(mapa.wt_pass_bloqueio_habilitado);
     const faltas = Math.max(1, Number(mapa.wt_pass_faltas_permitidas) || 1);
     const eventos = Math.max(1, Number(mapa.wt_pass_eventos_bloqueio) || 5);
     res.json({
+      wt_pass_bloqueio_habilitado: habilitado,
       wt_pass_faltas_permitidas: faltas,
       wt_pass_eventos_bloqueio: eventos,
     });
@@ -166,38 +172,78 @@ exports.getWtPassSettings = async (req, res) => {
 
 /** Atualiza as configurações do WT Pass (faltas permitidas e duração do bloqueio). */
 exports.updateWtPassSettings = async (req, res) => {
-  const { adminId, wt_pass_faltas_permitidas, wt_pass_eventos_bloqueio } = req.body || {};
+  const {
+    adminId,
+    wt_pass_faltas_permitidas,
+    wt_pass_eventos_bloqueio,
+    wt_pass_bloqueio_habilitado,
+  } = req.body || {};
+
+  const habilitado =
+    wt_pass_bloqueio_habilitado === undefined
+      ? true
+      : wt_pass_bloqueio_habilitado === true ||
+        wt_pass_bloqueio_habilitado === 1 ||
+        wt_pass_bloqueio_habilitado === "1";
+
   const faltas = Math.floor(Number(wt_pass_faltas_permitidas));
   const eventos = Math.floor(Number(wt_pass_eventos_bloqueio));
-  if (!Number.isFinite(faltas) || faltas < 1 || !Number.isFinite(eventos) || eventos < 1) {
-    return res.status(400).json({
-      error: "Informe valores inteiros maiores ou iguais a 1 para faltas e duração do bloqueio.",
-    });
+
+  if (habilitado) {
+    if (!Number.isFinite(faltas) || faltas < 1 || !Number.isFinite(eventos) || eventos < 1) {
+      return res.status(400).json({
+        error: "Informe valores inteiros maiores ou iguais a 1 para faltas e duração do bloqueio.",
+      });
+    }
   }
+
+  const faltasSalvar = Number.isFinite(faltas) && faltas >= 1 ? faltas : 1;
+  const eventosSalvar = Number.isFinite(eventos) && eventos >= 1 ? eventos : 5;
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    const [[habilitadoAnteriorRow]] = await connection.execute(
+      "SELECT valor FROM configuracoes WHERE chave = 'wt_pass_bloqueio_habilitado' LIMIT 1",
+    );
+    const habilitadoAnterior = parseWtPassBloqueioHabilitado(habilitadoAnteriorRow?.valor);
+
     await connection.execute(
       "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
-      ["wt_pass_faltas_permitidas", String(faltas)],
+      ["wt_pass_bloqueio_habilitado", habilitado ? "1" : "0"],
     );
     await connection.execute(
       "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
-      ["wt_pass_eventos_bloqueio", String(eventos)],
+      ["wt_pass_faltas_permitidas", String(faltasSalvar)],
     );
-    await gravarAuditoria(
-      connection,
-      adminId,
-      "CONFIG_SISTEMA",
-      "UPDATE_WT_PASS_SETTINGS",
-      null,
-      { wt_pass_faltas_permitidas: faltas, wt_pass_eventos_bloqueio: eventos },
+    await connection.execute(
+      "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
+      ["wt_pass_eventos_bloqueio", String(eventosSalvar)],
     );
+
+    let liberacao = null;
+    if (habilitadoAnterior && !habilitado) {
+      liberacao = await liberarTodosBloqueiosWtPass(connection);
+      await gravarAuditoria(connection, adminId, "CONFIG_SISTEMA", "LIBERAR_BLOQUEIOS_WT_PASS", null, {
+        ...liberacao,
+        motivo: "Bloqueio WT Pass desativado nas configurações.",
+      });
+    }
+
+    await gravarAuditoria(connection, adminId, "CONFIG_SISTEMA", "UPDATE_WT_PASS_SETTINGS", null, {
+      wt_pass_bloqueio_habilitado: habilitado,
+      wt_pass_faltas_permitidas: faltasSalvar,
+      wt_pass_eventos_bloqueio: eventosSalvar,
+      liberacao,
+    });
     await connection.commit();
     res.json({
       message: "Configurações do WT Pass atualizadas.",
-      wt_pass_faltas_permitidas: faltas,
-      wt_pass_eventos_bloqueio: eventos,
+      wt_pass_bloqueio_habilitado: habilitado,
+      wt_pass_faltas_permitidas: faltasSalvar,
+      wt_pass_eventos_bloqueio: eventosSalvar,
+      liberacao,
     });
   } catch (error) {
     await connection.rollback();

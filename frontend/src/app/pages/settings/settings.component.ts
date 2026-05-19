@@ -81,7 +81,11 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             "
             class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
           >
-            <span class="text-lg">🎫</span> WT Pass
+            <span class="text-lg">🎫</span>
+            <span>
+              WT Pass
+              <span class="block text-[10px] font-normal opacity-70">Política e bloqueio</span>
+            </span>
           </button>
           <button
             (click)="abaAtual = 'tenants-status'"
@@ -417,17 +421,60 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
               </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div
+              class="rounded-xl border-2 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              [ngClass]="
+                wtPassBloqueioHabilitado
+                  ? 'border-emerald-200 bg-emerald-50/50'
+                  : 'border-[var(--app-border)] bg-[var(--color-bg-surface-alt)]'
+              "
+            >
               <div>
-                <h3 class="text-xl font-black text-[var(--app-text)]">Bloqueio do WT Pass</h3>
-                <p class="text-xs text-[var(--app-text-muted)] mt-1">
-                  Configure o limite de faltas antes de aplicar bloqueio e a duração desse bloqueio em
-                  número de eventos novos publicados.
+                <p class="text-sm font-black text-[var(--app-text)]">Bloqueio por faltas</p>
+                <p class="text-xs text-[var(--app-text-muted)] mt-1 max-w-xl">
+                  Ative para punir utilizadores que faltam aos eventos. Ao desativar e salvar, todos os
+                  bloqueios em curso são libertados imediatamente.
                 </p>
               </div>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0 gap-3 self-start sm:self-center">
+                <span
+                  class="text-xs font-bold uppercase tracking-wide"
+                  [class.text-emerald-700]="wtPassBloqueioHabilitado"
+                  [class.text-[var(--app-text-muted)]]="!wtPassBloqueioHabilitado"
+                >
+                  {{ wtPassBloqueioHabilitado ? 'Ativo' : 'Desativado' }}
+                </span>
+                <input
+                  type="checkbox"
+                  [(ngModel)]="wtPassBloqueioHabilitado"
+                  class="sr-only peer"
+                />
+                <div
+                  class="w-11 h-6 bg-gray-200 rounded-full peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 relative"
+                ></div>
+              </label>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 class="text-xl font-black text-[var(--app-text)]">Parâmetros do bloqueio</h3>
+              <p class="text-xs text-[var(--app-text-muted)] mt-1">
+                Configure o limite de faltas antes de aplicar bloqueio e a duração desse bloqueio em
+                número de eventos novos publicados.
+              </p>
+            </div>
+
+            <p
+              *ngIf="!wtPassBloqueioHabilitado"
+              class="text-xs text-[var(--app-text-muted)] rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-4 py-3"
+            >
+              Com o bloqueio desativado, nenhuma penalidade nova será aplicada e todos os utilizadores
+              com bloqueio ativo serão libertados ao salvar.
+            </p>
+
+            <div
+              class="grid grid-cols-1 md:grid-cols-2 gap-4"
+              [class.opacity-50]="!wtPassBloqueioHabilitado"
+            >
               <div class="bg-[var(--color-bg-surface-alt)] border border-[var(--app-border)] rounded-xl p-4">
                 <label
                   for="wt-pass-faltas"
@@ -441,7 +488,8 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                   min="1"
                   step="1"
                   [(ngModel)]="wtPassFaltasPermitidas"
-                  class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow"
+                  [disabled]="!wtPassBloqueioHabilitado"
+                  class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow disabled:cursor-not-allowed"
                 />
                 <p class="text-[11px] text-[var(--app-text-muted)] mt-2">
                   Total de faltas acumuladas que o usuário pode ter antes de ser bloqueado.
@@ -460,7 +508,8 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
                   min="1"
                   step="1"
                   [(ngModel)]="wtPassEventosBloqueio"
-                  class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow"
+                  [disabled]="!wtPassBloqueioHabilitado"
+                  class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow disabled:cursor-not-allowed"
                 />
                 <p class="text-[11px] text-[var(--app-text-muted)] mt-2">
                   Quantos eventos novos precisam ser publicados para liberar o usuário punido.
@@ -468,7 +517,10 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
               </div>
             </div>
 
-            <div class="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-xs leading-relaxed">
+            <div
+              *ngIf="wtPassBloqueioHabilitado"
+              class="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-xs leading-relaxed"
+            >
               Ao cumprir a penalidade, o contador de faltas do usuário é zerado automaticamente.
               Bloqueios já em andamento mantêm a duração com a qual foram criados; só novos bloqueios
               usarão os valores definidos aqui.
@@ -524,6 +576,7 @@ export class SettingsComponent implements OnInit {
   listasLoading = false;
   templatesLoading = false;
 
+  wtPassBloqueioHabilitado = true;
   wtPassFaltasPermitidas = 1;
   wtPassEventosBloqueio = 5;
   salvandoWtPass = false;
@@ -607,6 +660,7 @@ export class SettingsComponent implements OnInit {
       pol: this.settingsService.getWtPassPolicy(),
     }).subscribe({
       next: ({ cfg, pol }) => {
+        this.wtPassBloqueioHabilitado = cfg?.wt_pass_bloqueio_habilitado !== false;
         this.wtPassFaltasPermitidas = Number(cfg?.wt_pass_faltas_permitidas) || 1;
         this.wtPassEventosBloqueio = Number(cfg?.wt_pass_eventos_bloqueio) || 5;
         this.wtPassPolicyHtml = pol?.html ?? '';
@@ -621,9 +675,13 @@ export class SettingsComponent implements OnInit {
   }
 
   salvarWtPassSettings() {
+    const habilitado = this.wtPassBloqueioHabilitado;
     const faltas = Math.floor(Number(this.wtPassFaltasPermitidas));
     const eventos = Math.floor(Number(this.wtPassEventosBloqueio));
-    if (!Number.isFinite(faltas) || faltas < 1 || !Number.isFinite(eventos) || eventos < 1) {
+    if (
+      habilitado &&
+      (!Number.isFinite(faltas) || faltas < 1 || !Number.isFinite(eventos) || eventos < 1)
+    ) {
       Swal.fire(
         'Valores inválidos',
         'Informe números inteiros maiores ou iguais a 1 para faltas e duração.',
@@ -634,15 +692,25 @@ export class SettingsComponent implements OnInit {
     this.salvandoWtPass = true;
     this.settingsService
       .updateWtPassSettings(
-        { wt_pass_faltas_permitidas: faltas, wt_pass_eventos_bloqueio: eventos },
+        {
+          wt_pass_bloqueio_habilitado: habilitado,
+          wt_pass_faltas_permitidas: Number.isFinite(faltas) && faltas >= 1 ? faltas : 1,
+          wt_pass_eventos_bloqueio: Number.isFinite(eventos) && eventos >= 1 ? eventos : 5,
+        },
         this.currentUser?.id,
       )
       .subscribe({
         next: (res) => {
+          this.wtPassBloqueioHabilitado = res?.wt_pass_bloqueio_habilitado !== false;
           this.wtPassFaltasPermitidas = Number(res?.wt_pass_faltas_permitidas) || faltas;
           this.wtPassEventosBloqueio = Number(res?.wt_pass_eventos_bloqueio) || eventos;
           this.salvandoWtPass = false;
-          Swal.fire('Salvo', 'Configurações do WT Pass atualizadas.', 'success');
+          const bloqueiosLiberados = res?.liberacao?.bloqueios_liberados ?? 0;
+          const msg =
+            !habilitado && bloqueiosLiberados > 0
+              ? `Configurações salvas. ${bloqueiosLiberados} bloqueio(s) libertado(s).`
+              : 'Configurações do WT Pass atualizadas.';
+          Swal.fire('Salvo', msg, 'success');
         },
         error: (err: any) => {
           this.salvandoWtPass = false;

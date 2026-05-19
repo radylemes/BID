@@ -579,7 +579,8 @@ async function initializeDatabase() {
     await connection.query(
       `INSERT IGNORE INTO configuracoes (chave, valor, descricao) VALUES
         ('wt_pass_faltas_permitidas', '1', 'Quantidade de faltas no WT Pass antes de gerar bloqueio.'),
-        ('wt_pass_eventos_bloqueio', '5', 'Duração do bloqueio (em número de eventos novos criados) no WT Pass.')`,
+        ('wt_pass_eventos_bloqueio', '5', 'Duração do bloqueio (em número de eventos novos criados) no WT Pass.'),
+        ('wt_pass_bloqueio_habilitado', '1', 'Ativa (1) ou desativa (0) o bloqueio por faltas no WT Pass.')`,
     );
 
     await connection.query(`

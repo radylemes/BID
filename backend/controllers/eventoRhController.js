@@ -91,6 +91,12 @@ function mapEventoRow(row) {
   };
 }
 
+function parseWtPassBloqueioHabilitado(valor) {
+  if (valor == null) return true;
+  const v = String(valor).trim().toLowerCase();
+  return v === "1" || v === "true" || v === "sim" || v === "yes";
+}
+
 /**
  * Lê as configurações do bloqueio do WT Pass (faltas permitidas e duração do bloqueio).
  * Sempre retorna valores válidos (>= 1) com fallback nos defaults.
@@ -98,15 +104,33 @@ function mapEventoRow(row) {
 async function getWtPassConfig(connection) {
   const executor = connection || db;
   const [rows] = await executor.query(
-    "SELECT chave, valor FROM configuracoes WHERE chave IN ('wt_pass_faltas_permitidas', 'wt_pass_eventos_bloqueio')",
+    "SELECT chave, valor FROM configuracoes WHERE chave IN ('wt_pass_faltas_permitidas', 'wt_pass_eventos_bloqueio', 'wt_pass_bloqueio_habilitado')",
   );
   const mapa = rows.reduce((acc, r) => {
     acc[r.chave] = r.valor;
     return acc;
   }, {});
   return {
+    habilitado: parseWtPassBloqueioHabilitado(mapa.wt_pass_bloqueio_habilitado),
     faltasPermitidas: Math.max(1, Math.floor(Number(mapa.wt_pass_faltas_permitidas)) || 1),
     eventosBloqueio: Math.max(1, Math.floor(Number(mapa.wt_pass_eventos_bloqueio)) || 5),
+  };
+}
+
+/**
+ * Libera todos os bloqueios ativos e remove alvos de eventos (penalidades permanentes por evento).
+ */
+async function liberarTodosBloqueiosWtPass(connection) {
+  const [[countRow]] = await connection.execute(
+    `SELECT COUNT(*) AS total FROM bloqueios_eventos_rh WHERE ativo = 1`,
+  );
+  const [delAlvos] = await connection.execute(`DELETE FROM bloqueios_eventos_rh_alvos`);
+  await connection.execute(
+    `UPDATE bloqueios_eventos_rh SET ativo = 0, eventos_restantes = 0 WHERE ativo = 1`,
+  );
+  return {
+    bloqueios_liberados: Number(countRow?.total) || 0,
+    alvos_removidos: delAlvos.affectedRows || 0,
   };
 }
 
@@ -593,11 +617,14 @@ exports.createEvento = async (req, res) => {
       );
       const novoId = result.insertId;
 
-      // Antes de decrementar o contador, registra esse evento como "alvo"
-      // dos bloqueios atualmente ativos — assim cada usuário punido fica
-      // sem acesso a este evento, mesmo que o contador zere mais tarde.
-      await vincularEventoAosBloqueiosAtivos(connection, novoId);
-      await decrementarBloqueiosAtivos(connection);
+      const wtCfg = await getWtPassConfig(connection);
+      if (wtCfg.habilitado) {
+        // Antes de decrementar o contador, registra esse evento como "alvo"
+        // dos bloqueios atualmente ativos — assim cada usuário punido fica
+        // sem acesso a este evento, mesmo que o contador zere mais tarde.
+        await vincularEventoAosBloqueiosAtivos(connection, novoId);
+        await decrementarBloqueiosAtivos(connection);
+      }
 
       await gravarAuditoria(connection, adminId, "EVENTOS_RH", "CREATE", novoId, {
         titulo,
@@ -835,31 +862,34 @@ exports.inscrever = async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const bloqueio = await getBloqueioAtivoUsuario(connection, usuarioId);
-    if (bloqueio) {
-      await connection.rollback();
-      return res.status(403).json({
-        error: `Inscrição bloqueada: faltou a um evento. Aguarde mais ${bloqueio.eventos_restantes} evento(s) no WT Pass ser(em) publicado(s).`,
-        bloqueio_ativo: {
-          eventos_restantes: Number(bloqueio.eventos_restantes),
-          eventos_total: Number(bloqueio.eventos_total) || Number(bloqueio.eventos_restantes),
-          evento_origem_titulo: bloqueio.evento_origem_titulo,
-        },
-      });
-    }
+    const wtCfgInscricao = await getWtPassConfig(connection);
+    if (wtCfgInscricao.habilitado) {
+      const bloqueio = await getBloqueioAtivoUsuario(connection, usuarioId);
+      if (bloqueio) {
+        await connection.rollback();
+        return res.status(403).json({
+          error: `Inscrição bloqueada: faltou a um evento. Aguarde mais ${bloqueio.eventos_restantes} evento(s) no WT Pass ser(em) publicado(s).`,
+          bloqueio_ativo: {
+            eventos_restantes: Number(bloqueio.eventos_restantes),
+            eventos_total: Number(bloqueio.eventos_total) || Number(bloqueio.eventos_restantes),
+            evento_origem_titulo: bloqueio.evento_origem_titulo,
+          },
+        });
+      }
 
-    // Verifica se este evento específico está vinculado a algum bloqueio
-    // anterior do usuário — neste caso, a inscrição permanece negada mesmo
-    // que o contador geral de bloqueio já tenha zerado.
-    const [alvoRows] = await connection.execute(
-      `SELECT id FROM bloqueios_eventos_rh_alvos WHERE usuario_id = ? AND evento_id = ? LIMIT 1`,
-      [usuarioId, eventoId],
-    );
-    if (alvoRows.length > 0) {
-      await connection.rollback();
-      return res.status(403).json({
-        error: "Este evento está bloqueado para você devido a punição anterior por falta no WT Pass.",
-      });
+      // Verifica se este evento específico está vinculado a algum bloqueio
+      // anterior do usuário — neste caso, a inscrição permanece negada mesmo
+      // que o contador geral de bloqueio já tenha zerado.
+      const [alvoRows] = await connection.execute(
+        `SELECT id FROM bloqueios_eventos_rh_alvos WHERE usuario_id = ? AND evento_id = ? LIMIT 1`,
+        [usuarioId, eventoId],
+      );
+      if (alvoRows.length > 0) {
+        await connection.rollback();
+        return res.status(403).json({
+          error: "Este evento está bloqueado para você devido a punição anterior por falta no WT Pass.",
+        });
+      }
     }
 
     const [evRows] = await connection.execute(
@@ -1052,6 +1082,7 @@ async function aplicarRegrasBloqueioAposFaltaWtPass(connection, eventoId, alvoId
   const usuarioId = requireSqlInt(alvoId, "ID do utilizador");
   const eventoOrigemId = requireSqlInt(eventoId, "ID do evento");
   const cfg = await getWtPassConfig(connection);
+  if (!cfg.habilitado) return false;
   const limiteEventos = cfg.eventosBloqueio;
 
   const [[faltasRow]] = await connection.execute(
@@ -1358,3 +1389,6 @@ exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
     await logErro("EVENTO_RH_NAO_RETIRADA_CRON", error);
   }
 };
+
+exports.liberarTodosBloqueiosWtPass = liberarTodosBloqueiosWtPass;
+exports.parseWtPassBloqueioHabilitado = parseWtPassBloqueioHabilitado;

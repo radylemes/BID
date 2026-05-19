@@ -259,6 +259,7 @@ export class EventoRhManagerComponent implements OnInit {
   };
 
   /** Configurações dinâmicas do bloqueio WT Pass (lidas em ngOnInit). */
+  wtPassBloqueioHabilitado = true;
   wtPassFaltasPermitidas = 1;
   wtPassEventosBloqueio = 5;
 
@@ -311,6 +312,7 @@ export class EventoRhManagerComponent implements OnInit {
   private carregarWtPassConfig() {
     this.settingsService.getWtPassSettings().subscribe({
       next: (cfg) => {
+        this.wtPassBloqueioHabilitado = cfg?.wt_pass_bloqueio_habilitado !== false;
         this.wtPassFaltasPermitidas =
           Math.max(1, Number(cfg?.wt_pass_faltas_permitidas) || 1);
         this.wtPassEventosBloqueio =
@@ -1331,7 +1333,8 @@ export class EventoRhManagerComponent implements OnInit {
       'eventos do WT Pass',
     )}.`;
     const nome = String(row?.nome_completo || '').trim() || '—';
-    const aplicaBloqueio = status === 'FALTOU' && row.status === 'INSCRITO';
+    const aplicaBloqueio =
+      this.wtPassBloqueioHabilitado && status === 'FALTOU' && row.status === 'INSCRITO';
     const html = aplicaBloqueio
       ? `<div class="text-left">
            <p class="mb-2"><strong>${nome}</strong></p>
