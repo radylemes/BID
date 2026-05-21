@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { CommonModule, DOCUMENT } from '@angular/common';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-auth-layout',
@@ -10,15 +10,23 @@ import { CommonModule, DOCUMENT } from '@angular/common';
     <div class="min-h-screen w-full flex overflow-hidden">
       <!-- Coluna esquerda: vídeo de fundo -->
       <div class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative overflow-hidden">
+        <div
+          *ngIf="!videoOk"
+          class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          [style.background-image]="posterBg"
+          aria-hidden="true"
+        ></div>
         <video
+          *ngIf="videoOk"
           class="absolute inset-0 h-full w-full object-cover"
           [src]="videoSrc"
           autoplay
           muted
           loop
           playsinline
-          preload="auto"
+          preload="metadata"
           [poster]="posterSrc"
+          (error)="onVideoError()"
           aria-hidden="true"
         ></video>
       </div>
@@ -41,9 +49,17 @@ import { CommonModule, DOCUMENT } from '@angular/common';
   `,
 })
 export class AuthLayoutComponent {
-  private readonly document = inject(DOCUMENT);
+  videoOk = true;
 
-  /** Resolve contra `document.baseURI` (respeita `<base href>` no deploy). */
-  readonly videoSrc = new URL('assets/HOME-SITE.mp4', this.document.baseURI).href;
-  readonly posterSrc = new URL('assets/allianz_parque_fiel.png', this.document.baseURI).href;
+  /** Caminhos relativos ao `<base href>` — funcionam com Nginx a servir `dist/`. */
+  readonly videoSrc = 'assets/HOME-SITE.mp4';
+  readonly posterSrc = 'assets/allianz_parque_fiel.png';
+
+  get posterBg(): string {
+    return `url('${this.posterSrc}')`;
+  }
+
+  onVideoError(): void {
+    this.videoOk = false;
+  }
 }
