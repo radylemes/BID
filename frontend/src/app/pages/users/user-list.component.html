@@ -8,7 +8,7 @@
           👥 Gerenciar Usuários
         </h2>
         <p class="text-xs sm:text-sm text-[var(--app-text-muted)] font-medium mt-1">
-          {{ filteredUsers.length }} usuários ativos na plataforma
+          {{ rotuloContagem }}
         </p>
       </div>
 
@@ -23,7 +23,7 @@
           <input
             type="text"
             [(ngModel)]="searchTerm"
-            (input)="filtrar()"
+            (input)="aplicarFiltros()"
             placeholder="Buscar usuário..."
             class="w-full pl-10 pr-4 py-2.5 bg-[var(--app-surface-muted)] border border-[var(--app-border)] rounded-xl outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:bg-[var(--app-surface)] text-[var(--app-text)] text-sm transition-all shadow-sm"
           />
@@ -102,6 +102,33 @@
     </div>
 
     <div class="xl:hidden p-3 space-y-3">
+      <div class="grid grid-cols-2 gap-2 pb-1">
+        <div>
+          <label class="text-[10px] font-extrabold uppercase text-[var(--app-text-muted)]">Status</label>
+          <select
+            [(ngModel)]="filtroStatus"
+            (ngModelChange)="aplicarFiltros()"
+            class="mt-1 block w-full py-2 pl-2 pr-7 text-xs font-bold rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)]"
+          >
+            <option value="ATIVOS">Ativos</option>
+            <option value="INATIVOS">Inativos</option>
+            <option value="TODOS">Todos</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] font-extrabold uppercase text-[var(--app-text-muted)]">Grupo</label>
+          <select
+            [(ngModel)]="filtroGrupoMobile"
+            (ngModelChange)="onFiltroGrupoMobileChange()"
+            class="mt-1 block w-full py-2 pl-2 pr-7 text-xs font-bold rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)]"
+          >
+            <option value="">Todos os grupos</option>
+            <option value="SEM_GRUPO">Sem grupo</option>
+            <option *ngFor="let g of gruposApostas" [value]="g.id">{{ g.nome }}</option>
+          </select>
+        </div>
+      </div>
+
       <div
         *ngFor="let user of filteredUsers"
         class="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 space-y-3"
@@ -220,10 +247,56 @@
       <thead class="bg-[var(--app-surface-muted)] sticky top-0 z-10 shadow-sm backdrop-blur-md">
         <tr class="text-left text-xs font-extrabold text-[var(--app-text-muted)] uppercase tracking-wider">
           <th class="px-5 py-4 rounded-tl-2xl">Usuário</th>
-          <th class="px-3 py-4 text-amber-600">Grupo de Apostas</th>
+          <th class="px-3 py-4 text-amber-600 text-center align-middle">
+            <div #grupoFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+              <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap"
+                >Grupo de Apostas</span
+              >
+              <button
+                type="button"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                [ngClass]="{ 'users-filter-btn--active': filtroGrupoAtivo }"
+                [attr.aria-expanded]="menuFiltroGrupoAberto"
+                aria-haspopup="true"
+                aria-label="Filtrar por grupo de apostas"
+                (click)="toggleFiltroGrupoMenu($event)"
+              >
+                <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    fill-rule="evenodd"
+                    d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          </th>
           <th class="px-2 py-4 text-center">Pontos</th>
           <th class="px-2 py-4 text-center">Perfil</th>
-          <th class="px-2 py-4 text-center">Status</th>
+          <th class="px-2 py-4 text-center align-middle">
+            <div #statusFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+              <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap"
+                >Status</span
+              >
+              <button
+                type="button"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                [ngClass]="{ 'users-filter-btn--active': filtroStatusAtivo }"
+                [attr.aria-expanded]="menuFiltroStatusAberto"
+                aria-haspopup="true"
+                aria-label="Filtrar por status"
+                (click)="toggleFiltroStatusMenu($event)"
+              >
+                <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    fill-rule="evenodd"
+                    d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          </th>
           <th class="px-2 py-4 text-center">Logs</th>
           <th class="px-4 py-4 text-center rounded-tr-2xl">Ações</th>
         </tr>
@@ -391,5 +464,83 @@
       <p class="text-lg font-bold text-[var(--app-text-muted)]">Nenhum usuário encontrado</p>
       <p class="text-sm">Tente ajustar sua pesquisa ou adicione um novo.</p>
     </div>
+  </div>
+
+  <!-- Menus de filtro (fixos, como no módulo de BIDs) -->
+  <div
+    *ngIf="menuFiltroStatusAberto"
+    #statusFiltroPanel
+    class="fixed z-[200] rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] py-1 text-left shadow-lg"
+    [style.top.px]="statusFiltroPanelTop"
+    [style.left.px]="statusFiltroPanelLeft"
+    [style.minWidth.px]="statusFiltroPanelMinWidth"
+    role="menu"
+  >
+    <button
+      type="button"
+      role="menuitem"
+      class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+      [class.font-semibold]="filtroStatus === 'ATIVOS'"
+      (click)="selecionarFiltroStatus('ATIVOS')"
+    >
+      Ativos
+    </button>
+    <button
+      type="button"
+      role="menuitem"
+      class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+      [class.font-semibold]="filtroStatus === 'INATIVOS'"
+      (click)="selecionarFiltroStatus('INATIVOS')"
+    >
+      Inativos
+    </button>
+    <button
+      type="button"
+      role="menuitem"
+      class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+      [class.font-semibold]="filtroStatus === 'TODOS'"
+      (click)="selecionarFiltroStatus('TODOS')"
+    >
+      Todos
+    </button>
+  </div>
+
+  <div
+    *ngIf="menuFiltroGrupoAberto"
+    #grupoFiltroPanel
+    class="fixed z-[200] max-h-56 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] py-1 text-left shadow-lg custom-scrollbar"
+    [style.top.px]="grupoFiltroPanelTop"
+    [style.left.px]="grupoFiltroPanelLeft"
+    [style.minWidth.px]="grupoFiltroPanelMinWidth"
+    role="menu"
+  >
+    <button
+      type="button"
+      role="menuitem"
+      class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+      [class.font-semibold]="filtroGrupoId === null"
+      (click)="selecionarFiltroGrupo(null)"
+    >
+      Todos os grupos
+    </button>
+    <button
+      type="button"
+      role="menuitem"
+      class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+      [class.font-semibold]="filtroGrupoId === 'SEM_GRUPO'"
+      (click)="selecionarFiltroGrupo('SEM_GRUPO')"
+    >
+      Sem grupo
+    </button>
+    <button
+      *ngFor="let g of gruposApostas"
+      type="button"
+      role="menuitem"
+      class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+      [class.font-semibold]="filtroGrupoId === g.id"
+      (click)="selecionarFiltroGrupo(g.id)"
+    >
+      {{ g.nome }}
+    </button>
   </div>
 </div>

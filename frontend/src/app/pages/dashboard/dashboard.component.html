@@ -1,30 +1,40 @@
-<div class="dashboard-theme min-h-0 bg-[var(--app-bg)] p-4 md:p-6">
+<div class="dashboard-theme w-full min-w-0 min-h-0 bg-[var(--app-bg)] p-4 md:p-6">
   <div
-    class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] p-2 md:p-3 mb-8 flex flex-col lg:flex-row items-center justify-between gap-4"
+    class="bg-[var(--color-bg-surface)] rounded-2xl border border-[var(--app-border)] p-2 md:p-3 mb-8 w-full min-w-0"
   >
-    <div class="flex flex-col md:flex-row w-full lg:w-auto gap-4 md:gap-0">
-      <div class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2">
+    <div
+      class="dashboard-stats-scroll w-full min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]"
+    >
+      <div
+        class="flex w-full min-w-0 flex-col items-stretch justify-between gap-3 xl:flex-row xl:flex-nowrap xl:items-center xl:gap-2"
+      >
         <div
-          class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+          class="flex min-w-0 flex-1 flex-col md:flex-row md:flex-nowrap gap-3 md:gap-0"
+        >
+      <div
+        class="flex min-w-0 flex-1 items-center justify-center md:justify-start gap-2 px-2 py-1.5 lg:min-w-[7.25rem] xl:px-2.5"
+      >
+        <div
+          class="flex h-8 w-8 shrink-0 items-center justify-center hover:scale-105 transition-transform xl:h-9 xl:w-9"
         >
           <img src="assets/wtoken_coin.png" alt="W Tokens" class="w-full h-full object-contain" />
         </div>
-        <div class="flex flex-col min-w-0 flex-1">
-          <span class="text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-wider"
+        <div class="flex min-w-0 flex-1 flex-col">
+          <span class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide leading-tight"
             >Saldo Disponível</span
           >
-          <span class="text-base sm:text-lg md:text-xl font-black text-[var(--app-text)] leading-none break-words">
+          <span class="text-sm font-black text-[var(--app-text)] leading-none xl:text-base">
             {{ currentUser.pontos ?? 0 | number:'1.0-0':'pt' }}
-            <small class="text-xs font-bold text-[var(--app-text-muted)]">pts</small>
+            <small class="text-[10px] font-bold text-[var(--app-text-muted)]">pts</small>
           </span>
         </div>
       </div>
 
       <div
-        class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2 border-t border-[var(--app-border)] md:border-t-0 md:border-l"
+        class="flex min-w-0 flex-1 items-center justify-center md:justify-start gap-2 border-t border-[var(--app-border)] px-2 py-1.5 md:border-t-0 md:border-l lg:min-w-[7.25rem] xl:px-2.5"
       >
         <div
-          class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+          class="flex h-8 w-8 shrink-0 items-center justify-center hover:scale-105 transition-transform xl:h-9 xl:w-9"
         >
           <img
             src="assets/wtoken_coin_locked.png"
@@ -32,28 +42,28 @@
             class="w-full h-full object-contain"
           />
         </div>
-        <div class="flex flex-col min-w-0 flex-1">
-          <span class="text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-wider">Em Jogo</span>
-          <span class="text-base sm:text-lg md:text-xl font-black text-[var(--app-text)] leading-none break-words">
+        <div class="flex min-w-0 flex-1 flex-col">
+          <span class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide leading-tight">Em Jogo</span>
+          <span class="text-sm font-black text-[var(--app-text)] leading-none xl:text-base">
             {{ pontosEmJogo | number:'1.0-0':'pt' }}
-            <small class="text-xs font-bold text-[var(--app-text-muted)]">pts</small>
+            <small class="text-[10px] font-bold text-[var(--app-text-muted)]">pts</small>
           </span>
         </div>
       </div>
 
       <div
-        class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2 border-t border-[var(--app-border)] md:border-t-0 md:border-l"
+        class="flex min-w-0 flex-1 items-center justify-center md:justify-start gap-2 border-t border-[var(--app-border)] px-2 py-1.5 md:border-t-0 md:border-l lg:min-w-[7.25rem] xl:px-2.5"
       >
         <div
-          class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+          class="flex h-8 w-8 shrink-0 items-center justify-center hover:scale-105 transition-transform xl:h-9 xl:w-9"
         >
           <img src="assets/wtoken_dice.png" alt="W Tokens" class="w-full h-full object-contain" />
         </div>
-        <div class="flex flex-col">
-          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+        <div class="flex min-w-0 flex-1 flex-col">
+          <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wide leading-tight"
             >Lances Ativos</span
           >
-          <span class="text-xl font-black text-indigo-600 leading-none">{{
+          <span class="text-sm font-black text-indigo-600 leading-none xl:text-base">{{
             meusLancesCount || 0
           }}</span>
         </div>
@@ -61,51 +71,54 @@
 
       <div
         *ngIf="!isPortaria"
-        class="flex-1 flex items-center justify-center md:justify-start gap-3 px-4 py-2 border-t border-[var(--app-border)] md:border-t-0 md:border-l min-w-0"
+        class="flex min-w-0 flex-1 items-center justify-center md:justify-start gap-2 border-t border-[var(--app-border)] px-2 py-1.5 md:border-t-0 md:border-l lg:min-w-[7.25rem] xl:px-2.5"
       >
         <a
           routerLink="/eventos-rh"
-          class="flex flex-1 items-center justify-center md:justify-start gap-3 min-w-0 no-underline text-inherit cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-sm"
+          class="flex min-w-0 flex-1 items-center justify-center gap-2 md:justify-start no-underline text-inherit cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-sm"
           title="Quantidade de eventos WT Pass com inscrições abertas neste momento (período de inscrições ativo). Eventos apenas com estado Aberto no painel, mas fora do prazo, não entram nesta contagem."
         >
           <div
-            class="w-12 h-12 flex items-center justify-center shrink-0 hover:scale-105 transition-transform text-2xl leading-none"
+            class="flex h-8 w-8 shrink-0 items-center justify-center text-lg leading-none hover:scale-105 transition-transform xl:h-9 xl:w-9 xl:text-xl"
             aria-hidden="true"
           >
             🎫
           </div>
-          <div class="flex flex-col min-w-0 flex-1">
-            <span class="text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-wider"
+          <div class="flex min-w-0 flex-1 flex-col">
+            <span class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-wide leading-tight"
               >Eventos WT Pass</span
             >
-            <span class="text-xl font-black text-indigo-600 leading-none">{{
+            <span class="text-sm font-black text-indigo-600 leading-none xl:text-base">{{
               wtPassContagemCarregada ? wtPassDisponiveisCount : '…'
             }}</span>
           </div>
         </a>
       </div>
-    </div>
+        </div>
 
-    <div class="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1">
+        <div
+          class="flex w-full shrink-0 flex-col gap-1.5 p-0.5 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-center lg:justify-start xl:w-auto xl:gap-1"
+        >
       <a
         routerLink="/profile"
-        class="flex items-center justify-center gap-2 bg-[var(--color-bg-surface)] hover:bg-[var(--app-nav-hover-bg)] text-[var(--app-text)] border border-[var(--app-border)] px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
+        class="group flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-text)] transition-all hover:bg-[var(--app-nav-hover-bg)] whitespace-nowrap xl:px-3"
       >
-        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">👤</span> Meu Perfil
+        <span class="text-sm transition-transform group-hover:-translate-y-0.5">👤</span> Meu Perfil
       </a>
       <a
         routerLink="/minhas-apostas"
-        class="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
+        class="group flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600 transition-all hover:bg-indigo-100 whitespace-nowrap xl:px-3"
       >
-        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">📜</span> Minhas
-        apostas
+        <span class="text-sm transition-transform group-hover:-translate-y-0.5">📜</span> Minhas Apostas
       </a>
       <a
         routerLink="/historico"
-        class="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 px-5 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide whitespace-nowrap group"
+        class="group flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600 transition-all hover:bg-indigo-100 whitespace-nowrap xl:px-3"
       >
-        <span class="text-lg group-hover:-translate-y-0.5 transition-transform">📜</span> Histórico
+        <span class="text-sm transition-transform group-hover:-translate-y-0.5">📜</span> Histórico
       </a>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -106,6 +106,7 @@ async function initializeDatabase() {
         grupo_id INT NULL,    -- Grupo de Apostas (Manual)
         
         ativo TINYINT(1) DEFAULT 1,
+        desativado_manual TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = admin desativou no BID; sync AD nao reativa',
         microsoft_id VARCHAR(255) NULL,
         foto VARCHAR(500) NULL,
         tema_preferido VARCHAR(50) NOT NULL DEFAULT 'claro',
@@ -145,6 +146,22 @@ async function initializeDatabase() {
       }
     } catch (e) {
       console.warn("Aviso ao migrar usuarios.cpf:", e.message);
+    }
+
+    // Migração: desativado_manual (sync híbrido com accountEnabled do Azure AD)
+    try {
+      const [dmCol] = await connection.query(
+        `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'desativado_manual'`,
+        [process.env.DB_NAME],
+      );
+      if (dmCol.length === 0) {
+        await connection.query(
+          `ALTER TABLE usuarios ADD COLUMN desativado_manual TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = admin desativou no BID; sync AD nao reativa' AFTER ativo`,
+        );
+        console.log("✅ Coluna usuarios.desativado_manual adicionada.");
+      }
+    } catch (e) {
+      console.warn("Aviso ao migrar usuarios.desativado_manual:", e.message);
     }
 
     // ============================================================

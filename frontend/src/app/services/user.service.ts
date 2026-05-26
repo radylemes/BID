@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -96,6 +96,22 @@ export class UserService {
 
   getUserStats(userId: number): Observable<any> {
     return this.http.get(`${this.apiUrl}/${userId}/stats`);
+  }
+
+  getUsersReportSummary(params?: {
+    ativo?: '0' | '1';
+    grupoId?: number;
+    q?: string;
+  }): Observable<any[]> {
+    let httpParams = new HttpParams();
+    if (params?.ativo != null) httpParams = httpParams.set('ativo', params.ativo);
+    if (params?.grupoId != null) httpParams = httpParams.set('grupoId', String(params.grupoId));
+    if (params?.q?.trim()) httpParams = httpParams.set('q', params.q.trim());
+    return this.http.get<any[]>(`${this.apiUrl}/reports/summary`, { params: httpParams });
+  }
+
+  getUserReportDetail(userId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/reports/${userId}`);
   }
 
   addBatchPoints(data: any): Observable<any> {

@@ -54,6 +54,36 @@ async function gravarAuditoria(
   }
 }
 
+/** `ativo` derivado do accountEnabled do Microsoft Graph. */
+function ativoFromAccountEnabled(adUser) {
+  const enabled = adUser?.accountEnabled;
+  if (enabled === false || enabled === 0 || enabled === "false") return 0;
+  return 1;
+}
+
+const GRAPH_USER_SELECT =
+  "id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName";
+
+/** Lista todos os utilizadores do tenant (com paginação; sem filtrar só ativos no OData). */
+async function fetchAllGraphUsers(accessToken) {
+  const users = [];
+  let url = `https://graph.microsoft.com/v1.0/users?$top=999&$select=${GRAPH_USER_SELECT}`;
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  while (url) {
+    const graphResponse = await axios.get(url, { headers, validateStatus: () => true });
+    if (graphResponse.status !== 200 || !Array.isArray(graphResponse.data?.value)) {
+      const msg =
+        graphResponse.data?.error?.message ||
+        graphResponse.statusText ||
+        `HTTP ${graphResponse.status}`;
+      throw new Error(msg);
+    }
+    users.push(...graphResponse.data.value);
+    url = graphResponse.data["@odata.nextLink"] || null;
+  }
+  return users;
+}
+
 async function getOrCreateEmpresaSetor(connection, empNome, setNome) {
   const eName =
     empNome && String(empNome).trim() !== "" ? String(empNome).trim() : "Geral";
@@ -297,19 +327,10 @@ exports.syncUsers = async (req, res) => {
           tenantErrors.push(`Tenant ${config.tenantId}: falha ao obter token`);
           continue;
         }
-        const graphResponse = await axios.get(
-          "https://graph.microsoft.com/v1.0/users?$top=999&$filter=accountEnabled eq true&$select=id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName",
-          {
-            headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
-            validateStatus: () => true,
-          },
+        const tenantUsers = await fetchAllGraphUsers(
+          tokenResponse.data.access_token,
         );
-        if (graphResponse.status === 200 && Array.isArray(graphResponse.data?.value)) {
-          adUsers.push(...graphResponse.data.value);
-        } else {
-          const msg = graphResponse.data?.error?.message || graphResponse.statusText || `HTTP ${graphResponse.status}`;
-          tenantErrors.push(`Tenant ${config.tenantId}: ${graphResponse.status} - ${msg}`);
-        }
+        adUsers.push(...tenantUsers);
       } catch (err) {
         const status = err.response?.status;
         const msg = err.response?.data?.error?.message || err.message || "Erro desconhecido";
@@ -329,15 +350,39 @@ exports.syncUsers = async (req, res) => {
     let criados = 0;
     let atualizados = 0;
     let ignorados = 0;
+    let desativadosAd = 0;
     let ocultados = 0;
     let apagados = 0;
     const activeAdOids = new Set();
+    const adUsersByOid = new Map();
+    for (const u of adUsers) {
+      if (u?.id) adUsersByOid.set(u.id, u);
+    }
     const connection = await db.getConnection();
 
     try {
       await connection.beginTransaction();
-      for (const adUser of adUsers) {
+      for (const adUser of adUsersByOid.values()) {
         const email = adUser.mail || adUser.userPrincipalName;
+        const oid = adUser.id;
+        const ativoAd = ativoFromAccountEnabled(adUser);
+
+        const [existingEarly] = await connection.execute(
+          "SELECT id FROM usuarios WHERE email = ? OR microsoft_id = ?",
+          [email || "", oid],
+        );
+
+        if (!ativoAd) {
+          if (existingEarly.length > 0) {
+            await connection.execute(
+              "UPDATE usuarios SET ativo = 0, desativado_manual = 0 WHERE id = ?",
+              [existingEarly[0].id],
+            );
+            desativadosAd++;
+          }
+          continue;
+        }
+
         const setorTxt = adUser.department || adUser.jobTitle;
 
         if (!email || !setorTxt) {
@@ -347,7 +392,6 @@ exports.syncUsers = async (req, res) => {
 
         const empresaTxt = adUser.companyName || "Geral";
         const nome = adUser.displayName;
-        const oid = adUser.id;
         let username = email.split("@")[0];
 
         const { empId, setId } = await getOrCreateEmpresaSetor(
@@ -356,7 +400,7 @@ exports.syncUsers = async (req, res) => {
           setorTxt,
         );
         const [existing] = await connection.execute(
-          "SELECT id FROM usuarios WHERE email = ? OR microsoft_id = ?",
+          "SELECT id, desativado_manual FROM usuarios WHERE email = ? OR microsoft_id = ?",
           [email, oid],
         );
 
@@ -369,15 +413,23 @@ exports.syncUsers = async (req, res) => {
             username = `${username}.${Math.floor(Math.random() * 1000)}`;
 
           await connection.execute(
-            `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, microsoft_id) VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', 1, ?)`,
-            [username, nome, email, empId, setId, oid],
+            `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, desativado_manual, microsoft_id) VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', ?, 0, ?)`,
+            [username, nome, email, empId, setId, ativoAd, oid],
           );
           criados++;
         } else {
-          await connection.execute(
-            "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = 1 WHERE id = ?",
-            [empId, setId, nome, oid, existing[0].id],
-          );
+          const bloqueadoManual = Number(existing[0].desativado_manual) === 1;
+          if (bloqueadoManual) {
+            await connection.execute(
+              "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ? WHERE id = ?",
+              [empId, setId, nome, oid, existing[0].id],
+            );
+          } else {
+            await connection.execute(
+              "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = ? WHERE id = ?",
+              [empId, setId, nome, oid, ativoAd, existing[0].id],
+            );
+          }
           atualizados++;
         }
         activeAdOids.add(oid);
@@ -395,7 +447,10 @@ exports.syncUsers = async (req, res) => {
         const [convRows] = await connection.execute("SELECT 1 FROM convidados WHERE usuario_id = ? LIMIT 1", [userId]);
         const temHistorico = apostasRows.length > 0 || histRows.length > 0 || convRows.length > 0;
         if (temHistorico) {
-          await connection.execute("UPDATE usuarios SET ativo = 0 WHERE id = ?", [userId]);
+          await connection.execute(
+            "UPDATE usuarios SET ativo = 0, desativado_manual = 0 WHERE id = ?",
+            [userId],
+          );
           ocultados++;
         } else {
           await connection.execute("DELETE FROM usuarios WHERE id = ?", [userId]);
@@ -407,6 +462,7 @@ exports.syncUsers = async (req, res) => {
         criados,
         atualizados,
         ignorados,
+        desativadosAd,
         ocultados,
         apagados,
       });
@@ -419,6 +475,7 @@ exports.syncUsers = async (req, res) => {
     }
 
     const parts = [`Criados: ${criados}`, `Atualizados: ${atualizados}`, `Ignorados: ${ignorados}`];
+    if (desativadosAd > 0) parts.push(`Desativados (conta AD inativa): ${desativadosAd}`);
     if (ocultados > 0) parts.push(`Ocultados (inativos com histórico): ${ocultados}`);
     if (apagados > 0) parts.push(`Apagados (inativos sem histórico): ${apagados}`);
     const details = parts.join(", ") + ".";
@@ -536,8 +593,9 @@ exports.bulkUpdate = async (req, res) => {
             error: `CPF ${cpfDigits} já está associado a outro utilizador (conflito ao atualizar ${emailTrim}).`,
           });
         }
+        const desativadoManualImport = ativoFinal === 0 ? 1 : 0;
         await connection.execute(
-          `UPDATE usuarios SET nome_completo = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ?, perfil = ?, ativo = ?, cpf = ? WHERE id = ?`,
+          `UPDATE usuarios SET nome_completo = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ?, perfil = ?, ativo = ?, desativado_manual = ?, cpf = ? WHERE id = ?`,
           [
             item.nome_completo || item.Nome,
             empId,
@@ -546,6 +604,7 @@ exports.bulkUpdate = async (req, res) => {
             item.pontos || 0,
             perfilFinal,
             ativoFinal,
+            desativadoManualImport,
             cpfDigits,
             u.id,
           ],
@@ -620,10 +679,10 @@ exports.toggleStatus = async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.execute("UPDATE usuarios SET ativo = ? WHERE id = ?", [
-      ativo ? 1 : 0,
-      id,
-    ]);
+    await connection.execute(
+      "UPDATE usuarios SET ativo = ?, desativado_manual = ? WHERE id = ?",
+      [ativo ? 1 : 0, ativo ? 0 : 1, id],
+    );
     await connection.execute(
       `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, 0, 0, ?)`,
       [id, adminId || 1, truncateMotivo(`Status alterado para ${ativo ? "ATIVO" : "INATIVO"}`)],
@@ -1216,6 +1275,189 @@ exports.getUserStats = async (req, res) => {
   } catch (error) {
     await logErro("USER_CONTROLLER_GET_USER_STATS", error);
     res.status(500).json({ error: "Erro ao buscar estatísticas do usuário" });
+  }
+};
+
+/** Mapeia linha agregada do relatório por utilizador. */
+function mapUserReportSummaryRow(r) {
+  return {
+    id: r.id,
+    nome_completo: r.nome_completo,
+    email: r.email,
+    ativo: Number(r.ativo) === 1,
+    pontos: Number(r.pontos) || 0,
+    setor_nome: r.setor_nome || "Sem Setor",
+    grupo_nome: r.grupo_nome || "Sem Grupo",
+    total_apostas: Number(r.total_apostas) || 0,
+    apostas_ganhas: Number(r.apostas_ganhas) || 0,
+    apostas_perdidas: Number(r.apostas_perdidas) || 0,
+    apostas_pendentes: Number(r.apostas_pendentes) || 0,
+    total_pontos_apostados: Number(r.total_pontos_apostados) || 0,
+    media_lance: Math.round(Number(r.media_lance) || 0),
+    bids_participados: Number(r.bids_participados) || 0,
+    ingressos_ganhos: Number(r.ingressos_ganhos) || 0,
+    wt_inscricoes_total: Number(r.wt_inscricoes_total) || 0,
+    wt_presentes: Number(r.wt_presentes) || 0,
+    wt_faltas: Number(r.wt_faltas) || 0,
+  };
+}
+
+const USER_REPORT_SUMMARY_SQL = `
+  SELECT u.id, u.nome_completo, u.email, u.ativo, u.pontos,
+         s.nome AS setor_nome, g.nome AS grupo_nome,
+         COALESCE(ap.total_apostas, 0) AS total_apostas,
+         COALESCE(ap.apostas_ganhas, 0) AS apostas_ganhas,
+         COALESCE(ap.apostas_perdidas, 0) AS apostas_perdidas,
+         COALESCE(ap.apostas_pendentes, 0) AS apostas_pendentes,
+         COALESCE(ap.total_pontos_apostados, 0) AS total_pontos_apostados,
+         COALESCE(ap.media_lance, 0) AS media_lance,
+         COALESCE(ap.bids_participados, 0) AS bids_participados,
+         COALESCE(ing.ingressos_ganhos, 0) AS ingressos_ganhos,
+         COALESCE(wt.wt_inscricoes_total, 0) AS wt_inscricoes_total,
+         COALESCE(wt.wt_presentes, 0) AS wt_presentes,
+         COALESCE(wt.wt_faltas, 0) AS wt_faltas
+  FROM usuarios u
+  LEFT JOIN setores s ON u.setor_id = s.id
+  LEFT JOIN grupos g ON u.grupo_id = g.id
+  LEFT JOIN (
+    SELECT usuario_id,
+           COUNT(*) AS total_apostas,
+           SUM(CASE WHEN status = 'GANHOU' THEN 1 ELSE 0 END) AS apostas_ganhas,
+           SUM(CASE WHEN status = 'PERDEU' THEN 1 ELSE 0 END) AS apostas_perdidas,
+           SUM(CASE WHEN status = 'PENDENTE' THEN 1 ELSE 0 END) AS apostas_pendentes,
+           SUM(valor_pago) AS total_pontos_apostados,
+           AVG(valor_pago) AS media_lance,
+           COUNT(DISTINCT partida_id) AS bids_participados
+    FROM apostas
+    GROUP BY usuario_id
+  ) ap ON ap.usuario_id = u.id
+  LEFT JOIN (
+    SELECT a.usuario_id, COUNT(*) AS ingressos_ganhos
+    FROM ingressos i
+    INNER JOIN apostas a ON a.id = i.aposta_id
+    WHERE a.status = 'GANHOU'
+    GROUP BY a.usuario_id
+  ) ing ON ing.usuario_id = u.id
+  LEFT JOIN (
+    SELECT usuario_id,
+           COUNT(*) AS wt_inscricoes_total,
+           SUM(CASE WHEN status = 'PRESENTE' THEN 1 ELSE 0 END) AS wt_presentes,
+           SUM(CASE WHEN status = 'FALTOU' THEN 1 ELSE 0 END) AS wt_faltas
+    FROM inscricoes_rh
+    WHERE status <> 'CANCELADO'
+    GROUP BY usuario_id
+  ) wt ON wt.usuario_id = u.id
+`;
+
+/** GET /api/users/reports/summary — lista agregada (ADMIN). */
+exports.getUsersReportSummary = async (req, res) => {
+  try {
+    const conditions = [];
+    const params = [];
+
+    const ativo = req.query.ativo;
+    if (ativo === "1" || ativo === "0") {
+      conditions.push("u.ativo = ?");
+      params.push(Number(ativo));
+    }
+
+    const grupoId = safeInt(req.query.grupoId);
+    if (grupoId) {
+      conditions.push("u.grupo_id = ?");
+      params.push(grupoId);
+    }
+
+    const q = String(req.query.q || "").trim();
+    if (q) {
+      conditions.push("(u.nome_completo LIKE ? OR u.email LIKE ?)");
+      const like = `%${q}%`;
+      params.push(like, like);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const sql = `${USER_REPORT_SUMMARY_SQL} ${where} ORDER BY u.nome_completo ASC`;
+
+    const [rows] = await db.execute(sql, params);
+    res.json(rows.map(mapUserReportSummaryRow));
+  } catch (error) {
+    await logErro("USER_CONTROLLER_GET_USERS_REPORT_SUMMARY", error);
+    res.status(500).json({ error: "Erro ao gerar relatório de utilizadores." });
+  }
+};
+
+/** GET /api/users/reports/:userId — detalhe (ADMIN). */
+exports.getUserReportDetail = async (req, res) => {
+  const userId = safeInt(req.params.userId);
+  if (!userId) return res.status(400).json({ error: "ID de utilizador inválido." });
+
+  try {
+    const [userRows] = await db.execute(
+      `${USER_REPORT_SUMMARY_SQL} WHERE u.id = ? LIMIT 1`,
+      [userId],
+    );
+    if (!userRows.length) {
+      return res.status(404).json({ error: "Utilizador não encontrado." });
+    }
+
+    const summary = mapUserReportSummaryRow(userRows[0]);
+    const usuario = {
+      id: summary.id,
+      nome_completo: summary.nome_completo,
+      email: summary.email,
+      ativo: summary.ativo,
+      pontos: summary.pontos,
+      setor_nome: summary.setor_nome,
+      grupo_nome: summary.grupo_nome,
+    };
+
+    const [historicoRows] = await db.execute(
+      `SELECT h.pontos_antes, h.pontos_depois, h.motivo, h.data_alteracao,
+              u.nome_completo AS admin_nome
+       FROM historico_pontos h
+       LEFT JOIN usuarios u ON h.admin_id = u.id
+       WHERE h.usuario_id = ?
+       ORDER BY h.data_alteracao DESC
+       LIMIT 500`,
+      [userId],
+    );
+
+    const [apostasRows] = await db.execute(
+      `SELECT a.id, a.partida_id, p.titulo AS partida_titulo, p.status AS partida_status,
+              p.data_jogo, a.valor_pago, a.status, a.data_aposta
+       FROM apostas a
+       INNER JOIN partidas p ON p.id = a.partida_id
+       WHERE a.usuario_id = ?
+       ORDER BY a.data_aposta DESC`,
+      [userId],
+    );
+
+    const [wtRows] = await db.execute(
+      `SELECT i.id AS inscricao_id,
+              i.status AS inscricao_status,
+              i.posicao,
+              i.data_inscricao,
+              e.id AS evento_id,
+              e.titulo,
+              e.local,
+              e.data_evento,
+              e.status AS evento_status
+       FROM inscricoes_rh i
+       INNER JOIN eventos_rh e ON e.id = i.evento_id
+       WHERE i.usuario_id = ?
+       ORDER BY e.data_evento DESC, i.id DESC`,
+      [userId],
+    );
+
+    res.json({
+      usuario,
+      resumo: summary,
+      historico_pontos: historicoRows,
+      apostas: apostasRows,
+      wt_pass: wtRows,
+    });
+  } catch (error) {
+    await logErro("USER_CONTROLLER_GET_USER_REPORT_DETAIL", error);
+    res.status(500).json({ error: "Erro ao carregar detalhe do utilizador." });
   }
 };
 

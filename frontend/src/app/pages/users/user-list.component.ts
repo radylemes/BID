@@ -1,4 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ChangeDetectorRef,
+  HostListener,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
@@ -17,17 +24,44 @@ import {
   validarCpf,
 } from '../../utils/cpf';
 
+export type FiltroStatusUsuarios = 'ATIVOS' | 'INATIVOS' | 'TODOS';
+export type FiltroGrupoUsuarios = number | 'SEM_GRUPO' | null;
+
 @Component({
   selector: 'app-user-list',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './user-list.component.html',
+  styleUrl: './user-list.component.css',
   host: { class: 'block h-full min-h-0' },
 })
 export class UserListComponent implements OnInit {
   users: any[] = [];
   filteredUsers: any[] = [];
   searchTerm: string = '';
+
+  filtroStatus: FiltroStatusUsuarios = 'ATIVOS';
+  filtroGrupoId: FiltroGrupoUsuarios = null;
+  menuFiltroStatusAberto = false;
+  menuFiltroGrupoAberto = false;
+  statusFiltroPanelTop = 0;
+  statusFiltroPanelLeft = 0;
+  statusFiltroPanelMinWidth = 168;
+  grupoFiltroPanelTop = 0;
+  grupoFiltroPanelLeft = 0;
+  grupoFiltroPanelMinWidth = 180;
+
+  /** Valor do select mobile para grupo (string). */
+  filtroGrupoMobile = '';
+
+  @ViewChild('statusFiltroHost', { read: ElementRef })
+  statusFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('statusFiltroPanel', { read: ElementRef })
+  statusFiltroPanel?: ElementRef<HTMLElement>;
+  @ViewChild('grupoFiltroHost', { read: ElementRef })
+  grupoFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('grupoFiltroPanel', { read: ElementRef })
+  grupoFiltroPanel?: ElementRef<HTMLElement>;
 
   // Variáveis para as Listas de Organograma e Lógica de Negócio
   gruposDisponiveis: any[] = []; // Empresas e Setores (AD)
@@ -86,7 +120,7 @@ export class UserListComponent implements OnInit {
           perfil: u.perfil || 'USER',
           pontos: u.pontos || 0,
         }));
-        this.filteredUsers = [...this.users];
+        this.aplicarFiltros();
         this.loading = false;
         this.cd.detectChanges();
       },
@@ -97,10 +131,152 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  filtrar() {
-    const term = this.searchTerm.toLowerCase();
+  get rotuloContagem(): string {
+    const n = this.filteredUsers.length;
+    if (this.filtroStatus === 'INATIVOS') {
+      return `${n} usuário${n !== 1 ? 's' : ''} inativo${n !== 1 ? 's' : ''}`;
+    }
+    if (this.filtroStatus === 'TODOS') {
+      return `${n} usuário${n !== 1 ? 's' : ''} no total`;
+    }
+    return `${n} usuário${n !== 1 ? 's' : ''} ativo${n !== 1 ? 's' : ''}`;
+  }
+
+  get filtroStatusAtivo(): boolean {
+    return this.filtroStatus !== 'ATIVOS';
+  }
+
+  get filtroGrupoAtivo(): boolean {
+    return this.filtroGrupoId !== null;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    const t = ev.target as Node;
+    if (this.menuFiltroStatusAberto) {
+      if (this.statusFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.statusFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroStatusAberto = false;
+    }
+    if (this.menuFiltroGrupoAberto) {
+      if (this.grupoFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.grupoFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroGrupoAberto = false;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.menuFiltroStatusAberto) {
+      this.updateStatusFiltroMenuPosition();
+    }
+    if (this.menuFiltroGrupoAberto) {
+      this.updateGrupoFiltroMenuPosition();
+    }
+  }
+
+  toggleFiltroStatusMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.menuFiltroGrupoAberto = false;
+    this.menuFiltroStatusAberto = !this.menuFiltroStatusAberto;
+    if (this.menuFiltroStatusAberto) {
+      requestAnimationFrame(() => this.updateStatusFiltroMenuPosition());
+    }
+  }
+
+  toggleFiltroGrupoMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.menuFiltroStatusAberto = false;
+    this.menuFiltroGrupoAberto = !this.menuFiltroGrupoAberto;
+    if (this.menuFiltroGrupoAberto) {
+      requestAnimationFrame(() => this.updateGrupoFiltroMenuPosition());
+    }
+  }
+
+  private updateStatusFiltroMenuPosition(): void {
+    const hostEl = this.statusFiltroHost?.nativeElement;
+    if (!hostEl) return;
+    const r = hostEl.getBoundingClientRect();
+    const gap = 4;
+    const minW = this.statusFiltroPanelMinWidth;
+    let left = r.left + r.width / 2 - minW / 2;
+    const top = r.bottom + gap;
+    const pad = 8;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    if (left < pad) left = pad;
+    if (left + minW > vw - pad) left = Math.max(pad, vw - pad - minW);
+    this.statusFiltroPanelTop = top;
+    this.statusFiltroPanelLeft = left;
+    this.cd.markForCheck();
+  }
+
+  private updateGrupoFiltroMenuPosition(): void {
+    const hostEl = this.grupoFiltroHost?.nativeElement;
+    if (!hostEl) return;
+    const r = hostEl.getBoundingClientRect();
+    const gap = 4;
+    const minW = this.grupoFiltroPanelMinWidth;
+    let left = r.left;
+    const top = r.bottom + gap;
+    const pad = 8;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    if (left < pad) left = pad;
+    if (left + minW > vw - pad) left = Math.max(pad, vw - pad - minW);
+    this.grupoFiltroPanelTop = top;
+    this.grupoFiltroPanelLeft = left;
+    this.cd.markForCheck();
+  }
+
+  selecionarFiltroStatus(status: FiltroStatusUsuarios): void {
+    this.filtroStatus = status;
+    this.menuFiltroStatusAberto = false;
+    this.aplicarFiltros();
+  }
+
+  selecionarFiltroGrupo(grupoId: FiltroGrupoUsuarios): void {
+    this.filtroGrupoId = grupoId;
+    this.filtroGrupoMobile = this.grupoIdParaSelect(grupoId);
+    this.menuFiltroGrupoAberto = false;
+    this.aplicarFiltros();
+  }
+
+  onFiltroGrupoMobileChange(): void {
+    const v = this.filtroGrupoMobile;
+    if (v === '' || v === 'TODOS') {
+      this.filtroGrupoId = null;
+    } else if (v === 'SEM_GRUPO') {
+      this.filtroGrupoId = 'SEM_GRUPO';
+    } else {
+      this.filtroGrupoId = Number(v);
+    }
+    this.aplicarFiltros();
+  }
+
+  private grupoIdParaSelect(grupoId: FiltroGrupoUsuarios): string {
+    if (grupoId === null) return '';
+    if (grupoId === 'SEM_GRUPO') return 'SEM_GRUPO';
+    return String(grupoId);
+  }
+
+  private passaFiltroStatus(u: { ativo: boolean }): boolean {
+    if (this.filtroStatus === 'ATIVOS') return !!u.ativo;
+    if (this.filtroStatus === 'INATIVOS') return !u.ativo;
+    return true;
+  }
+
+  private passaFiltroGrupo(u: { grupo_id?: number | null }): boolean {
+    if (this.filtroGrupoId === null) return true;
+    if (this.filtroGrupoId === 'SEM_GRUPO') return !u.grupo_id;
+    return Number(u.grupo_id) === this.filtroGrupoId;
+  }
+
+  aplicarFiltros(): void {
+    const term = this.searchTerm.toLowerCase().trim();
     const termDigits = term.replace(/\D/g, '');
     this.filteredUsers = this.users.filter((u) => {
+      if (!this.passaFiltroStatus(u)) return false;
+      if (!this.passaFiltroGrupo(u)) return false;
+      if (!term) return true;
       const matchText =
         u.nome_completo?.toLowerCase().includes(term) ||
         u.email?.toLowerCase().includes(term) ||
@@ -111,6 +287,11 @@ export class UserListComponent implements OnInit {
         termDigits.length > 0 && normalizarCpfDigits(u.cpf).includes(termDigits);
       return matchText || matchCpf;
     });
+  }
+
+  /** @deprecated use aplicarFiltros */
+  filtrar(): void {
+    this.aplicarFiltros();
   }
 
   private getAdminId(): number {
@@ -174,6 +355,7 @@ export class UserListComponent implements OnInit {
         .toggleStatus(user.id, { ativo: novoStatus, adminId: this.getAdminId() })
         .subscribe(() => {
           user.ativo = novoStatus;
+          this.aplicarFiltros();
           this.cd.detectChanges();
         });
     }
@@ -478,7 +660,7 @@ export class UserListComponent implements OnInit {
       next: (settings) => {
         const fields = this.settingsService.parseUsuariosFields(settings).filter((f) => f.enabled !== false);
         const colunas = fields.map((f) => f.label);
-        const dados = this.users.map((u) => {
+        const dados = this.filteredUsers.map((u) => {
           const row: Record<string, string | number> = {};
           fields.forEach((f) => { row[f.label] = this.getValorCampoUsuario(u, f.key); });
           return row;
@@ -491,7 +673,7 @@ export class UserListComponent implements OnInit {
         XLSX.writeFile(wb, 'Relatorio_Usuarios.xlsx');
       },
       error: () => {
-        const dados = this.users.map((u) => ({
+        const dados = this.filteredUsers.map((u) => ({
           Nome: u.nome_completo,
           Email: u.email,
           CPF: normalizarCpfDigits(u.cpf) || '',
@@ -1071,7 +1253,7 @@ export class UserListComponent implements OnInit {
           this.loading = false;
           // Remove da lista principal e refaz o filtro
           this.users = this.users.filter((u) => u.id !== user.id);
-          this.filtrar();
+          this.aplicarFiltros();
           this.cd.detectChanges(); // FAZ A LINHA SUMIR DA TABELA NA HORA
           Swal.fire('Excluído!', 'O usuário foi removido do sistema.', 'success');
         },

@@ -57,6 +57,20 @@ router.post("/batch-group", userController.updateBatchGroup);
 // Listagens Específicas
 router.get("/grupos-apostas", userController.getGruposApostas); // <--- A ROTA QUE ESTAVA FALTANDO!
 
+// Relatórios por utilizador (ADMIN) — antes de /:id
+router.get(
+  "/reports/summary",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  userController.getUsersReportSummary,
+);
+router.get(
+  "/reports/:userId",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  userController.getUserReportDetail,
+);
+
 // ==============================================================================
 // ROTAS PADRÃO (CRUD)
 // ==============================================================================

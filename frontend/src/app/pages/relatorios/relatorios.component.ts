@@ -6,11 +6,16 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { EventoRhService } from '../../services/evento-rh.service';
 import { MatchService } from '../../services/match.service';
+import { UserService } from '../../services/user.service';
 import { exportWtPassInscritosXlsx } from '../../utils/export-wt-pass-inscritos-xlsx';
+import {
+  exportUserReportDetailXlsx,
+  exportUsersReportSummaryXlsx,
+} from '../../utils/export-user-report-xlsx';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { environment } from '../../../environments/environment';
 
-type AbaRelatorio = 'wt_pass' | 'bids';
+type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
 
 @Component({
   selector: 'app-relatorios',
@@ -86,7 +91,7 @@ type AbaRelatorio = 'wt_pass' | 'bids';
         >
           <div class="p-3 border-b border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] flex flex-row items-stretch gap-2 sm:gap-3 min-w-0">
             <ul
-              class="flex shrink-0 text-sm font-medium text-center -space-x-px w-40 sm:w-44"
+              class="flex shrink-0 text-sm font-medium text-center -space-x-px w-52 sm:w-60"
               role="tablist"
             >
               <li class="flex min-w-0 flex-1">
@@ -99,7 +104,7 @@ type AbaRelatorio = 'wt_pass' | 'bids';
                     'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] border-transparent':
                       aba !== 'wt_pass',
                   }"
-                  class="inline-flex items-center justify-center w-full min-w-0 border rounded-l-lg px-2 sm:px-3 py-2 text-xs sm:text-sm transition"
+                  class="inline-flex items-center justify-center w-full min-w-0 border rounded-l-lg px-1.5 sm:px-2 py-2 text-[10px] sm:text-xs transition"
                 >
                   WT Pass
                 </button>
@@ -114,18 +119,48 @@ type AbaRelatorio = 'wt_pass' | 'bids';
                     'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] border-transparent':
                       aba !== 'bids',
                   }"
-                  class="inline-flex items-center justify-center w-full min-w-0 border rounded-r-lg px-2 sm:px-3 py-2 text-xs sm:text-sm transition"
+                  class="inline-flex items-center justify-center w-full min-w-0 border px-1.5 sm:px-2 py-2 text-[10px] sm:text-xs transition"
                 >
                   BIDs
+                </button>
+              </li>
+              <li class="flex min-w-0 flex-1">
+                <button
+                  type="button"
+                  (click)="setAba('usuarios')"
+                  [ngClass]="{
+                    'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]':
+                      aba === 'usuarios',
+                    'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] border-transparent':
+                      aba !== 'usuarios',
+                  }"
+                  class="inline-flex items-center justify-center w-full min-w-0 border rounded-r-lg px-1.5 sm:px-2 py-2 text-[10px] sm:text-xs transition"
+                >
+                  Utilizadores
                 </button>
               </li>
             </ul>
             <input
               type="text"
               [(ngModel)]="busca"
-              [placeholder]="aba === 'wt_pass' ? 'Buscar WT Pass…' : 'Buscar BID…'"
+              [placeholder]="placeholderBusca"
               class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] text-[var(--app-text)] text-sm"
             />
+            <label
+              *ngIf="aba === 'usuarios'"
+              class="flex shrink-0 items-center gap-1.5 text-xs text-[var(--app-text-muted)] cursor-pointer whitespace-nowrap"
+            >
+              <input type="checkbox" [(ngModel)]="filtroUsuariosAtivos" class="rounded" />
+              Só ativos
+            </label>
+            <button
+              *ngIf="aba === 'usuarios' && usuariosFiltrados.length > 0"
+              type="button"
+              (click)="exportarUsuariosResumo()"
+              class="shrink-0 px-2 py-2 text-[10px] sm:text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 whitespace-nowrap"
+            >
+              XLSX
+            </button>
           </div>
           <div class="flex-1 overflow-auto max-h-[60vh] lg:max-h-[calc(100vh-220px)]">
             <ng-container *ngIf="aba === 'wt_pass'">
@@ -227,6 +262,50 @@ type AbaRelatorio = 'wt_pass' | 'bids';
                     <td class="w-[7.5rem] px-3 py-2 align-middle whitespace-nowrap tabular-nums text-[var(--app-text-muted)]">
                       {{ formatarDataCurta(m.data_jogo) }}
                     </td>
+                  </tr>
+                </tbody>
+              </table>
+            </ng-container>
+
+            <ng-container *ngIf="aba === 'usuarios'">
+              <div *ngIf="loadingUsuarios" class="p-8 text-center text-[var(--app-text-muted)]">A carregar…</div>
+              <div
+                *ngIf="!loadingUsuarios && usuariosFiltrados.length === 0"
+                class="p-8 text-center text-[var(--app-text-muted)]"
+              >
+                Nenhum utilizador.
+              </div>
+              <table *ngIf="!loadingUsuarios && usuariosFiltrados.length > 0" class="w-full text-sm text-left table-fixed">
+                <thead
+                  class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] text-xs uppercase sticky top-0"
+                >
+                  <tr>
+                    <th scope="col" class="px-2 py-2 font-semibold min-w-0">Nome</th>
+                    <th scope="col" class="w-14 px-1 py-2 font-semibold text-right">Pts</th>
+                    <th scope="col" class="w-10 px-1 py-2 font-semibold text-right">BID</th>
+                    <th scope="col" class="w-10 px-1 py-2 font-semibold text-right">Ap.</th>
+                    <th scope="col" class="w-10 px-1 py-2 font-semibold text-right">WT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let u of usuariosFiltrados"
+                    (click)="selecionarUsuario(u)"
+                    class="border-t border-[var(--app-border)] cursor-pointer hover:bg-[var(--app-nav-hover-bg)] transition align-middle"
+                    [style.background]="usuarioSelecionadoId === u.id ? 'var(--app-nav-active-bg)' : null"
+                  >
+                    <td class="min-w-0 px-2 py-2 align-middle">
+                      <span class="block text-[var(--app-text)] font-medium truncate text-xs" [title]="u.nome_completo">{{
+                        u.nome_completo || '—'
+                      }}</span>
+                      <span class="block text-[10px] text-[var(--app-text-muted)] truncate" [title]="u.setor_nome">{{
+                        u.setor_nome || '—'
+                      }}</span>
+                    </td>
+                    <td class="w-14 px-1 py-2 align-middle text-right tabular-nums text-xs">{{ u.pontos ?? 0 }}</td>
+                    <td class="w-10 px-1 py-2 align-middle text-right tabular-nums text-xs">{{ u.bids_participados ?? 0 }}</td>
+                    <td class="w-10 px-1 py-2 align-middle text-right tabular-nums text-xs">{{ u.total_apostas ?? 0 }}</td>
+                    <td class="w-10 px-1 py-2 align-middle text-right tabular-nums text-xs">{{ u.wt_inscricoes_total ?? 0 }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -395,6 +474,155 @@ type AbaRelatorio = 'wt_pass' | 'bids';
               </div>
             </ng-container>
           </ng-container>
+
+          <ng-container *ngIf="aba === 'usuarios'">
+            <div *ngIf="!usuarioSelecionadoId" class="text-[var(--app-text-muted)] text-sm py-8 text-center">
+              Selecione um utilizador na lista.
+            </div>
+            <div
+              *ngIf="usuarioSelecionadoId && loadingDetailUsuario"
+              class="text-[var(--app-text-muted)] text-sm py-8 text-center"
+            >
+              A carregar detalhe…
+            </div>
+            <ng-container *ngIf="usuarioSelecionadoId && !loadingDetailUsuario && usuarioDetalhe">
+              <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                <div>
+                  <h3 class="text-base font-bold text-[var(--app-text)]">
+                    {{ usuarioDetalhe.usuario?.nome_completo || '—' }}
+                  </h3>
+                  <p class="text-xs text-[var(--app-text-muted)] mt-1">
+                    {{ usuarioDetalhe.usuario?.setor_nome || '—' }} ·
+                    {{ usuarioDetalhe.usuario?.grupo_nome || '—' }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  (click)="exportarUsuarioDetalhe()"
+                  class="shrink-0 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  Exportar XLSX
+                </button>
+              </div>
+              <dl class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-4 border-b border-[var(--app-border)] pb-4">
+                <div>
+                  <dt class="text-[var(--app-text-muted)] font-semibold">Saldo</dt>
+                  <dd class="text-[var(--app-text)] tabular-nums">{{ usuarioDetalhe.resumo?.pontos ?? 0 }} pts</dd>
+                </div>
+                <div>
+                  <dt class="text-[var(--app-text-muted)] font-semibold">Pontos apostados</dt>
+                  <dd class="text-[var(--app-text)] tabular-nums">{{ usuarioDetalhe.resumo?.total_pontos_apostados ?? 0 }}</dd>
+                </div>
+                <div>
+                  <dt class="text-[var(--app-text-muted)] font-semibold">BIDs / ganhos</dt>
+                  <dd class="text-[var(--app-text)] tabular-nums">
+                    {{ usuarioDetalhe.resumo?.bids_participados ?? 0 }} /
+                    {{ usuarioDetalhe.resumo?.apostas_ganhas ?? 0 }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-[var(--app-text-muted)] font-semibold">WT Pass</dt>
+                  <dd class="text-[var(--app-text)] tabular-nums">
+                    {{ usuarioDetalhe.resumo?.wt_inscricoes_total ?? 0 }}
+                    <span class="text-[var(--app-text-muted)]">({{ usuarioDetalhe.resumo?.wt_presentes ?? 0 }} pres.)</span>
+                  </dd>
+                </div>
+              </dl>
+
+              <div class="flex gap-1 mb-3 border-b border-[var(--app-border)] pb-2">
+                <button
+                  type="button"
+                  *ngFor="let s of secoesUsuario"
+                  (click)="secaoUsuario = s.id"
+                  [ngClass]="{
+                    'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]': secaoUsuario === s.id,
+                    'text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)]': secaoUsuario !== s.id,
+                  }"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-md transition"
+                >
+                  {{ s.label }}
+                </button>
+              </div>
+
+              <div *ngIf="secaoUsuario === 'pontos'" class="overflow-x-auto flex-1 min-h-0 max-h-64">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] sticky top-0">
+                    <tr>
+                      <th class="px-2 py-2">Data</th>
+                      <th class="px-2 py-2">Antes</th>
+                      <th class="px-2 py-2">Depois</th>
+                      <th class="px-2 py-2 min-w-[8rem]">Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      *ngFor="let h of usuarioDetalhe.historico_pontos"
+                      class="border-t border-[var(--app-border)]"
+                    >
+                      <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataHora(h.data_alteracao) }}</td>
+                      <td class="px-2 py-1.5 tabular-nums">{{ h.pontos_antes }}</td>
+                      <td class="px-2 py-1.5 tabular-nums">{{ h.pontos_depois }}</td>
+                      <td class="px-2 py-1.5 truncate max-w-[12rem]" [title]="h.motivo">{{ h.motivo || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p
+                  *ngIf="!(usuarioDetalhe.historico_pontos?.length)"
+                  class="text-[var(--app-text-muted)] text-sm py-2"
+                >
+                  Sem movimentações de pontos.
+                </p>
+              </div>
+
+              <div *ngIf="secaoUsuario === 'apostas'" class="overflow-x-auto flex-1 min-h-0 max-h-64">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] sticky top-0">
+                    <tr>
+                      <th class="px-2 py-2">Data</th>
+                      <th class="px-2 py-2">BID</th>
+                      <th class="px-2 py-2">Lance</th>
+                      <th class="px-2 py-2">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let a of usuarioDetalhe.apostas" class="border-t border-[var(--app-border)]">
+                      <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataHora(a.data_aposta) }}</td>
+                      <td class="px-2 py-1.5 truncate max-w-[10rem]" [title]="a.partida_titulo">{{ a.partida_titulo }}</td>
+                      <td class="px-2 py-1.5 tabular-nums">{{ a.valor_pago }}</td>
+                      <td class="px-2 py-1.5">{{ rotuloStatusAposta(a.status) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p *ngIf="!(usuarioDetalhe.apostas?.length)" class="text-[var(--app-text-muted)] text-sm py-2">
+                  Sem apostas registadas.
+                </p>
+              </div>
+
+              <div *ngIf="secaoUsuario === 'wt_pass'" class="overflow-x-auto flex-1 min-h-0 max-h-64">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] sticky top-0">
+                    <tr>
+                      <th class="px-2 py-2">Evento</th>
+                      <th class="px-2 py-2">Data</th>
+                      <th class="px-2 py-2">Estado</th>
+                      <th class="px-2 py-2">#</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let w of usuarioDetalhe.wt_pass" class="border-t border-[var(--app-border)]">
+                      <td class="px-2 py-1.5 truncate max-w-[10rem]" [title]="w.titulo">{{ w.titulo || '—' }}</td>
+                      <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataCurta(w.data_evento) }}</td>
+                      <td class="px-2 py-1.5">{{ w.inscricao_status || '—' }}</td>
+                      <td class="px-2 py-1.5 tabular-nums">{{ w.posicao ?? '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p *ngIf="!(usuarioDetalhe.wt_pass?.length)" class="text-[var(--app-text-muted)] text-sm py-2">
+                  Sem inscrições WT Pass.
+                </p>
+              </div>
+            </ng-container>
+          </ng-container>
         </div>
       </div>
     </div>
@@ -403,14 +631,18 @@ type AbaRelatorio = 'wt_pass' | 'bids';
 export class RelatoriosComponent implements OnInit {
   aba: AbaRelatorio = 'wt_pass';
   busca = '';
+  filtroUsuariosAtivos = true;
 
   eventosWt: any[] = [];
   matches: any[] = [];
+  usuariosReport: any[] = [];
 
   loadingWt = false;
   loadingBids = false;
+  loadingUsuarios = false;
   loadingDetailWt = false;
   loadingDetailBid = false;
+  loadingDetailUsuario = false;
 
   wtSelecionadoId: number | null = null;
   wtDetalhe: any | null = null;
@@ -420,13 +652,24 @@ export class RelatoriosComponent implements OnInit {
   bidApostas: any[] = [];
   bidGanhadores: any[] = [];
 
+  usuarioSelecionadoId: number | null = null;
+  usuarioDetalhe: any | null = null;
+  secaoUsuario: 'pontos' | 'apostas' | 'wt_pass' = 'pontos';
+  readonly secoesUsuario = [
+    { id: 'pontos' as const, label: 'Pontos' },
+    { id: 'apostas' as const, label: 'Apostas' },
+    { id: 'wt_pass' as const, label: 'WT Pass' },
+  ];
+
   private currentUser: { id?: number } = {};
   private wtCarregado = false;
   private bidsCarregado = false;
+  private usuariosCarregado = false;
 
   constructor(
     private eventoRhService: EventoRhService,
     private matchService: MatchService,
+    private userService: UserService,
   ) {}
 
   ngOnInit(): void {
@@ -452,6 +695,27 @@ export class RelatoriosComponent implements OnInit {
       const ta = this.parseDate(a?.data_evento)?.getTime() ?? 0;
       const tb = this.parseDate(b?.data_evento)?.getTime() ?? 0;
       return tb - ta;
+    });
+  }
+
+  get placeholderBusca(): string {
+    if (this.aba === 'wt_pass') return 'Buscar WT Pass…';
+    if (this.aba === 'bids') return 'Buscar BID…';
+    return 'Buscar utilizador…';
+  }
+
+  get usuariosFiltrados(): any[] {
+    const q = (this.busca || '').trim().toLowerCase();
+    let base = this.usuariosReport;
+    if (this.filtroUsuariosAtivos) {
+      base = base.filter((u) => u.ativo === true || Number(u.ativo) === 1);
+    }
+    if (!q) return base;
+    return base.filter((u) => {
+      const n = String(u.nome_completo || '').toLowerCase();
+      const e = String(u.email || '').toLowerCase();
+      const s = String(u.setor_nome || '').toLowerCase();
+      return n.includes(q) || e.includes(q) || s.includes(q);
     });
   }
 
@@ -530,6 +794,9 @@ export class RelatoriosComponent implements OnInit {
   setAba(aba: AbaRelatorio): void {
     this.aba = aba;
     this.busca = '';
+    if (aba === 'usuarios') {
+      this.carregarUsuariosSeNecessario();
+    }
   }
 
   /** Miniatura na lista (WT Pass): mesmo critério que o gestor de eventos. */
@@ -561,6 +828,50 @@ export class RelatoriosComponent implements OnInit {
         Swal.fire('Erro', err.error?.error || 'Não foi possível carregar eventos WT Pass.', 'error');
       },
     });
+  }
+
+  private carregarUsuariosSeNecessario(): void {
+    if (this.usuariosCarregado) return;
+    this.loadingUsuarios = true;
+    this.userService.getUsersReportSummary().subscribe({
+      next: (list) => {
+        this.usuariosReport = Array.isArray(list) ? list : [];
+        this.usuariosCarregado = true;
+        this.loadingUsuarios = false;
+      },
+      error: (err) => {
+        this.loadingUsuarios = false;
+        Swal.fire('Erro', err.error?.error || 'Não foi possível carregar utilizadores.', 'error');
+      },
+    });
+  }
+
+  selecionarUsuario(u: any): void {
+    const id = Number(u?.id);
+    if (!id) return;
+    this.usuarioSelecionadoId = id;
+    this.loadingDetailUsuario = true;
+    this.usuarioDetalhe = null;
+    this.secaoUsuario = 'pontos';
+    this.userService.getUserReportDetail(id).subscribe({
+      next: (det) => {
+        this.usuarioDetalhe = det;
+        this.loadingDetailUsuario = false;
+      },
+      error: (err) => {
+        this.loadingDetailUsuario = false;
+        Swal.fire('Erro', err.error?.error || 'Falha ao carregar detalhe do utilizador.', 'error');
+      },
+    });
+  }
+
+  exportarUsuariosResumo(): void {
+    exportUsersReportSummaryXlsx(this.usuariosFiltrados);
+  }
+
+  exportarUsuarioDetalhe(): void {
+    if (!this.usuarioDetalhe) return;
+    exportUserReportDetailXlsx(this.usuarioDetalhe);
   }
 
   private carregarBidsSeNecessario(): void {
