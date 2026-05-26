@@ -7,7 +7,12 @@ const qs = require("qs");
 const fs = require("fs");
 const logErro = require("../utils/errorLogger");
 const { sendNovoUsuarioEmail } = require("./emailController");
-const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
+const {
+  safeAuditoriaDetalhes,
+  truncateMotivo,
+  safeInt,
+  obterSaldoEfetivoUsuario,
+} = require("../utils/dbHelpers");
 const { normalizarCpfDigits, validarCpf } = require("../utils/cpf");
 
 const storage = multer.diskStorage({
@@ -156,8 +161,25 @@ exports.getAllUsers = async (req, res) => {
       ORDER BY u.nome_completo ASC
     `);
 
+    const [histSaldoRows] = await db.execute(`
+      SELECT h1.usuario_id, h1.pontos_depois
+      FROM historico_pontos h1
+      INNER JOIN (
+        SELECT usuario_id, MAX(id) AS max_id
+        FROM historico_pontos
+        WHERE NOT (pontos_antes = 0 AND pontos_depois = 0)
+        GROUP BY usuario_id
+      ) h2 ON h1.id = h2.max_id
+    `);
+    const saldoPorHistorico = new Map(
+      histSaldoRows.map((h) => [h.usuario_id, Number(h.pontos_depois) || 0]),
+    );
+
     const mapped = rows.map((r) => ({
       ...r,
+      pontos: saldoPorHistorico.has(r.id)
+        ? saldoPorHistorico.get(r.id)
+        : Number(r.pontos) || 0,
       empresa: r.empresa_nome || "Sem Empresa",
       setor: r.setor_nome || "Sem Setor",
       grupo_nome: r.grupo_nome || "Sem Grupo de Aposta",
@@ -175,9 +197,14 @@ exports.getUserById = async (req, res) => {
     const [rows] = await db.execute("SELECT * FROM usuarios WHERE id = ?", [
       req.params.id,
     ]);
-    rows.length
-      ? res.json(rows[0])
-      : res.status(404).json({ message: "Não encontrado" });
+    if (!rows.length) {
+      return res.status(404).json({ message: "Não encontrado" });
+    }
+    const user = rows[0];
+    user.pontos = await obterSaldoEfetivoUsuario(db, user.id, {
+      reconciliar: true,
+    });
+    res.json(user);
   } catch (error) {
     await logErro("USER_CONTROLLER_GET_BY_ID", error);
     res.status(500).json({ error: "Erro" });
@@ -594,6 +621,8 @@ exports.bulkUpdate = async (req, res) => {
           });
         }
         const desativadoManualImport = ativoFinal === 0 ? 1 : 0;
+        const pontosAntes = Number(u.pontos) || 0;
+        const pontosDepois = Number(item.pontos) || 0;
         await connection.execute(
           `UPDATE usuarios SET nome_completo = ?, empresa_id = ?, setor_id = ?, grupo_id = ?, pontos = ?, perfil = ?, ativo = ?, desativado_manual = ?, cpf = ? WHERE id = ?`,
           [
@@ -601,7 +630,7 @@ exports.bulkUpdate = async (req, res) => {
             empId,
             setId,
             grupoIdFinal,
-            item.pontos || 0,
+            pontosDepois,
             perfilFinal,
             ativoFinal,
             desativadoManualImport,
@@ -609,6 +638,20 @@ exports.bulkUpdate = async (req, res) => {
             u.id,
           ],
         );
+        if (pontosDepois !== pontosAntes) {
+          await connection.execute(
+            `INSERT INTO historico_pontos (usuario_id, admin_id, pontos_antes, pontos_depois, motivo) VALUES (?, ?, ?, ?, ?)`,
+            [
+              u.id,
+              req.body.adminId || 1,
+              pontosAntes,
+              pontosDepois,
+              truncateMotivo(
+                req.body.motivoGlobal || "Importação planilha (atualização de pontos)",
+              ),
+            ],
+          );
+        }
       } else {
         if (!validarCpf(cpfDigits)) {
           await connection.rollback();
@@ -1178,8 +1221,9 @@ exports.getUserStats = async (req, res) => {
       [id],
     );
 
-    const [usuariosRows] = await db.execute("SELECT pontos FROM usuarios WHERE id = ?", [id]);
-    const pontosUsuario = Number(usuariosRows[0]?.pontos) || 0;
+    const pontosUsuario = await obterSaldoEfetivoUsuario(db, id, {
+      reconciliar: true,
+    });
 
     let saldoCarregado;
     if (antesJanela.length)
@@ -1263,11 +1307,20 @@ exports.getUserStats = async (req, res) => {
       saldoCarregado = pd;
     }
 
+    if (historico30.length > 0) {
+      const ultimoDia = historico30[historico30.length - 1];
+      ultimoDia.pontosDepois = pontosUsuario;
+      if (!ultimoDia.totalDia) {
+        ultimoDia.pontosAntes = pontosUsuario;
+      }
+    }
+
     res.json({
       stats: {
         bidsVencidos: bids[0].vencidos || 0,
         mediaPontos: Math.round(medias[0].media || 0),
         ingressosGanhos: Number(ingressosGanhos[0]?.total) || 0,
+        saldoAtual: pontosUsuario,
       },
       historico: historico30,
       historicoPeriodoDias: 30,

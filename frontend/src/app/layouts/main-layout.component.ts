@@ -107,7 +107,7 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
-            <span class="mr-3 text-lg">🎫</span> Meus Bids
+            <span class="mr-3 text-lg">🎫</span> Meus BIDs
           </a>
 
           <a

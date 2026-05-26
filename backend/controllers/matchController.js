@@ -1,7 +1,11 @@
 const db = require("../config/db");
 const fs = require("fs");
 const logErro = require("../utils/errorLogger");
-const { safeAuditoriaDetalhes, truncateMotivo } = require("../utils/dbHelpers");
+const {
+  safeAuditoriaDetalhes,
+  truncateMotivo,
+  obterSaldoEfetivoUsuario,
+} = require("../utils/dbHelpers");
 
 async function gravarAuditoria(
   connection,
@@ -1091,15 +1095,15 @@ exports.getBalance = async (req, res) => {
     if (userId == null || userId === "") {
       return res.status(400).json({ error: "userId é obrigatório.", pontos: 0 });
     }
-    const [rows] = await db.execute(
-      "SELECT pontos FROM usuarios WHERE id = ?",
-      [userId],
-    );
-    const first = Array.isArray(rows) ? rows[0] : null;
-    if (!first) {
+    const [rows] = await db.execute("SELECT id FROM usuarios WHERE id = ?", [
+      userId,
+    ]);
+    if (!Array.isArray(rows) || !rows[0]) {
       return res.status(404).json({ error: "Usuário não encontrado.", pontos: 0 });
     }
-    const pontos = first.pontos != null ? Number(first.pontos) : 0;
+    const pontos = await obterSaldoEfetivoUsuario(db, userId, {
+      reconciliar: true,
+    });
     res.json({ pontos: Number.isNaN(pontos) ? 0 : pontos });
   } catch (error) {
     await logErro("MATCH_CONTROLLER_GET_BALANCE", error);

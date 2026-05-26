@@ -398,7 +398,7 @@ import { compressImageForAvatar } from '../../utils/avatar-image';
                   <div class="min-w-0">
                     <p class="text-[9px] font-bold text-[var(--app-text-muted)] uppercase tracking-widest">Saldo atual</p>
                     <p class="mt-1 text-base sm:text-lg lg:text-xl font-black text-[var(--app-text)] leading-none truncate">
-                      {{ user?.pontos ?? 0 | number:'1.0-0':'pt' }} <span class="text-[10px] font-bold text-[var(--app-text-muted)]">pts</span>
+                      {{ (user?.pontos ?? 0) | number:'1.0-0':'pt' }} <span class="text-[10px] font-bold text-[var(--app-text-muted)]">pts</span>
                     </p>
                   </div>
                 </div>
@@ -865,6 +865,7 @@ export class ProfileComponent implements OnInit {
       this.avatarUrlFinal = this.getAvatarUrlStable(this.user);
       this.carregarConvidados();
       this.carregarEstatisticas();
+      this.atualizarSaldoDoBanco();
 
       if (this.user.id) {
         this.userService.getById(this.user.id).subscribe({
@@ -880,6 +881,7 @@ export class ProfileComponent implements OnInit {
             this.selectedTheme = this.themeService.resolveThemeFromUser(usuarioAtualizado);
             this.themeService.applyTheme(this.selectedTheme);
             localStorage.setItem('currentUser', JSON.stringify(usuarioAtualizado));
+            this.atualizarSaldoDoBanco();
             // Atualiza o avatar no próximo ciclo para evitar NG0100 (ExpressionChangedAfterItHasBeenCheckedError)
             setTimeout(() => {
               this.avatarUrlFinal = this.getAvatarUrlStable(this.user);
@@ -892,6 +894,20 @@ export class ProfileComponent implements OnInit {
     } else {
       setTimeout(() => this.carregarPerfil(), 500);
     }
+  }
+
+  /** Atualiza saldo exibido a partir do endpoint de carteira (reconcilia com histórico no backend). */
+  private atualizarSaldoDoBanco(): void {
+    if (!this.user?.id) return;
+    this.matchService.getBalance(this.user.id).subscribe({
+      next: (res) => {
+        if (res?.pontos == null) return;
+        this.user = { ...this.user, pontos: res.pontos };
+        localStorage.setItem('currentUser', JSON.stringify(this.user));
+        this.cd.detectChanges();
+      },
+      error: () => {},
+    });
   }
 
   carregarEstatisticas() {
@@ -909,6 +925,10 @@ export class ProfileComponent implements OnInit {
       this.userService.getUserStats(this.user.id).subscribe({
         next: (data) => {
           this.stats = data.stats;
+          if (data.stats?.saldoAtual != null && this.user) {
+            this.user = { ...this.user, pontos: data.stats.saldoAtual };
+            localStorage.setItem('currentUser', JSON.stringify(this.user));
+          }
 
           if (data.historico && Array.isArray(data.historico)) {
             const h = data.historico as any[];

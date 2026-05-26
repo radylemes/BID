@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const { obterSaldoEfetivoUsuario } = require("../utils/dbHelpers");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 require("dotenv").config();
 
@@ -62,6 +63,10 @@ exports.login = async (req, res) => {
 
     await registrarLogLogin(user.id, "MANUAL", user.username);
 
+    const saldoAtual = await obterSaldoEfetivoUsuario(db, user.id, {
+      reconciliar: true,
+    });
+
     res.json({
       auth: true,
       token: gerarTokenApp(user),
@@ -75,7 +80,7 @@ exports.login = async (req, res) => {
         grupo_nome: user.grupo_nome || "Sem Grupo",
         foto: user.foto,
         role: user.perfil,
-        pontos: user.pontos,
+        pontos: saldoAtual,
         tema_preferido: user.tema_preferido || "claro",
       },
     });
@@ -155,6 +160,10 @@ exports.loginMicrosoft = async (req, res) => {
 
     await registrarLogLogin(userLocal.id, "MICROSOFT", email);
 
+    const saldoAtual = await obterSaldoEfetivoUsuario(db, userLocal.id, {
+      reconciliar: true,
+    });
+
     res.json({
       auth: true,
       token: gerarTokenApp(userLocal),
@@ -168,7 +177,7 @@ exports.loginMicrosoft = async (req, res) => {
         grupo_nome: userLocal.grupo_nome || "Sem Grupo",
         foto: userLocal.foto,
         role: userLocal.perfil,
-        pontos: userLocal.pontos,
+        pontos: saldoAtual,
         tema_preferido: userLocal.tema_preferido || "claro",
       },
     });
