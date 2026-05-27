@@ -7,7 +7,8 @@
     "migrate": "node --max-old-space-size=4096 scripts/migrate.js",
     "start": "node --max-old-space-size=4096 server.js",
     "dev": "nodemon --max-old-space-size=4096 server.js",
-    "reset-db": "node --max-old-space-size=4096 resetDatabase.js"
+    "reset-db": "node --max-old-space-size=4096 resetDatabase.js",
+    "reset-operational": "node --max-old-space-size=4096 resetOperationalData.js"
   },
   "keywords": [],
   "author": "Daniel Lemes",

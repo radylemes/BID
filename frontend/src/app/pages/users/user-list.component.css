@@ -1,3 +1,9 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -16,4 +22,68 @@
 .users-filter-btn--active {
   background: var(--app-nav-hover-bg);
   color: var(--app-text);
+}
+
+/* Área rolável do card: thead e tbody no mesmo scrollport → sticky confiável */
+.users-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.users-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.users-col-user {
+  width: 36%;
+}
+.users-col-grupo {
+  width: 16%;
+}
+.users-col-pontos {
+  width: 8%;
+}
+.users-col-perfil {
+  width: 12%;
+}
+.users-col-status {
+  width: 10%;
+}
+.users-col-logs {
+  width: 6%;
+}
+.users-col-acoes {
+  width: 12%;
+}
+
+.users-table-th {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--app-surface-muted);
+  box-shadow: 0 1px 0 var(--app-border);
+}
+
+.users-table-row td {
+  background-color: var(--app-surface);
+  vertical-align: middle;
+}
+
+.users-table-row:hover td {
+  background-color: var(--app-nav-hover-bg);
+}
+
+.users-table tbody {
+  position: relative;
+  z-index: 0;
+}
+
+.users-table-row {
+  position: relative;
+  z-index: 0;
 }

@@ -33,7 +33,7 @@ export type FiltroGrupoUsuarios = number | 'SEM_GRUPO' | null;
   imports: [CommonModule, FormsModule],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
-  host: { class: 'block h-full min-h-0' },
+  host: { class: 'block h-full min-h-0 w-full' },
 })
 export class UserListComponent implements OnInit {
   users: any[] = [];
