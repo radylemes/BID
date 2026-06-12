@@ -1,65 +1,75 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { LoginCarouselComponent } from '../components/login-carousel/login-carousel.component';
+import { LoginCarouselStateService } from '../services/login-carousel-state.service';
 
 @Component({
   selector: 'app-auth-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, LoginCarouselComponent],
   template: `
-    <div class="min-h-screen w-full flex overflow-hidden">
-      <!-- Coluna esquerda: vídeo de fundo -->
-      <div class="hidden lg:flex lg:min-h-screen lg:w-[58%] relative overflow-hidden">
-        <div
-          *ngIf="!videoOk"
-          class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          [style.background-image]="posterBg"
-          aria-hidden="true"
-        ></div>
-        <video
-          *ngIf="videoOk"
-          class="absolute inset-0 h-full w-full object-cover"
-          [src]="videoSrc"
-          autoplay
-          muted
-          loop
-          playsinline
-          preload="metadata"
-          [poster]="posterSrc"
-          (error)="onVideoError()"
-          aria-hidden="true"
-        ></video>
+    <div class="relative w-full h-screen overflow-hidden">
+
+      <!-- Carrossel ocupa toda a tela -->
+      <div class="absolute inset-0 z-0">
+        <app-login-carousel class="w-full h-full"></app-login-carousel>
       </div>
 
-      <!-- Coluna direita: painel azul escuro fixo para login -->
-      <div
-        class="flex-1 min-h-screen flex flex-col bg-gradient-to-b from-[#0f172a] via-[#13203a] to-[#1e3a8a] text-slate-100"
-      >
-        <main class="flex-1 flex items-center justify-center p-4 sm:p-6">
-          <div class="w-full max-w-md text-center">
-            <router-outlet></router-outlet>
+      <!-- Conteúdo sobre o carrossel -->
+      <div class="relative z-10 flex flex-col h-full">
+
+        <!-- Topbar -->
+        <header class="flex items-center justify-between px-12 py-7 flex-shrink-0">
+          <img src="assets/wtorre.svg" alt="WTorre" class="h-[18px] w-auto opacity-85" />
+          <div class="flex items-center gap-1.5" *ngIf="carouselState$ | async as state">
+            <button
+              *ngFor="let i of dotIndices(state.total); trackBy: trackByIndex"
+              type="button"
+              (click)="goToSlide(i)"
+              [attr.aria-label]="'Ir para slide ' + (i + 1)"
+              class="w-[5px] h-[5px] rounded-full cursor-pointer transition-all duration-[350ms] ease-in-out"
+              [class.bg-[#820AD1]]="i === state.currentIndex"
+              [class.scale-150]="i === state.currentIndex"
+              [class.bg-white/[0.18]]="i !== state.currentIndex"
+            ></button>
           </div>
+        </header>
+
+        <!-- Card centralizado -->
+        <main class="flex-1 flex items-center justify-center">
+          <router-outlet></router-outlet>
         </main>
 
-        <footer class="py-4 text-center text-slate-300 text-xs px-4">
-          &copy; 2026 WTorre. Todos os direitos reservados.
+        <!-- Rodapé -->
+        <footer class="flex flex-col items-center gap-3 pb-8 flex-shrink-0">
+          <div class="flex items-center gap-8">
+            <img src="assets/logo_nubankparque.svg" alt="Nubank Parque" class="h-[36px] w-auto" />
+            <div class="w-px h-7 bg-white/10"></div>
+            <img src="assets/wtorre.svg" alt="WTorre" class="h-[22px] w-auto opacity-45" />
+          </div>
+          <p class="text-[11px] text-white/20 text-center">
+            &copy; 2026 WTorre. Portal Corporativo Interno.
+          </p>
         </footer>
+
       </div>
     </div>
   `,
 })
 export class AuthLayoutComponent {
-  videoOk = true;
+  private readonly carouselState = inject(LoginCarouselStateService);
+  readonly carouselState$ = this.carouselState.carouselState$;
 
-  /** Caminhos relativos ao `<base href>` — funcionam com Nginx a servir `dist/`. */
-  readonly videoSrc = 'assets/HOME-SITE.mp4';
-  readonly posterSrc = 'assets/allianz_parque_fiel.png';
-
-  get posterBg(): string {
-    return `url('${this.posterSrc}')`;
+  dotIndices(total: number): number[] {
+    return Array.from({ length: total }, (_, i) => i);
   }
 
-  onVideoError(): void {
-    this.videoOk = false;
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  goToSlide(index: number): void {
+    this.carouselState.requestGoToSlide(index);
   }
 }

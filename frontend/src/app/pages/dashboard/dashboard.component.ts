@@ -473,7 +473,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             Swal.fire({
               icon: 'success',
               title: 'Salvo!',
-              text: 'Retirantes atualizados com sucesso.',
+              text: 'Convidados atualizados com sucesso.',
               timer: 2000,
               showConfirmButton: false,
             });
