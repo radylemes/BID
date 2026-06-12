@@ -66,6 +66,22 @@ function ativoFromAccountEnabled(adUser) {
   return 1;
 }
 
+/** Garante username único; `excludeUserId` evita colisão com o próprio registo em updates. */
+async function resolveUniqueUsername(connection, baseUsername, excludeUserId = null) {
+  let username = baseUsername;
+  const query =
+    excludeUserId != null
+      ? "SELECT id FROM usuarios WHERE username = ? AND id <> ?"
+      : "SELECT id FROM usuarios WHERE username = ?";
+  const params =
+    excludeUserId != null ? [username, excludeUserId] : [username];
+  const [uCheck] = await connection.execute(query, params);
+  if (uCheck.length > 0) {
+    username = `${baseUsername}.${Math.floor(Math.random() * 1000)}`;
+  }
+  return username;
+}
+
 const GRAPH_USER_SELECT =
   "id,displayName,mail,department,jobTitle,userPrincipalName,accountEnabled,companyName";
 
@@ -427,17 +443,12 @@ exports.syncUsers = async (req, res) => {
           setorTxt,
         );
         const [existing] = await connection.execute(
-          "SELECT id, desativado_manual FROM usuarios WHERE email = ? OR microsoft_id = ?",
+          "SELECT id, desativado_manual, email, username FROM usuarios WHERE email = ? OR microsoft_id = ?",
           [email, oid],
         );
 
         if (existing.length === 0) {
-          const [uCheck] = await connection.execute(
-            "SELECT id FROM usuarios WHERE username = ?",
-            [username],
-          );
-          if (uCheck.length > 0)
-            username = `${username}.${Math.floor(Math.random() * 1000)}`;
+          username = await resolveUniqueUsername(connection, username);
 
           await connection.execute(
             `INSERT INTO usuarios (username, nome_completo, email, is_ad_user, empresa_id, setor_id, pontos, senha_hash, perfil, ativo, desativado_manual, microsoft_id) VALUES (?, ?, ?, 1, ?, ?, 0, 'MS_AUTH_AD', 'USER', ?, 0, ?)`,
@@ -445,19 +456,61 @@ exports.syncUsers = async (req, res) => {
           );
           criados++;
         } else {
-          const bloqueadoManual = Number(existing[0].desativado_manual) === 1;
-          if (bloqueadoManual) {
-            await connection.execute(
-              "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ? WHERE id = ?",
-              [empId, setId, nome, oid, existing[0].id],
+          const userId = existing[0].id;
+          const emailAtual = existing[0].email || "";
+          const usernameAtual = existing[0].username || "";
+          const emailMudou = email !== emailAtual;
+
+          if (emailMudou) {
+            const [emailConflict] = await connection.execute(
+              "SELECT id FROM usuarios WHERE email = ? AND id <> ? LIMIT 1",
+              [email, userId],
             );
+            if (emailConflict.length > 0) {
+              ignorados++;
+              await logErro(
+                "USER_CONTROLLER_SYNC_EMAIL_CONFLICT",
+                new Error(
+                  `E-mail ${email} já pertence ao utilizador ${emailConflict[0].id}; sync ignorado para microsoft_id ${oid}`,
+                ),
+              );
+            } else {
+              const usernameFinal = await resolveUniqueUsername(
+                connection,
+                email.split("@")[0],
+                userId,
+              );
+              const bloqueadoManual =
+                Number(existing[0].desativado_manual) === 1;
+              if (bloqueadoManual) {
+                await connection.execute(
+                  "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, email = ?, username = ? WHERE id = ?",
+                  [empId, setId, nome, oid, email, usernameFinal, userId],
+                );
+              } else {
+                await connection.execute(
+                  "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = ?, email = ?, username = ? WHERE id = ?",
+                  [empId, setId, nome, oid, ativoAd, email, usernameFinal, userId],
+                );
+              }
+              atualizados++;
+            }
           } else {
-            await connection.execute(
-              "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = ? WHERE id = ?",
-              [empId, setId, nome, oid, ativoAd, existing[0].id],
-            );
+            const bloqueadoManual =
+              Number(existing[0].desativado_manual) === 1;
+            if (bloqueadoManual) {
+              await connection.execute(
+                "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, email = ?, username = ? WHERE id = ?",
+                [empId, setId, nome, oid, email, usernameAtual, userId],
+              );
+            } else {
+              await connection.execute(
+                "UPDATE usuarios SET empresa_id = ?, setor_id = ?, nome_completo = ?, microsoft_id = ?, ativo = ?, email = ?, username = ? WHERE id = ?",
+                [empId, setId, nome, oid, ativoAd, email, usernameAtual, userId],
+              );
+            }
+            atualizados++;
           }
-          atualizados++;
         }
         activeAdOids.add(oid);
       }
