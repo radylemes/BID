@@ -166,6 +166,20 @@ export async function showDisparoResultModal(res: SendEmailsResponse): Promise<v
   });
 }
 
+export function buildPartialFromProgress(state: DisparoProgressState): SendEmailsResponse | undefined {
+  if (state.recentItems.length === 0) return undefined;
+  const enviados = state.recentItems.filter((d) => d.status === 'enviado').length;
+  const erros = state.recentItems
+    .filter((d) => d.status === 'erro')
+    .map((d) => (d.mensagem ? `${d.email}: ${d.mensagem}` : d.email));
+  return {
+    enviados,
+    total: state.total || state.recentItems.length,
+    erros: erros.length > 0 ? erros : undefined,
+    destinatarios: state.recentItems,
+  };
+}
+
 export async function showDisparoPartialErrorModal(
   message: string,
   partial?: SendEmailsResponse

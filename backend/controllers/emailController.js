@@ -1818,10 +1818,8 @@ exports.sendEmails = async (req, res) => {
 };
 
 exports.sendEmailsStream = async (req, res) => {
-  let clientClosed = false;
-  req.on("close", () => {
-    clientClosed = true;
-  });
+  const isClientGone = () =>
+    Boolean(req.aborted || req.destroyed || res.destroyed || res.writableEnded);
 
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -1850,13 +1848,13 @@ exports.sendEmailsStream = async (req, res) => {
     resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), {
       ...DISPARO_BLOCO_OPTS,
       onProgress: (progress) => {
-        if (!clientClosed) sseWrite(res, "progress", progress);
+        if (!isClientGone()) sseWrite(res, "progress", progress);
       },
-      shouldAbort: () => clientClosed,
+      shouldAbort: () => req.aborted || res.destroyed,
     });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_SEND_STREAM", error);
-    if (!clientClosed) {
+    if (!isClientGone()) {
       sseWrite(res, "fatal", {
         error: error.message || "Erro ao enviar e-mails.",
         enviados: resultados.enviados,
@@ -1872,7 +1870,7 @@ exports.sendEmailsStream = async (req, res) => {
         await logErro("EMAIL_CONTROLLER_SEND_STREAM_FINALIZE", e);
       }
     }
-    if (!clientClosed && prepared && !terminalEventSent && !res.writableEnded) {
+    if (prepared && !terminalEventSent && !res.writableEnded) {
       sseWrite(res, "done", {
         enviados: resultados.enviados,
         total: prepared.itensValidos.length,

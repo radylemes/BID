@@ -19,6 +19,7 @@ import {
   appendProgressItem,
   showDisparoResultModal,
   showDisparoPartialErrorModal,
+  buildPartialFromProgress,
   DisparoProgressState,
 } from '../email/email-disparo-progress.util';
 import { EventoRhService } from '../../services/evento-rh.service';
@@ -807,7 +808,8 @@ export class MatchManagerComponent implements OnInit {
               );
               await showDisparoResultModal(res);
             } catch (err: unknown) {
-              const partial = (err as { partial?: SendEmailsResponse })?.partial;
+              const partial =
+                (err as { partial?: SendEmailsResponse })?.partial ?? buildPartialFromProgress(progressState);
               const message = err instanceof Error ? err.message : 'Falha ao enviar e-mails.';
               await showDisparoPartialErrorModal(message, partial);
             }

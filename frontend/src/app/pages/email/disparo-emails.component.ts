@@ -13,6 +13,7 @@ import {
   appendProgressItem,
   showDisparoResultModal,
   showDisparoPartialErrorModal,
+  buildPartialFromProgress,
   DisparoProgressState,
 } from './email-disparo-progress.util';
 import Swal from 'sweetalert2';
@@ -1435,7 +1436,8 @@ export class DisparoEmailsComponent implements OnInit {
           this.carregarMatches();
         } catch (err: unknown) {
           console.error('[Disparo] Erro na requisição:', err);
-          const partial = (err as { partial?: SendEmailsResponse })?.partial;
+          const partial =
+            (err as { partial?: SendEmailsResponse })?.partial ?? buildPartialFromProgress(progressState);
           const message = err instanceof Error ? err.message : 'Falha ao enviar e-mails.';
           await showDisparoPartialErrorModal(message, partial);
           if (partial && partial.enviados > 0) {

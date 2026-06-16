@@ -276,11 +276,12 @@ export class EmailService {
       body: JSON.stringify(this.buildSendBody(partidaId, templateId, adminId, options)),
     });
 
-    if (!response.ok && response.headers.get('content-type')?.includes('application/json')) {
-      const errBody = await response.json().catch(() => ({}));
-      throw new Error((errBody as { error?: string }).error || 'Falha ao enviar e-mails.');
-    }
-    if (!response.ok) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok && !contentType.includes('text/event-stream')) {
+      if (contentType.includes('application/json')) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error((errBody as { error?: string }).error || 'Falha ao enviar e-mails.');
+      }
       throw new Error('Falha ao enviar e-mails.');
     }
     if (!response.body) {
@@ -320,6 +321,32 @@ export class EmailService {
     return body;
   }
 
+  private parseSseChunk(chunk: string, dispatch: (event: string, data: unknown) => void): void {
+    if (!chunk.trim()) return;
+    let event = 'message';
+    let dataLine = '';
+    for (const line of chunk.split('\n')) {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      else if (line.startsWith('data:')) dataLine = line.slice(5).trim();
+    }
+    if (dataLine) {
+      try {
+        dispatch(event, JSON.parse(dataLine));
+      } catch {
+        /* ignorar chunk malformado */
+      }
+    }
+  }
+
+  private drainSseBuffer(buffer: string, dispatch: (event: string, data: unknown) => void): string {
+    const chunks = buffer.split('\n\n');
+    const remainder = chunks.pop() || '';
+    for (const chunk of chunks) {
+      this.parseSseChunk(chunk, dispatch);
+    }
+    return remainder;
+  }
+
   private async parseSendStream(
     body: ReadableStream<Uint8Array>,
     callbacks?: SendStreamCallbacks
@@ -330,16 +357,28 @@ export class EmailService {
     const streamState: {
       result?: SendEmailsResponse;
       fatal?: SendStreamFatal;
-    } = {};
+      total?: number;
+      destinatarios: DisparoDestinatario[];
+    } = { destinatarios: [] };
 
     const dispatch = (event: string, data: unknown) => {
       switch (event) {
-        case 'init':
-          callbacks?.onInit?.(data as { total: number });
+        case 'init': {
+          const init = data as { total: number };
+          streamState.total = init.total;
+          callbacks?.onInit?.(init);
           break;
-        case 'progress':
-          callbacks?.onProgress?.(data as SendStreamProgress);
+        }
+        case 'progress': {
+          const progress = data as SendStreamProgress;
+          streamState.destinatarios.push({
+            email: progress.email,
+            status: progress.status,
+            mensagem: progress.mensagem || undefined,
+          });
+          callbacks?.onProgress?.(progress);
           break;
+        }
         case 'done': {
           const done = data as SendEmailsResponse;
           streamState.result = done;
@@ -349,6 +388,9 @@ export class EmailService {
         case 'fatal': {
           const fatal = data as SendStreamFatal;
           streamState.fatal = fatal;
+          if (fatal.destinatarios?.length) {
+            streamState.destinatarios = fatal.destinatarios;
+          }
           callbacks?.onFatal?.(fatal);
           break;
         }
@@ -357,25 +399,17 @@ export class EmailService {
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const chunks = buffer.split('\n\n');
-      buffer = chunks.pop() || '';
-      for (const chunk of chunks) {
-        if (!chunk.trim()) continue;
-        let event = 'message';
-        let dataLine = '';
-        for (const line of chunk.split('\n')) {
-          if (line.startsWith('event:')) event = line.slice(6).trim();
-          else if (line.startsWith('data:')) dataLine = line.slice(5).trim();
+      if (value) {
+        buffer += decoder.decode(value, { stream: true });
+        buffer = this.drainSseBuffer(buffer, dispatch);
+      }
+      if (done) {
+        buffer += decoder.decode(undefined, { stream: false });
+        buffer = this.drainSseBuffer(buffer, dispatch);
+        if (buffer.trim()) {
+          this.parseSseChunk(buffer, dispatch);
         }
-        if (dataLine) {
-          try {
-            dispatch(event, JSON.parse(dataLine));
-          } catch {
-            /* ignorar chunk malformado */
-          }
-        }
+        break;
       }
     }
 
@@ -388,9 +422,27 @@ export class EmailService {
       };
       err.partial = {
         enviados: fatal.enviados ?? 0,
-        total: fatal.destinatarios?.length ?? fatal.enviados ?? 0,
-        destinatarios: fatal.destinatarios,
+        total: fatal.destinatarios?.length ?? streamState.total ?? fatal.enviados ?? 0,
+        destinatarios: fatal.destinatarios ?? streamState.destinatarios,
       };
+      throw err;
+    }
+
+    if (streamState.destinatarios.length > 0) {
+      const enviados = streamState.destinatarios.filter((d) => d.status === 'enviado').length;
+      const erros = streamState.destinatarios
+        .filter((d) => d.status === 'erro')
+        .map((d) => (d.mensagem ? `${d.email}: ${d.mensagem}` : d.email));
+      const partial: SendEmailsResponse = {
+        enviados,
+        total: streamState.total ?? streamState.destinatarios.length,
+        erros: erros.length > 0 ? erros : undefined,
+        destinatarios: streamState.destinatarios,
+      };
+      const err = new Error('Conexão encerrada antes da conclusão do disparo.') as Error & {
+        partial?: SendEmailsResponse;
+      };
+      err.partial = partial;
       throw err;
     }
 
