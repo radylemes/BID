@@ -2,8 +2,25 @@ const fs = require("fs");
 const path = require("path");
 const db = require("../config/db");
 const nodemailer = require("nodemailer");
-const puppeteer = require("puppeteer");
 const logErro = require("../utils/errorLogger");
+
+/** Carrega puppeteer sob demanda (evita EACCES em /root/config ao subir o servidor). */
+let puppeteerModule = null;
+function getPuppeteer() {
+  if (!puppeteerModule) {
+    const baseTmp = path.join(__dirname, "..", "tmp");
+    const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(baseTmp, "puppeteer-cache");
+    const configDir = process.env.XDG_CONFIG_HOME || path.join(baseTmp, "puppeteer-config");
+    try {
+      fs.mkdirSync(cacheDir, { recursive: true });
+      fs.mkdirSync(configDir, { recursive: true });
+    } catch (_) {}
+    if (!process.env.PUPPETEER_CACHE_DIR) process.env.PUPPETEER_CACHE_DIR = cacheDir;
+    if (!process.env.XDG_CONFIG_HOME) process.env.XDG_CONFIG_HOME = configDir;
+    puppeteerModule = require("puppeteer");
+  }
+  return puppeteerModule;
+}
 
 /** Caminhos comuns do Chromium/Chrome no servidor (evita depender do cache do Puppeteer). */
 const CHROMIUM_PATHS = [
@@ -261,6 +278,319 @@ async function gravarAuditoria(connection, adminId, modulo, acao, registroId, de
     await logErro("EMAIL_CONTROLLER_AUDITORIA", e);
   }
 }
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function enviarEmBlocos(
+  itens,
+  sendFn,
+  { batchSize = 10, delayBatch = 5000, delayItem = 1000, onProgress, shouldAbort } = {}
+) {
+  const resultados = { enviados: 0, erros: [], destinatarios: [] };
+  const total = itens.length;
+  for (let i = 0; i < itens.length; i += batchSize) {
+    if (shouldAbort && shouldAbort()) break;
+    const bloco = itens.slice(i, i + batchSize);
+    for (let j = 0; j < bloco.length; j++) {
+      if (shouldAbort && shouldAbort()) break;
+      const item = bloco[j];
+      const email = String(item.email || "").trim();
+      let result;
+      try {
+        result = await sendFn(item);
+      } catch (err) {
+        await logErro("EMAIL_SEND_ONE", err);
+        const msg = err.message || "Erro ao enviar";
+        result = { ok: false, erro: `${email}: ${msg}` };
+      }
+      if (result.ok) {
+        resultados.enviados++;
+        resultados.destinatarios.push({ email, status: "enviado" });
+        if (onProgress) {
+          onProgress({ email, status: "enviado", enviados: resultados.enviados, total, mensagem: null });
+        }
+      } else {
+        const erroMsg = result.erro || `${email}: Erro ao enviar`;
+        resultados.erros.push(erroMsg);
+        const mensagem = erroMsg.includes(": ") ? erroMsg.split(": ").slice(1).join(": ") : erroMsg;
+        resultados.destinatarios.push({ email, status: "erro", mensagem });
+        if (onProgress) {
+          onProgress({ email, status: "erro", enviados: resultados.enviados, total, mensagem });
+        }
+      }
+      if (j < bloco.length - 1) await delay(delayItem);
+    }
+    const proximoBloco = i + batchSize;
+    if (proximoBloco < itens.length && !(shouldAbort && shouldAbort())) {
+      console.log(`[EMAIL DISPARO] Bloco ${Math.floor(i / batchSize) + 1} concluído. Aguardando ${delayBatch}ms...`);
+      await delay(delayBatch);
+    }
+  }
+  return resultados;
+}
+
+function sseWrite(res, event, data) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  if (typeof res.flush === "function") res.flush();
+}
+
+async function prepareDisparo(body, req) {
+  const { partidaId, listaId, templateId, usarGrupo: usarGrupoRaw, tipoDisparo, emailsPersonalizados } = body;
+  const usarGrupo = usarGrupoRaw === true || usarGrupoRaw === "true";
+  const listaPersonalizada =
+    Array.isArray(emailsPersonalizados) && emailsPersonalizados.length > 0
+      ? emailsPersonalizados
+          .filter((e) => typeof e === "string" && e.trim().length > 0)
+          .map((e) => String(e).trim().toLowerCase())
+      : null;
+
+  if (!partidaId || !templateId) {
+    return { error: "partidaId e templateId são obrigatórios.", status: 400 };
+  }
+  const ehGanhadores = tipoDisparo === "GANHADORES";
+  if (!ehGanhadores && !usarGrupo && !listaId && !listaPersonalizada?.length) {
+    return {
+      error: "Informe a lista de e-mails, selecione 'Participantes do grupo' ou use 'Envio personalizado'.",
+      status: 400,
+    };
+  }
+
+  const transporter = await getSmtpTransporter();
+  if (!transporter) {
+    return { error: "SMTP não configurado. Configure em Configurações > Servidor SMTP.", status: 400 };
+  }
+
+  const [cfgRows] = await db.query("SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'");
+  const smtpFrom = cfgRows[0]?.valor?.trim();
+  if (!smtpFrom) {
+    return { error: "E-mail remetente (smtp_from) não configurado.", status: 400 };
+  }
+
+  const [partidas] = await db.query(
+    `SELECT p.id, p.grupo_id, p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
+            p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
+            g.nome as nome_grupo, se.nome as setor_evento_nome
+     FROM partidas p
+     LEFT JOIN grupos g ON p.grupo_id = g.id
+     LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+     WHERE p.id = ?`,
+    [partidaId]
+  );
+  if (partidas.length === 0) {
+    return { error: "Partida não encontrada.", status: 404 };
+  }
+  const p = partidas[0];
+  const baseUrl = await getBaseUrl();
+  let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+  if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+  const partesJogo = extrairPartesData(p.data_jogo);
+  const partesInicio = extrairPartesData(p.data_inicio_apostas);
+  const partesLimite = extrairPartesData(p.data_limite_aposta);
+  const partesApuracao = extrairPartesData(p.data_apuracao);
+  const evento = {
+    titulo: p.titulo || "Evento",
+    local: p.local || "",
+    data: formatarDataPtBr(p.data_jogo) || "",
+    data_dia: partesJogo.dia,
+    data_mes: partesJogo.mes,
+    data_hora: partesJogo.hora,
+    data_inicio_apostas: formatarDataPtBr(p.data_inicio_apostas) || "",
+    data_inicio_apostas_dia: partesInicio.dia,
+    data_inicio_apostas_mes: partesInicio.mes,
+    data_inicio_apostas_hora: partesInicio.hora,
+    data_limite_aposta: formatarDataPtBr(p.data_limite_aposta) || "",
+    data_limite_aposta_dia: partesLimite.dia,
+    data_limite_aposta_mes: partesLimite.mes,
+    data_limite_aposta_hora: partesLimite.hora,
+    data_apuracao: formatarDataPtBr(p.data_apuracao) || "",
+    data_apuracao_dia: partesApuracao.dia,
+    data_apuracao_mes: partesApuracao.mes,
+    data_apuracao_hora: partesApuracao.hora,
+    quantidade_premios: p.quantidade_premios ?? 0,
+    nome_grupo: p.nome_grupo || "",
+    setor_evento_nome: p.setor_evento_nome || "",
+    imagem: imagemUrl,
+    subtitulo: p.subtitulo || "",
+    informacoes_extras: p.informacoes_extras || "",
+    link_extra: p.link_extra || "",
+  };
+
+  const [templates] = await db.query(
+    "SELECT id, assunto, corpo_html FROM templates_email WHERE id = ?",
+    [templateId]
+  );
+  if (templates.length === 0) {
+    return { error: "Template não encontrado.", status: 404 };
+  }
+  const template = templates[0];
+
+  let itens;
+  if (ehGanhadores) {
+    const [ganhadores] = await db.query(
+      `SELECT u.id, u.email, u.nome_completo
+       FROM apostas a
+       JOIN usuarios u ON a.usuario_id = u.id
+       WHERE a.partida_id = ? AND a.status = 'GANHOU'
+         AND u.email IS NOT NULL AND TRIM(u.email) != ''
+       GROUP BY u.id, u.email, u.nome_completo
+       ORDER BY MAX(a.valor_pago) DESC`,
+      [partidaId]
+    );
+    itens = ganhadores.map((u) => ({
+      id: u.id,
+      email: (u.email || "").trim(),
+      nome_opcional: (u.nome_completo || "").trim() || null,
+    }));
+    if (itens.length === 0) {
+      return { error: "Não há ganhadores com e-mail cadastrado para esta partida.", status: 400 };
+    }
+  } else if (listaPersonalizada && listaPersonalizada.length > 0) {
+    itens = listaPersonalizada.map((email) => ({
+      id: null,
+      email,
+      nome_opcional: null,
+    }));
+  } else if (usarGrupo) {
+    const grupoId = p.grupo_id;
+    if (grupoId == null || grupoId === undefined) {
+      return { error: "Esta partida não possui grupo vinculado.", status: 400 };
+    }
+    const [usuarios] = await db.query(
+      "SELECT id, email, nome_completo FROM usuarios WHERE grupo_id = ? AND email IS NOT NULL AND TRIM(email) != '' AND ativo = 1",
+      [grupoId]
+    );
+    itens = usuarios.map((u) => ({
+      id: u.id,
+      email: (u.email || "").trim(),
+      nome_opcional: (u.nome_completo || "").trim() || null,
+    }));
+    if (itens.length === 0) {
+      return { error: "O grupo não possui participantes com e-mail cadastrado.", status: 400 };
+    }
+  } else {
+    const [itensRows] = await db.query(
+      "SELECT id, email, nome_opcional FROM listas_email_itens WHERE lista_id = ?",
+      [listaId]
+    );
+    itens = itensRows;
+    if (itens.length === 0) {
+      return { error: "A lista não possui destinatários.", status: 400 };
+    }
+  }
+
+  let pdfAttachment = null;
+  let pdfFilename = null;
+  if (tipoDisparo === "BID_ENCERRADO") {
+    pdfAttachment = await buildListaGanhadoresPdf(partidaId);
+    if (pdfAttachment) {
+      const safeTitulo = (p.titulo || "Evento")
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "_")
+        .substring(0, 60);
+      pdfFilename = `Lista_ganhadores_${safeTitulo}.pdf`;
+    }
+  }
+
+  const itensValidos = itens.filter((item) => String(item.email || "").trim());
+
+  return {
+    partidaId,
+    listaId,
+    templateId,
+    usarGrupo,
+    tipoDisparo,
+    transporter,
+    smtpFrom,
+    evento,
+    template,
+    itensValidos,
+    pdfAttachment,
+    pdfFilename,
+    adminId: body.adminId || req.user?.id,
+  };
+}
+
+function createSendFn(prepared) {
+  const { partidaId, transporter, smtpFrom, evento, template, pdfAttachment, pdfFilename } = prepared;
+  return async (item) => {
+    const email = String(item.email).trim();
+    try {
+      let nome = item.nome_opcional && String(item.nome_opcional).trim();
+      let usuarioId = null;
+      const [users] = await db.query(
+        "SELECT id, nome_completo FROM usuarios WHERE email = ? LIMIT 1",
+        [email]
+      );
+      if (users.length > 0) {
+        usuarioId = users[0].id;
+        if (!nome) nome = users[0].nome_completo || email;
+      }
+      if (!nome) nome = email;
+
+      let ingressosGanhos = 0;
+      if (usuarioId) {
+        const [countRows] = await db.query(
+          "SELECT COUNT(*) as total FROM apostas WHERE partida_id = ? AND usuario_id = ? AND status = 'GANHOU'",
+          [partidaId, usuarioId]
+        );
+        ingressosGanhos = Number(countRows[0]?.total ?? 0);
+      }
+      const usuario = { nome, email, ingressos_ganhos: ingressosGanhos };
+
+      const context = { evento, usuario };
+      const assunto = replaceTemplateTags(template.assunto, context);
+      const html = replaceTemplateTags(template.corpo_html, context);
+
+      const mailOptions = {
+        from: smtpFrom,
+        to: email,
+        subject: assunto,
+        html,
+      };
+      if (pdfAttachment && pdfFilename) {
+        mailOptions.attachments = [{ filename: pdfFilename, content: pdfAttachment }];
+      }
+      await transporter.sendMail(mailOptions);
+      return { ok: true };
+    } catch (err) {
+      await logErro("EMAIL_SEND_ONE", err);
+      const msg = err.message || "Erro ao enviar";
+      return { ok: false, erro: `${email}: ${msg}` };
+    }
+  };
+}
+
+async function finalizarDisparo(prepared, resultados, adminId) {
+  const { partidaId, listaId, templateId, usarGrupo, tipoDisparo, itensValidos } = prepared;
+  const { enviados, erros, destinatarios } = resultados;
+
+  await gravarAuditoria(db, adminId, "EMAIL", "DISPARO", partidaId, {
+    partidaId,
+    listaId: usarGrupo ? null : listaId,
+    templateId,
+    tipoDisparo: tipoDisparo || null,
+    usarGrupo: !!usarGrupo,
+    totalDestinatarios: itensValidos.length,
+    enviados,
+    erros: erros.length,
+    errosLista: erros.slice(0, 50),
+    destinatarios,
+  });
+
+  const colunaDisparo =
+    tipoDisparo === "BID_ABERTO"
+      ? "email_bid_aberto_em"
+      : tipoDisparo === "BID_ENCERRADO"
+        ? "email_bid_encerrado_em"
+        : tipoDisparo === "GANHADORES"
+          ? "email_ganhadores_em"
+          : null;
+  if (colunaDisparo && enviados > 0) {
+    await db.query(`UPDATE partidas SET ${colunaDisparo} = NOW() WHERE id = ?`, [partidaId]);
+  }
+}
+
+const DISPARO_BLOCO_OPTS = { batchSize: 10, delayBatch: 5000, delayItem: 1000 };
 
 // ==================== TESTE SMTP ====================
 
@@ -1234,7 +1564,13 @@ exports.getDisparosLog = async (req, res) => {
       rows.map(async (row) => {
         let detalhes = {};
         try {
-          detalhes = row.detalhes ? JSON.parse(row.detalhes) : {};
+          if (row.detalhes != null && typeof row.detalhes === "object") {
+            detalhes = row.detalhes;
+          } else if (row.detalhes) {
+            detalhes = JSON.parse(row.detalhes);
+          } else {
+            detalhes = {};
+          }
         } catch (e) {
           await logErro("EMAIL_CONTROLLER_GET_DISPAROS_LOG_PARSE", e);
           detalhes = { raw: row.detalhes };
@@ -1386,7 +1722,7 @@ async function buildListaGanhadoresPdf(partidaId) {
 
   let browser;
   try {
-    browser = await puppeteer.launch(launchOptions);
+    browser = await getPuppeteer().launch(launchOptions);
     const page = await browser.newPage();
     await page.setContent(html, {
       waitUntil: "networkidle0",
@@ -1435,262 +1771,117 @@ exports.getPdfGanhadores = async (req, res) => {
 };
 
 exports.sendEmails = async (req, res) => {
+  let prepared = null;
+  let resultados = { enviados: 0, erros: [], destinatarios: [] };
+  let fatalError = null;
+
   try {
-    const { partidaId, listaId, templateId, adminId, usarGrupo: usarGrupoRaw, tipoDisparo, emailsPersonalizados } = req.body;
-    const usarGrupo = usarGrupoRaw === true || usarGrupoRaw === "true";
-    const listaPersonalizada = Array.isArray(emailsPersonalizados) && emailsPersonalizados.length > 0
-      ? emailsPersonalizados.filter((e) => typeof e === "string" && e.trim().length > 0).map((e) => String(e).trim().toLowerCase())
-      : null;
-    console.log("[EMAIL DISPARO] body:", { partidaId, listaId, templateId, usarGrupoRaw, usarGrupo, tipoDisparo, emailsPersonalizados: listaPersonalizada?.length });
-    if (!partidaId || !templateId) {
-      console.log("[EMAIL DISPARO] Validação falhou: partidaId ou templateId ausente");
-      return res.status(400).json({
-        error: "partidaId e templateId são obrigatórios.",
-      });
+    console.log("[EMAIL DISPARO] body:", req.body);
+    const prep = await prepareDisparo(req.body, req);
+    if (prep.error) {
+      return res.status(prep.status || 400).json({ error: prep.error });
     }
-    const ehGanhadores = tipoDisparo === "GANHADORES";
-    if (!ehGanhadores && !usarGrupo && !listaId && !listaPersonalizada?.length) {
-      console.log("[EMAIL DISPARO] Validação falhou: nem usarGrupo, nem listaId, nem emailsPersonalizados");
-      return res.status(400).json({
-        error: "Informe a lista de e-mails, selecione 'Participantes do grupo' ou use 'Envio personalizado'.",
-      });
-    }
-
-    const transporter = await getSmtpTransporter();
-    if (!transporter) {
-      return res.status(400).json({
-        error: "SMTP não configurado. Configure em Configurações > Servidor SMTP.",
-      });
-    }
-
-    const [cfgRows] = await db.query(
-      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'"
-    );
-    const smtpFrom = cfgRows[0]?.valor?.trim();
-    if (!smtpFrom) {
-      return res.status(400).json({
-        error: "E-mail remetente (smtp_from) não configurado.",
-      });
-    }
-
-    const [partidas] = await db.query(
-      `SELECT p.id, p.grupo_id, p.titulo, p.local, p.data_jogo, p.data_inicio_apostas, p.data_limite_aposta, p.data_apuracao, p.quantidade_premios,
-              p.subtitulo, p.informacoes_extras, p.link_extra, p.banner,
-              g.nome as nome_grupo, se.nome as setor_evento_nome
-       FROM partidas p
-       LEFT JOIN grupos g ON p.grupo_id = g.id
-       LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
-       WHERE p.id = ?`,
-      [partidaId]
-    );
-    if (partidas.length === 0) {
-      return res.status(404).json({ error: "Partida não encontrada." });
-    }
-    const p = partidas[0];
-    const baseUrl = await getBaseUrl();
-    let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
-    if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
-    const partesJogo = extrairPartesData(p.data_jogo);
-    const partesInicio = extrairPartesData(p.data_inicio_apostas);
-    const partesLimite = extrairPartesData(p.data_limite_aposta);
-    const partesApuracao = extrairPartesData(p.data_apuracao);
-    const evento = {
-      titulo: p.titulo || "Evento",
-      local: p.local || "",
-      data: formatarDataPtBr(p.data_jogo) || "",
-      data_dia: partesJogo.dia,
-      data_mes: partesJogo.mes,
-      data_hora: partesJogo.hora,
-      data_inicio_apostas: formatarDataPtBr(p.data_inicio_apostas) || "",
-      data_inicio_apostas_dia: partesInicio.dia,
-      data_inicio_apostas_mes: partesInicio.mes,
-      data_inicio_apostas_hora: partesInicio.hora,
-      data_limite_aposta: formatarDataPtBr(p.data_limite_aposta) || "",
-      data_limite_aposta_dia: partesLimite.dia,
-      data_limite_aposta_mes: partesLimite.mes,
-      data_limite_aposta_hora: partesLimite.hora,
-      data_apuracao: formatarDataPtBr(p.data_apuracao) || "",
-      data_apuracao_dia: partesApuracao.dia,
-      data_apuracao_mes: partesApuracao.mes,
-      data_apuracao_hora: partesApuracao.hora,
-      quantidade_premios: p.quantidade_premios ?? 0,
-      nome_grupo: p.nome_grupo || "",
-      setor_evento_nome: p.setor_evento_nome || "",
-      imagem: imagemUrl,
-      subtitulo: p.subtitulo || "",
-      informacoes_extras: p.informacoes_extras || "",
-      link_extra: p.link_extra || "",
-    };
-
-    const [templates] = await db.query(
-      "SELECT id, assunto, corpo_html FROM templates_email WHERE id = ?",
-      [templateId]
-    );
-    if (templates.length === 0) {
-      return res.status(404).json({ error: "Template não encontrado." });
-    }
-    const template = templates[0];
-
-    let itens;
-    if (ehGanhadores) {
-      const [ganhadores] = await db.query(
-        `SELECT u.id, u.email, u.nome_completo
-         FROM apostas a
-         JOIN usuarios u ON a.usuario_id = u.id
-         WHERE a.partida_id = ? AND a.status = 'GANHOU'
-           AND u.email IS NOT NULL AND TRIM(u.email) != ''
-         GROUP BY u.id, u.email, u.nome_completo
-         ORDER BY MAX(a.valor_pago) DESC`,
-        [partidaId]
-      );
-      itens = ganhadores.map((u) => ({
-        id: u.id,
-        email: (u.email || "").trim(),
-        nome_opcional: (u.nome_completo || "").trim() || null,
-      }));
-      if (itens.length === 0) {
-        return res.status(400).json({
-          error: "Não há ganhadores com e-mail cadastrado para esta partida.",
-        });
-      }
-    } else if (listaPersonalizada && listaPersonalizada.length > 0) {
-      itens = listaPersonalizada.map((email) => ({
-        id: null,
-        email,
-        nome_opcional: null,
-      }));
-    } else if (usarGrupo) {
-      const grupoId = p.grupo_id;
-      if (grupoId == null || grupoId === undefined) {
-        return res.status(400).json({
-          error: "Esta partida não possui grupo vinculado.",
-        });
-      }
-      const [usuarios] = await db.query(
-        "SELECT id, email, nome_completo FROM usuarios WHERE grupo_id = ? AND email IS NOT NULL AND TRIM(email) != '' AND ativo = 1",
-        [grupoId]
-      );
-      itens = usuarios.map((u) => ({
-        id: u.id,
-        email: (u.email || "").trim(),
-        nome_opcional: (u.nome_completo || "").trim() || null,
-      }));
-      if (itens.length === 0) {
-        return res.status(400).json({
-          error: "O grupo não possui participantes com e-mail cadastrado.",
-        });
-      }
-    } else {
-      const [itensRows] = await db.query(
-        "SELECT id, email, nome_opcional FROM listas_email_itens WHERE lista_id = ?",
-        [listaId]
-      );
-      itens = itensRows;
-      if (itens.length === 0) {
-        return res.status(400).json({ error: "A lista não possui destinatários." });
-      }
-    }
-
-    let pdfAttachment = null;
-    let pdfFilename = null;
-    if (tipoDisparo === "BID_ENCERRADO") {
-      pdfAttachment = await buildListaGanhadoresPdf(partidaId);
-      if (pdfAttachment) {
-        const safeTitulo = (p.titulo || "Evento").replace(/[^\w\s-]/g, "").replace(/\s+/g, "_").substring(0, 60);
-        pdfFilename = `Lista_ganhadores_${safeTitulo}.pdf`;
-      }
-    }
-
-    let enviados = 0;
-    const erros = [];
-    const destinatarios = [];
-
-    for (const item of itens) {
-      const email = String(item.email).trim();
-      if (!email) continue;
-
-      let nome = item.nome_opcional && String(item.nome_opcional).trim();
-      let usuarioId = null;
-      const [users] = await db.query(
-        "SELECT id, nome_completo FROM usuarios WHERE email = ? LIMIT 1",
-        [email]
-      );
-      if (users.length > 0) {
-        usuarioId = users[0].id;
-        if (!nome) nome = users[0].nome_completo || email;
-      }
-      if (!nome) nome = email;
-
-      let ingressosGanhos = 0;
-      if (usuarioId) {
-        const [countRows] = await db.query(
-          "SELECT COUNT(*) as total FROM apostas WHERE partida_id = ? AND usuario_id = ? AND status = 'GANHOU'",
-          [partidaId, usuarioId]
-        );
-        ingressosGanhos = Number(countRows[0]?.total ?? 0);
-      }
-      const usuario = { nome, email, ingressos_ganhos: ingressosGanhos };
-
-      const context = { evento, usuario };
-      const assunto = replaceTemplateTags(template.assunto, context);
-      const html = replaceTemplateTags(template.corpo_html, context);
-
-      try {
-        const mailOptions = {
-          from: smtpFrom,
-          to: email,
-          subject: assunto,
-          html,
-        };
-        if (pdfAttachment && pdfFilename) {
-          mailOptions.attachments = [{ filename: pdfFilename, content: pdfAttachment }];
-        }
-        await transporter.sendMail(mailOptions);
-        enviados++;
-        destinatarios.push({ email, status: "enviado" });
-      } catch (err) {
-        await logErro("EMAIL_SEND_ONE", err);
-        const msg = err.message || "Erro ao enviar";
-        erros.push(`${email}: ${msg}`);
-        destinatarios.push({ email, status: "erro", mensagem: msg });
-      }
-    }
-
-    await gravarAuditoria(db, adminId || req.user?.id, "EMAIL", "DISPARO", partidaId, {
-      partidaId,
-      listaId: usarGrupo ? null : listaId,
-      templateId,
-      tipoDisparo: tipoDisparo || null,
-      usarGrupo: !!usarGrupo,
-      totalDestinatarios: itens.length,
-      enviados,
-      erros: erros.length,
-      errosLista: erros,
-      destinatarios,
-    });
-
-    const colunaDisparo =
-      tipoDisparo === "BID_ABERTO"
-        ? "email_bid_aberto_em"
-        : tipoDisparo === "BID_ENCERRADO"
-          ? "email_bid_encerrado_em"
-          : tipoDisparo === "GANHADORES"
-            ? "email_ganhadores_em"
-            : null;
-    if (colunaDisparo) {
-      await db.query(
-        `UPDATE partidas SET ${colunaDisparo} = NOW() WHERE id = ?`,
-        [partidaId]
-      );
-    }
-
-    res.json({
-      enviados,
-      total: itens.length,
-      erros: erros.length > 0 ? erros : undefined,
-    });
+    prepared = prep;
+    resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), DISPARO_BLOCO_OPTS);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_SEND", error);
-    res.status(500).json({ error: "Erro ao enviar e-mails." });
+    fatalError = error;
+  } finally {
+    if (prepared) {
+      try {
+        await finalizarDisparo(prepared, resultados, prepared.adminId);
+      } catch (e) {
+        await logErro("EMAIL_CONTROLLER_SEND_FINALIZE", e);
+      }
+    }
+  }
+
+  if (!prepared) {
+    return;
+  }
+  if (fatalError) {
+    return res.status(500).json({
+      error: "Erro ao enviar e-mails.",
+      enviados: resultados.enviados,
+      total: prepared.itensValidos.length,
+      erros: resultados.erros.length > 0 ? resultados.erros : undefined,
+      destinatarios: resultados.destinatarios,
+    });
+  }
+
+  res.json({
+    enviados: resultados.enviados,
+    total: prepared.itensValidos.length,
+    erros: resultados.erros.length > 0 ? resultados.erros : undefined,
+    destinatarios: resultados.destinatarios,
+  });
+};
+
+exports.sendEmailsStream = async (req, res) => {
+  let clientClosed = false;
+  req.on("close", () => {
+    clientClosed = true;
+  });
+
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") {
+    res.flushHeaders();
+  }
+
+  let prepared = null;
+  let resultados = { enviados: 0, erros: [], destinatarios: [] };
+  let terminalEventSent = false;
+
+  try {
+    console.log("[EMAIL DISPARO STREAM] body:", req.body);
+    const prep = await prepareDisparo(req.body, req);
+    if (prep.error) {
+      sseWrite(res, "fatal", { error: prep.error });
+      terminalEventSent = true;
+      return;
+    }
+    prepared = prep;
+
+    sseWrite(res, "init", { total: prepared.itensValidos.length });
+
+    resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), {
+      ...DISPARO_BLOCO_OPTS,
+      onProgress: (progress) => {
+        if (!clientClosed) sseWrite(res, "progress", progress);
+      },
+      shouldAbort: () => clientClosed,
+    });
+  } catch (error) {
+    await logErro("EMAIL_CONTROLLER_SEND_STREAM", error);
+    if (!clientClosed) {
+      sseWrite(res, "fatal", {
+        error: error.message || "Erro ao enviar e-mails.",
+        enviados: resultados.enviados,
+        destinatarios: resultados.destinatarios,
+      });
+      terminalEventSent = true;
+    }
+  } finally {
+    if (prepared) {
+      try {
+        await finalizarDisparo(prepared, resultados, prepared.adminId);
+      } catch (e) {
+        await logErro("EMAIL_CONTROLLER_SEND_STREAM_FINALIZE", e);
+      }
+    }
+    if (!clientClosed && prepared && !terminalEventSent && !res.writableEnded) {
+      sseWrite(res, "done", {
+        enviados: resultados.enviados,
+        total: prepared.itensValidos.length,
+        erros: resultados.erros.length > 0 ? resultados.erros : undefined,
+        destinatarios: resultados.destinatarios,
+      });
+    }
+    if (!res.writableEnded) {
+      res.end();
+    }
   }
 };

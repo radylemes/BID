@@ -37,6 +37,28 @@ export interface SendEmailsResponse {
   enviados: number;
   total: number;
   erros?: string[];
+  destinatarios?: DisparoDestinatario[];
+}
+
+export interface SendStreamProgress {
+  email: string;
+  status: 'enviado' | 'erro';
+  enviados: number;
+  total: number;
+  mensagem?: string | null;
+}
+
+export interface SendStreamFatal {
+  error: string;
+  enviados?: number;
+  destinatarios?: DisparoDestinatario[];
+}
+
+export interface SendStreamCallbacks {
+  onInit?: (data: { total: number }) => void;
+  onProgress?: (data: SendStreamProgress) => void;
+  onDone?: (data: SendEmailsResponse) => void;
+  onFatal?: (data: SendStreamFatal) => void;
 }
 
 export interface DisparoDestinatario {
@@ -223,6 +245,62 @@ export class EmailService {
       tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
     }
   ): Observable<SendEmailsResponse> {
+    return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, this.buildSendBody(partidaId, templateId, adminId, options));
+  }
+
+  /** Disparo com SSE — progresso em tempo real por destinatário. */
+  async sendStream(
+    partidaId: number,
+    templateId: number,
+    adminId?: number,
+    options?: {
+      listaId?: number | null;
+      usarGrupo?: boolean;
+      emailsPersonalizados?: string[];
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+    },
+    callbacks?: SendStreamCallbacks
+  ): Promise<SendEmailsResponse> {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${this.apiUrl}/send-stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(this.buildSendBody(partidaId, templateId, adminId, options)),
+    });
+
+    if (!response.ok && response.headers.get('content-type')?.includes('application/json')) {
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error((errBody as { error?: string }).error || 'Falha ao enviar e-mails.');
+    }
+    if (!response.ok) {
+      throw new Error('Falha ao enviar e-mails.');
+    }
+    if (!response.body) {
+      throw new Error('Resposta de streaming indisponível.');
+    }
+
+    return this.parseSendStream(response.body, callbacks);
+  }
+
+  private buildSendBody(
+    partidaId: number,
+    templateId: number,
+    adminId?: number,
+    options?: {
+      listaId?: number | null;
+      usarGrupo?: boolean;
+      emailsPersonalizados?: string[];
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+    }
+  ): Record<string, unknown> {
     const body: Record<string, unknown> = {
       partidaId,
       templateId,
@@ -239,6 +317,83 @@ export class EmailService {
     if (options?.tipoDisparo) {
       body['tipoDisparo'] = options.tipoDisparo;
     }
-    return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, body);
+    return body;
+  }
+
+  private async parseSendStream(
+    body: ReadableStream<Uint8Array>,
+    callbacks?: SendStreamCallbacks
+  ): Promise<SendEmailsResponse> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const streamState: {
+      result?: SendEmailsResponse;
+      fatal?: SendStreamFatal;
+    } = {};
+
+    const dispatch = (event: string, data: unknown) => {
+      switch (event) {
+        case 'init':
+          callbacks?.onInit?.(data as { total: number });
+          break;
+        case 'progress':
+          callbacks?.onProgress?.(data as SendStreamProgress);
+          break;
+        case 'done': {
+          const done = data as SendEmailsResponse;
+          streamState.result = done;
+          callbacks?.onDone?.(done);
+          break;
+        }
+        case 'fatal': {
+          const fatal = data as SendStreamFatal;
+          streamState.fatal = fatal;
+          callbacks?.onFatal?.(fatal);
+          break;
+        }
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split('\n\n');
+      buffer = chunks.pop() || '';
+      for (const chunk of chunks) {
+        if (!chunk.trim()) continue;
+        let event = 'message';
+        let dataLine = '';
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataLine = line.slice(5).trim();
+        }
+        if (dataLine) {
+          try {
+            dispatch(event, JSON.parse(dataLine));
+          } catch {
+            /* ignorar chunk malformado */
+          }
+        }
+      }
+    }
+
+    if (streamState.result) return streamState.result;
+
+    const fatal = streamState.fatal;
+    if (fatal) {
+      const err = new Error(fatal.error) as Error & {
+        partial?: SendEmailsResponse;
+      };
+      err.partial = {
+        enviados: fatal.enviados ?? 0,
+        total: fatal.destinatarios?.length ?? fatal.enviados ?? 0,
+        destinatarios: fatal.destinatarios,
+      };
+      throw err;
+    }
+
+    throw new Error('Conexão encerrada antes da conclusão do disparo.');
   }
 }

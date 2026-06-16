@@ -31,6 +31,7 @@ router.post("/templates/:templateId/test", authMiddleware, authorizeRoles("ADMIN
 router.get("/partida/:partidaId/disparos-log", authMiddleware, authorizeRoles("ADMIN"), emailController.getDisparosLog);
 router.get("/partida/:partidaId/pdf-ganhadores", authMiddleware, authorizeRoles("ADMIN"), emailController.getPdfGanhadores);
 router.post("/send", authMiddleware, authorizeRoles("ADMIN"), emailController.sendEmails);
+router.post("/send-stream", authMiddleware, authorizeRoles("ADMIN"), emailController.sendEmailsStream);
 
 // Teste SMTP (ADMIN)
 router.post("/test", authMiddleware, authorizeRoles("ADMIN"), emailController.testSmtp);

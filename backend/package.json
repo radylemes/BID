@@ -8,7 +8,10 @@
     "start": "node --max-old-space-size=4096 server.js",
     "dev": "nodemon --max-old-space-size=4096 server.js",
     "reset-db": "node --max-old-space-size=4096 resetDatabase.js",
-    "reset-operational": "node --max-old-space-size=4096 resetOperationalData.js"
+    "reset-operational": "node --max-old-space-size=4096 resetOperationalData.js",
+    "validate-apostas-bids": "node scripts/validateApostasBids.js",
+    "list-usuarios-apostaram": "node scripts/listUsuariosApostaram.js",
+    "remove-apostas-devolver-pontos": "node scripts/removeApostasDevolverPontos.js"
   },
   "keywords": [],
   "author": "Daniel Lemes",

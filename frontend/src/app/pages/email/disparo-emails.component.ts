@@ -1,13 +1,20 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
 import { EmailService, SendEmailsResponse, DisparoLogEntry, TemplateEmail, ListaEmail, ListaEmailItem } from '../../services/email.service';
 import { UserService } from '../../services/user.service';
+import {
+  openDisparoProgressModal,
+  updateDisparoProgressModal,
+  appendProgressItem,
+  showDisparoResultModal,
+  showDisparoPartialErrorModal,
+  DisparoProgressState,
+} from './email-disparo-progress.util';
 import Swal from 'sweetalert2';
 
 type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
@@ -1131,7 +1138,8 @@ export class DisparoEmailsComponent implements OnInit {
                 .filter((log) => {
                   if (!termoBuscaLog) return true;
                   const dest = log.destinatarios || [];
-                  const textoDest = dest.map((d) => `${d.email || ''} ${d.status || ''} ${d.mensagem || ''}`).join(' ');
+                  const errosLista: string[] = (log as any).errosLista || [];
+                  const textoDest = dest.map((d: any) => `${d.email || ''} ${d.status || ''} ${d.mensagem || ''}`).join(' ');
                   const texto = [
                     match?.id,
                     match?.titulo,
@@ -1143,6 +1151,7 @@ export class DisparoEmailsComponent implements OnInit {
                     log?.enviados,
                     log?.erros,
                     textoDest,
+                    errosLista.join(' '),
                   ].map((v) => this.normalizeText(v)).join(' ');
                   return texto.includes(termoBuscaLog);
                 });
@@ -1157,17 +1166,57 @@ export class DisparoEmailsComponent implements OnInit {
                 const enviados = log.enviados ?? 0;
                 const total = log.totalDestinatarios ?? 0;
                 const erros = log.erros ?? 0;
-                const dest = log.destinatarios || [];
-                const rows = dest
-                  .map(
-                    (d) =>
-                      `<tr class="border-b border-gray-100 hover:bg-gray-50">
-                        <td class="p-2 text-sm text-gray-800">${this.escapeHtml(d.email)}</td>
-                        <td class="p-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span></td>
-                        <td class="p-2 text-xs text-gray-500">${d.status === 'erro' && d.mensagem ? this.escapeHtml(d.mensagem) : '—'}</td>
-                      </tr>`
-                  )
-                  .join('');
+                const dest: any[] = log.destinatarios || [];
+                const errosLista: string[] = (log as any).errosLista || [];
+
+                const temDestinatarios = dest.length > 0;
+                let corpoTabela = '';
+
+                if (temDestinatarios) {
+                  const rows = dest
+                    .map(
+                      (d: any) =>
+                        `<tr class="border-b border-gray-100 hover:bg-gray-50">
+                          <td class="p-2 text-sm text-gray-800">${this.escapeHtml(d.email)}</td>
+                          <td class="p-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span></td>
+                          <td class="p-2 text-xs text-gray-500">${d.status === 'erro' && d.mensagem ? this.escapeHtml(d.mensagem) : '—'}</td>
+                        </tr>`
+                    )
+                    .join('');
+                  corpoTabela = `
+                    <div class="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th class="p-2 border-b font-semibold text-gray-600">E-mail</th>
+                            <th class="p-2 border-b font-semibold text-gray-600">Status</th>
+                            <th class="p-2 border-b font-semibold text-gray-600">Mensagem</th>
+                          </tr>
+                        </thead>
+                        <tbody class="bg-white">${rows}</tbody>
+                      </table>
+                    </div>`;
+                } else {
+                  const errosHtml =
+                    errosLista.length > 0
+                      ? `<div class="mt-2">
+                          <p class="text-xs font-semibold text-red-600 mb-1">Erros (${errosLista.length}):</p>
+                          <ul class="text-xs text-red-500 space-y-0.5 max-h-32 overflow-y-auto">
+                            ${errosLista.map((e: string) => `<li class="truncate">• ${this.escapeHtml(e)}</li>`).join('')}
+                          </ul>
+                        </div>`
+                      : '';
+                  corpoTabela = `
+                    <div class="px-3 py-3 bg-white text-sm text-gray-600">
+                      <div class="flex gap-6">
+                        <span>✅ <strong>${enviados}</strong> enviado(s)</span>
+                        <span>👥 <strong>${total}</strong> destinatário(s)</span>
+                        ${erros > 0 ? `<span>❌ <strong>${erros}</strong> erro(s)</span>` : ''}
+                      </div>
+                      ${errosHtml}
+                    </div>`;
+                }
+
                 return `
                   <div class="mb-4 rounded-lg border border-gray-200 overflow-hidden">
                     <div class="px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
@@ -1178,14 +1227,7 @@ export class DisparoEmailsComponent implements OnInit {
                       <span class="text-emerald-600">${enviados}/${total} enviados</span>
                       ${erros > 0 ? `<span class="text-red-600">${erros} erro(s)</span>` : ''}
                     </div>
-                    <div class="overflow-x-auto max-h-48 overflow-y-auto">
-                      <table class="w-full text-left text-xs border-collapse">
-                        <thead class="bg-gray-50 sticky top-0">
-                          <tr><th class="p-2 border-b font-semibold text-gray-600">E-mail</th><th class="p-2 border-b font-semibold text-gray-600">Status</th><th class="p-2 border-b font-semibold text-gray-600">Mensagem</th></tr>
-                        </thead>
-                        <tbody class="bg-white">${rows || '<tr><td colspan="3" class="p-2 text-gray-400">Nenhum destinatário registrado.</td></tr>'}</tbody>
-                      </table>
-                    </div>
+                    ${corpoTabela}
                   </div>`;
               });
               logResults.innerHTML = blocos.join('');
@@ -1364,33 +1406,42 @@ export class DisparoEmailsComponent implements OnInit {
         console.log('[Disparo] preConfirm resultado:', { templateId, listaId, usarGrupo, emailsPersonalizados });
         return { templateId, listaId, usarGrupo, emailsPersonalizados };
       },
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed && result.value) {
-        Swal.fire({
-          title: 'Enviando...',
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          },
-        });
         const { templateId, listaId, usarGrupo, emailsPersonalizados } = result.value!;
         console.log('[Disparo] Enviando:', { partidaId: match.id, templateId, listaId, usarGrupo, emailsPersonalizados });
-        this.emailService
-          .send(match.id, templateId, this.currentUser?.id, { listaId, usarGrupo, emailsPersonalizados, tipoDisparo: this.tipoAtivo })
-          .subscribe({
-            next: (res: SendEmailsResponse) => {
-              const msg =
-                res.erros && res.erros.length > 0
-                  ? `${res.enviados} enviado(s). Erros: ${res.erros.slice(0, 3).join('; ')}${res.erros.length > 3 ? '...' : ''}`
-                  : `${res.enviados} e-mail(s) enviado(s) com sucesso.`;
-              Swal.fire({ icon: 'success', title: 'Disparo concluído', text: msg });
-              this.carregarMatches();
-            },
-            error: (err: HttpErrorResponse) => {
-              console.error('[Disparo] Erro na requisição:', err.status, err.error);
-              Swal.fire('Erro', err.error?.error || 'Falha ao enviar e-mails.', 'error');
-            },
-          });
+
+        openDisparoProgressModal();
+        let progressState: DisparoProgressState = { total: 0, enviados: 0, processados: 0, recentItems: [] };
+
+        try {
+          const res = await this.emailService.sendStream(
+            match.id,
+            templateId,
+            this.currentUser?.id,
+            { listaId, usarGrupo, emailsPersonalizados, tipoDisparo: this.tipoAtivo },
+            {
+              onInit: ({ total }) => {
+                progressState = { ...progressState, total };
+                updateDisparoProgressModal(progressState);
+              },
+              onProgress: (progress) => {
+                progressState = appendProgressItem(progressState, progress);
+                updateDisparoProgressModal(progressState);
+              },
+            }
+          );
+          await showDisparoResultModal(res);
+          this.carregarMatches();
+        } catch (err: unknown) {
+          console.error('[Disparo] Erro na requisição:', err);
+          const partial = (err as { partial?: SendEmailsResponse })?.partial;
+          const message = err instanceof Error ? err.message : 'Falha ao enviar e-mails.';
+          await showDisparoPartialErrorModal(message, partial);
+          if (partial && partial.enviados > 0) {
+            this.carregarMatches();
+          }
+        }
       }
     });
   }

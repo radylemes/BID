@@ -12,7 +12,15 @@ import { of, forkJoin } from 'rxjs';
 import { switchMap, map, catchError } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
 import { SettingsService, ExportPdfStyle } from '../../services/settings.service';
-import { EmailService } from '../../services/email.service';
+import { EmailService, SendEmailsResponse } from '../../services/email.service';
+import {
+  openDisparoProgressModal,
+  updateDisparoProgressModal,
+  appendProgressItem,
+  showDisparoResultModal,
+  showDisparoPartialErrorModal,
+  DisparoProgressState,
+} from '../email/email-disparo-progress.util';
 import { EventoRhService } from '../../services/evento-rh.service';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
@@ -785,20 +793,24 @@ export class MatchManagerComponent implements OnInit {
             }
             return { listaId, templateId };
           },
-        }).then((result) => {
+        }).then(async (result) => {
           if (result.isConfirmed && result.value) {
-            Swal.fire({ title: 'Enviando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-            this.emailService
-              .send(match.id, result.value!.templateId, this.currentUser?.id, { listaId: result.value!.listaId })
-              .subscribe({
-                next: (res) => {
-                  const msg = res.erros?.length
-                    ? `${res.enviados} enviado(s). Erros: ${res.erros.slice(0, 3).join('; ')}${res.erros.length > 3 ? '...' : ''}`
-                    : `${res.enviados} e-mail(s) enviado(s) com sucesso.`;
-                  Swal.fire({ icon: 'success', title: 'Disparo concluído', text: msg });
-                },
-                error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao enviar e-mails.', 'error'),
-              });
+            openDisparoProgressModal();
+            let progressState: DisparoProgressState = { total: 0, enviados: 0, processados: 0, recentItems: [] };
+
+            try {
+              const res = await this.emailService.sendStream(
+                match.id,
+                result.value!.templateId,
+                this.currentUser?.id,
+                { listaId: result.value!.listaId }
+              );
+              await showDisparoResultModal(res);
+            } catch (err: unknown) {
+              const partial = (err as { partial?: SendEmailsResponse })?.partial;
+              const message = err instanceof Error ? err.message : 'Falha ao enviar e-mails.';
+              await showDisparoPartialErrorModal(message, partial);
+            }
           }
         });
       },
