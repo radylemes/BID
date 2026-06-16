@@ -306,17 +306,25 @@ async function enviarEmBlocos(
       if (result.ok) {
         resultados.enviados++;
         resultados.destinatarios.push({ email, status: "enviado" });
-        if (onProgress) {
+      if (onProgress) {
+        try {
           onProgress({ email, status: "enviado", enviados: resultados.enviados, total, mensagem: null });
+        } catch (progressErr) {
+          await logErro("EMAIL_DISPARO_ON_PROGRESS", progressErr);
         }
+      }
       } else {
         const erroMsg = result.erro || `${email}: Erro ao enviar`;
         resultados.erros.push(erroMsg);
         const mensagem = erroMsg.includes(": ") ? erroMsg.split(": ").slice(1).join(": ") : erroMsg;
         resultados.destinatarios.push({ email, status: "erro", mensagem });
-        if (onProgress) {
+      if (onProgress) {
+        try {
           onProgress({ email, status: "erro", enviados: resultados.enviados, total, mensagem });
+        } catch (progressErr) {
+          await logErro("EMAIL_DISPARO_ON_PROGRESS", progressErr);
         }
+      }
       }
       if (j < bloco.length - 1) await delay(delayItem);
     }
@@ -330,8 +338,28 @@ async function enviarEmBlocos(
 }
 
 function sseWrite(res, event, data) {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-  if (typeof res.flush === "function") res.flush();
+  try {
+    if (!res || res.writableEnded || res.destroyed) return false;
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (typeof res.flush === "function") res.flush();
+    return true;
+  } catch (err) {
+    console.error(`[EMAIL DISPARO] Falha ao escrever SSE (${event}):`, err.message);
+    return false;
+  }
+}
+
+function isSmtpConnectionError(err) {
+  const code = String(err?.code || "").toUpperCase();
+  const msg = String(err?.message || "").toLowerCase();
+  const connectionCodes = ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ESOCKET", "EPROTO", "EPIPE", "ENOTFOUND"];
+  if (connectionCodes.includes(code)) return true;
+  return (
+    msg.includes("connection") ||
+    msg.includes("socket") ||
+    msg.includes("timeout") ||
+    msg.includes("closed")
+  );
 }
 
 async function prepareDisparo(body, req) {
@@ -511,7 +539,29 @@ async function prepareDisparo(body, req) {
 }
 
 function createSendFn(prepared) {
-  const { partidaId, transporter, smtpFrom, evento, template, pdfAttachment, pdfFilename } = prepared;
+  const { partidaId, smtpFrom, evento, template, pdfAttachment, pdfFilename } = prepared;
+  const sendOne = async (mailOptions) => {
+    try {
+      await prepared.transporter.sendMail(mailOptions);
+      return { ok: true };
+    } catch (err) {
+      if (isSmtpConnectionError(err)) {
+        try {
+          const fresh = await getSmtpTransporter();
+          if (fresh) {
+            prepared.transporter = fresh;
+            await fresh.sendMail(mailOptions);
+            return { ok: true };
+          }
+        } catch (retryErr) {
+          await logErro("EMAIL_SEND_ONE_RETRY", retryErr);
+          err = retryErr;
+        }
+      }
+      throw err;
+    }
+  };
+
   return async (item) => {
     const email = String(item.email).trim();
     try {
@@ -550,8 +600,7 @@ function createSendFn(prepared) {
       if (pdfAttachment && pdfFilename) {
         mailOptions.attachments = [{ filename: pdfFilename, content: pdfAttachment }];
       }
-      await transporter.sendMail(mailOptions);
-      return { ok: true };
+      return await sendOne(mailOptions);
     } catch (err) {
       await logErro("EMAIL_SEND_ONE", err);
       const msg = err.message || "Erro ao enviar";
@@ -1818,9 +1867,6 @@ exports.sendEmails = async (req, res) => {
 };
 
 exports.sendEmailsStream = async (req, res) => {
-  const isClientGone = () =>
-    Boolean(req.aborted || req.destroyed || res.destroyed || res.writableEnded);
-
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -1831,14 +1877,12 @@ exports.sendEmailsStream = async (req, res) => {
 
   let prepared = null;
   let resultados = { enviados: 0, erros: [], destinatarios: [] };
-  let terminalEventSent = false;
 
   try {
     console.log("[EMAIL DISPARO STREAM] body:", req.body);
     const prep = await prepareDisparo(req.body, req);
     if (prep.error) {
       sseWrite(res, "fatal", { error: prep.error });
-      terminalEventSent = true;
       return;
     }
     prepared = prep;
@@ -1848,20 +1892,11 @@ exports.sendEmailsStream = async (req, res) => {
     resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), {
       ...DISPARO_BLOCO_OPTS,
       onProgress: (progress) => {
-        if (!isClientGone()) sseWrite(res, "progress", progress);
+        sseWrite(res, "progress", progress);
       },
-      shouldAbort: () => req.aborted || res.destroyed,
     });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_SEND_STREAM", error);
-    if (!isClientGone()) {
-      sseWrite(res, "fatal", {
-        error: error.message || "Erro ao enviar e-mails.",
-        enviados: resultados.enviados,
-        destinatarios: resultados.destinatarios,
-      });
-      terminalEventSent = true;
-    }
   } finally {
     if (prepared) {
       try {
@@ -1869,8 +1904,6 @@ exports.sendEmailsStream = async (req, res) => {
       } catch (e) {
         await logErro("EMAIL_CONTROLLER_SEND_STREAM_FINALIZE", e);
       }
-    }
-    if (prepared && !terminalEventSent && !res.writableEnded) {
       sseWrite(res, "done", {
         enviados: resultados.enviados,
         total: prepared.itensValidos.length,
