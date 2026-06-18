@@ -42,6 +42,7 @@ export interface EventoRhHistoricoItem {
   titulo: string | null;
   banner: string | null;
   local: string | null;
+  setor_evento_nome?: string | null;
   data_evento: string | null;
   data_inicio_inscricao: string | null;
   data_limite_inscricao: string | null;

@@ -69,11 +69,26 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
               ></div>
 
               <div class="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4">
-                <span
-                  class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm mb-1.5 sm:mb-2 inline-block"
+                <div class="flex flex-wrap gap-1.5 mb-1.5 sm:mb-2">
+                  <span
+                    *ngIf="match.data_jogo"
+                    class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm inline-block"
+                  >
+                    Evento em {{ match.data_jogo | date: 'dd/MM/yyyy' }}
+                  </span>
+                  <span
+                    *ngIf="match.data_limite_aposta"
+                    class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm inline-block"
+                  >
+                    Encerrado em {{ match.data_limite_aposta | date: 'dd/MM/yyyy HH:mm' }}
+                  </span>
+                </div>
+                <p
+                  *ngIf="match.setor_evento_nome"
+                  class="text-[10px] sm:text-[11px] text-white/90 font-bold mb-1 flex items-center gap-1"
                 >
-                  Encerrado em {{ (match.data_limite_aposta || match.data_jogo) | date: 'dd/MM/yyyy HH:mm' }}
-                </span>
+                  <span aria-hidden="true">🪑</span> {{ match.setor_evento_nome }}
+                </p>
                 <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words">
                   {{ match.titulo }}
                 </h3>
@@ -240,6 +255,12 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                   <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words line-clamp-2">
                     {{ h.titulo || 'Sem título' }}
                   </h3>
+                  <p
+                    *ngIf="h.setor_evento_nome"
+                    class="text-[10px] sm:text-[11px] text-white/90 font-bold mt-1 flex items-center gap-1"
+                  >
+                    <span aria-hidden="true">🪑</span> {{ h.setor_evento_nome }}
+                  </p>
                 </div>
               </div>
 

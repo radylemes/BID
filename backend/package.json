@@ -11,7 +11,8 @@
     "reset-operational": "node --max-old-space-size=4096 resetOperationalData.js",
     "validate-apostas-bids": "node scripts/validateApostasBids.js",
     "list-usuarios-apostaram": "node scripts/listUsuariosApostaram.js",
-    "remove-apostas-devolver-pontos": "node scripts/removeApostasDevolverPontos.js"
+    "remove-apostas-devolver-pontos": "node scripts/removeApostasDevolverPontos.js",
+    "install-puppeteer-chrome": "PUPPETEER_CACHE_DIR=\"$(pwd)/tmp/puppeteer-cache\" npx puppeteer browsers install chrome"
   },
   "keywords": [],
   "author": "Daniel Lemes",

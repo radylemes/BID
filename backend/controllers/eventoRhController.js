@@ -367,6 +367,7 @@ exports.listHistoricoUsuario = async (req, res) => {
               e.data_limite_inscricao,
               e.status AS evento_status,
               e.vagas,
+              se.nome AS setor_evento_nome,
               (SELECT COUNT(*) FROM inscricoes_rh x WHERE x.evento_id = i.evento_id AND x.status IN ('INSCRITO','PRESENTE','FALTOU')) AS ocupadas_vagas,
               (SELECT COUNT(*) FROM inscricoes_rh x WHERE x.evento_id = i.evento_id AND x.status <> 'CANCELADO') AS total_inscritos_ativos,
               (
@@ -378,6 +379,8 @@ exports.listHistoricoUsuario = async (req, res) => {
               ) AS posicao_efetiva
        FROM inscricoes_rh i
        INNER JOIN eventos_rh e ON e.id = i.evento_id
+       LEFT JOIN partidas p ON p.id = e.partida_id
+       LEFT JOIN setores_evento se ON se.id = p.setor_evento_id
        WHERE i.usuario_id = ?
        ORDER BY e.data_evento ASC, i.id ASC`,
       [usuarioId],
@@ -406,6 +409,7 @@ exports.listHistoricoUsuario = async (req, res) => {
         data_limite_inscricao: dbUtcToISO(row.data_limite_inscricao),
         evento_status: row.evento_status,
         vagas,
+        setor_evento_nome: row.setor_evento_nome || null,
       };
     });
 

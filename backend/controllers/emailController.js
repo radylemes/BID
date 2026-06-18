@@ -1,40 +1,123 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const db = require("../config/db");
 const nodemailer = require("nodemailer");
 const logErro = require("../utils/errorLogger");
 
+/** Diretório gravável pelo utilizador do processo (www) para cache/profile do Chromium. */
+const PUPPETEER_BASE_TMP = path.join(__dirname, "..", "tmp");
+
+function resolveWritablePuppeteerBaseTmp() {
+  const candidates = [PUPPETEER_BASE_TMP, path.join(os.tmpdir(), "bid-puppeteer")];
+  for (const candidate of candidates) {
+    try {
+      fs.mkdirSync(candidate, { recursive: true });
+      fs.accessSync(candidate, fs.constants.W_OK);
+      return candidate;
+    } catch (_) {}
+  }
+  return PUPPETEER_BASE_TMP;
+}
+
+function ensurePuppeteerDirs() {
+  const baseTmp = resolveWritablePuppeteerBaseTmp();
+  const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(baseTmp, "puppeteer-cache");
+  const configDir = process.env.XDG_CONFIG_HOME || path.join(baseTmp, "puppeteer-config");
+  const userDataDir = path.join(baseTmp, "puppeteer-user-data");
+  for (const dir of [baseTmp, cacheDir, configDir, userDataDir]) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (_) {}
+  }
+  if (!process.env.PUPPETEER_CACHE_DIR) process.env.PUPPETEER_CACHE_DIR = cacheDir;
+  if (!process.env.XDG_CONFIG_HOME) process.env.XDG_CONFIG_HOME = configDir;
+  return { baseTmp, cacheDir, configDir, userDataDir };
+}
+
 /** Carrega puppeteer sob demanda (evita EACCES em /root/config ao subir o servidor). */
 let puppeteerModule = null;
 function getPuppeteer() {
   if (!puppeteerModule) {
-    const baseTmp = path.join(__dirname, "..", "tmp");
-    const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(baseTmp, "puppeteer-cache");
-    const configDir = process.env.XDG_CONFIG_HOME || path.join(baseTmp, "puppeteer-config");
-    try {
-      fs.mkdirSync(cacheDir, { recursive: true });
-      fs.mkdirSync(configDir, { recursive: true });
-    } catch (_) {}
-    if (!process.env.PUPPETEER_CACHE_DIR) process.env.PUPPETEER_CACHE_DIR = cacheDir;
-    if (!process.env.XDG_CONFIG_HOME) process.env.XDG_CONFIG_HOME = configDir;
+    ensurePuppeteerDirs();
     puppeteerModule = require("puppeteer");
   }
   return puppeteerModule;
 }
 
+function getPuppeteerLaunchOptions() {
+  const { baseTmp, cacheDir, configDir, userDataDir } = ensurePuppeteerDirs();
+  const launchOptions = {
+    headless: true,
+    userDataDir,
+    env: {
+      ...process.env,
+      HOME: baseTmp,
+      XDG_CONFIG_HOME: configDir,
+      XDG_CACHE_HOME: cacheDir,
+    },
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-crash-reporter",
+      "--disable-breakpad",
+    ],
+  };
+  const executablePath = getChromiumExecutablePath();
+  if (executablePath) launchOptions.executablePath = executablePath;
+  return launchOptions;
+}
+
 /** Caminhos comuns do Chromium/Chrome no servidor (evita depender do cache do Puppeteer). */
 const CHROMIUM_PATHS = [
+  process.env.PUPPETEER_EXECUTABLE_PATH,
+  process.env.CHROME_PATH,
+  "/usr/lib64/chromium-browser/chromium-browser",
   "/usr/bin/chromium-browser",
   "/usr/bin/chromium",
-  "/usr/bin/google-chrome",
   "/usr/bin/google-chrome-stable",
+  "/usr/bin/google-chrome",
   "/snap/bin/chromium",
-];
-function getChromiumExecutablePath() {
-  for (const p of CHROMIUM_PATHS) {
-    if (fs.existsSync(p)) return p;
+].filter(Boolean);
+
+function resolveChromiumBinary(candidate) {
+  if (!candidate || !fs.existsSync(candidate)) return null;
+  try {
+    const resolved = fs.realpathSync(candidate);
+    if (resolved.endsWith(".sh")) {
+      const binary = path.join(path.dirname(resolved), "chromium-browser");
+      return fs.existsSync(binary) ? binary : null;
+    }
+    return resolved;
+  } catch (_) {
+    return candidate;
   }
-  return undefined;
+}
+
+function findPuppeteerCachedChrome(cacheDir) {
+  const chromeRoot = path.join(cacheDir, "chrome");
+  if (!fs.existsSync(chromeRoot)) return null;
+  try {
+    const versions = fs.readdirSync(chromeRoot).filter(Boolean).sort().reverse();
+    for (const ver of versions) {
+      for (const sub of ["chrome-linux64/chrome", "chrome-linux/chrome"]) {
+        const candidate = path.join(chromeRoot, ver, sub);
+        if (fs.existsSync(candidate)) return candidate;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+function getChromiumExecutablePath() {
+  for (const candidate of CHROMIUM_PATHS) {
+    const resolved = resolveChromiumBinary(candidate);
+    if (resolved) return resolved;
+  }
+  const { cacheDir } = ensurePuppeteerDirs();
+  return findPuppeteerCachedChrome(cacheDir);
 }
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 
@@ -1809,20 +1892,21 @@ async function buildListaGanhadoresPdf(partidaId) {
   };
 
   const html = buildPdfGanhadoresHtml(pdfData);
-  const executablePath = getChromiumExecutablePath();
-  const launchOptions = {
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-  };
-  if (executablePath) launchOptions.executablePath = executablePath;
+  const launchOptions = getPuppeteerLaunchOptions();
+  if (!launchOptions.executablePath) {
+    throw new Error(
+      "Chrome/Chromium não encontrado. Instale chromium no servidor ou execute: " +
+        "PUPPETEER_CACHE_DIR=backend/tmp/puppeteer-cache npx puppeteer browsers install chrome"
+    );
+  }
 
   let browser;
   try {
     browser = await getPuppeteer().launch(launchOptions);
     const page = await browser.newPage();
     await page.setContent(html, {
-      waitUntil: "networkidle0",
-      timeout: 20000,
+      waitUntil: "load",
+      timeout: 30000,
     });
     if (pdfData.bannerDataUrl || pdfData.bannerUrl) {
       await page.waitForSelector("img[src]", { timeout: 5000 }).catch(() => {});

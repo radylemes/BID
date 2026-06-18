@@ -1384,6 +1384,8 @@ exports.getPublicHistory = async (req, res) => {
         quantidade_premios_efetiva: qtdPremiosEfetiva,
         quantidade_premios_restante: qtdPremiosRestante,
         ingressos_sorteados: Number(match.ingressos_sorteados || 0),
+        data_jogo: dbUtcToISO(match.data_jogo),
+        data_evento: dbUtcToISO(match.data_jogo),
         data_limite_aposta: dbUtcToISO(match.data_limite_aposta),
         stats: statsMap.get(match.id) || {
           total_lances: 0,
