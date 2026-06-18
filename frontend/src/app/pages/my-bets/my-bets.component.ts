@@ -3,9 +3,16 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
+import { SettingsService } from '../../services/settings.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import {
+  calcularLimiteIndicacao,
+  DEFAULT_LIMITE_INDICACAO_DIRECAO,
+  DEFAULT_LIMITE_INDICACAO_HORAS,
+  DirecaoLimiteIndicacao,
+} from '../../utils/convidados-limite-indicacao';
 
 @Component({
   selector: 'app-my-bets',
@@ -18,16 +25,33 @@ export class MyBetsComponent implements OnInit {
   currentUser: any = {};
   loading = false;
 
+  limiteIndicacaoHoras = DEFAULT_LIMITE_INDICACAO_HORAS;
+  limiteIndicacaoDirecao: DirecaoLimiteIndicacao = DEFAULT_LIMITE_INDICACAO_DIRECAO;
+
   constructor(
     private matchService: MatchService,
     private guestService: GuestService,
+    private settingsService: SettingsService,
     private router: Router,
     private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    this.carregarConfigLimiteIndicacao();
     this.carregarHistorico();
+  }
+
+  private carregarConfigLimiteIndicacao() {
+    this.settingsService.getGuestIndicationSettings().subscribe({
+      next: (cfg) => {
+        this.limiteIndicacaoHoras =
+          Number(cfg?.convidados_limite_indicacao_horas) || DEFAULT_LIMITE_INDICACAO_HORAS;
+        this.limiteIndicacaoDirecao =
+          cfg?.convidados_limite_indicacao_direcao === 'depois' ? 'depois' : 'antes';
+        this.cd.detectChanges();
+      },
+    });
   }
 
   getBannerUrl(match: { banner?: string; id?: number }): string {
@@ -130,12 +154,8 @@ export class MyBetsComponent implements OnInit {
   }
 
   private obterDataLimiteIndicacao(match: any): Date | null {
-    if (!match?.data_evento) return null;
-    const dataEvento = new Date(match.data_evento);
-    if (Number.isNaN(dataEvento.getTime())) return null;
-    dataEvento.setHours(0, 0, 0, 0);
-    dataEvento.setMilliseconds(dataEvento.getMilliseconds() - 1);
-    return dataEvento;
+    const dataRef = match?.data_evento ?? match?.data_jogo;
+    return calcularLimiteIndicacao(dataRef, this.limiteIndicacaoHoras, this.limiteIndicacaoDirecao);
   }
 
   indicacaoConvidadosEncerrada(match: any): boolean {

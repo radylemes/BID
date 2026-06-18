@@ -72,6 +72,16 @@ router.post(
   settingsController.updateWtPassSettings,
 );
 
+
+// Configurações de indicação de convidados
+router.get("/guest-indication", authMiddleware, settingsController.getGuestIndicationSettings);
+router.post(
+  "/guest-indication",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  settingsController.updateGuestIndicationSettings,
+);
+
 // Atualiza as configurações (ADMIN)
 router.post(
   "/",

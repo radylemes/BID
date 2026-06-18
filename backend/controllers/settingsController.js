@@ -7,6 +7,11 @@ const {
   liberarTodosBloqueiosWtPass,
   parseWtPassBloqueioHabilitado,
 } = require("./eventoRhController");
+const {
+  parseHorasLimiteIndicacao,
+  parseDirecaoLimiteIndicacao,
+  MAX_HORAS,
+} = require("../utils/convidadosLimiteIndicacao");
 
 async function gravarAuditoria(
   connection,
@@ -249,6 +254,79 @@ exports.updateWtPassSettings = async (req, res) => {
     await connection.rollback();
     await logErro("SETTINGS_CONTROLLER_UPDATE_WT_PASS", error);
     res.status(500).json({ error: "Erro ao salvar configurações do WT Pass." });
+  } finally {
+    connection.release();
+  }
+};
+
+
+/** Lê configurações de prazo para indicação de convidados. */
+exports.getGuestIndicationSettings = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT chave, valor FROM configuracoes WHERE chave IN ('convidados_limite_indicacao_horas', 'convidados_limite_indicacao_direcao')",
+    );
+    const mapa = rows.reduce((acc, r) => {
+      acc[r.chave] = r.valor;
+      return acc;
+    }, {});
+    res.json({
+      convidados_limite_indicacao_horas: parseHorasLimiteIndicacao(
+        mapa.convidados_limite_indicacao_horas,
+      ),
+      convidados_limite_indicacao_direcao: parseDirecaoLimiteIndicacao(
+        mapa.convidados_limite_indicacao_direcao,
+      ),
+    });
+  } catch (error) {
+    await logErro("SETTINGS_CONTROLLER_GET_GUEST_INDICATION", error);
+    res.status(500).json({ error: "Erro ao carregar configurações de indicação de convidados." });
+  }
+};
+
+/** Atualiza configurações de prazo para indicação de convidados. */
+exports.updateGuestIndicationSettings = async (req, res) => {
+  const {
+    adminId,
+    convidados_limite_indicacao_horas,
+    convidados_limite_indicacao_direcao,
+  } = req.body || {};
+
+  const horasRaw = Math.floor(Number(convidados_limite_indicacao_horas));
+  if (!Number.isFinite(horasRaw) || horasRaw < 0 || horasRaw > MAX_HORAS) {
+    return res.status(400).json({
+      error: `Informe horas entre 0 e ${MAX_HORAS}.`,
+    });
+  }
+
+  const direcao = parseDirecaoLimiteIndicacao(convidados_limite_indicacao_direcao);
+  const horasSalvar = parseHorasLimiteIndicacao(horasRaw);
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
+      ["convidados_limite_indicacao_horas", String(horasSalvar)],
+    );
+    await connection.execute(
+      "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
+      ["convidados_limite_indicacao_direcao", direcao],
+    );
+    await gravarAuditoria(connection, adminId, "CONFIG_SISTEMA", "UPDATE_GUEST_INDICATION_SETTINGS", null, {
+      convidados_limite_indicacao_horas: horasSalvar,
+      convidados_limite_indicacao_direcao: direcao,
+    });
+    await connection.commit();
+    res.json({
+      message: "Configurações de indicação de convidados atualizadas.",
+      convidados_limite_indicacao_horas: horasSalvar,
+      convidados_limite_indicacao_direcao: direcao,
+    });
+  } catch (error) {
+    await connection.rollback();
+    await logErro("SETTINGS_CONTROLLER_UPDATE_GUEST_INDICATION", error);
+    res.status(500).json({ error: "Erro ao salvar configurações de indicação de convidados." });
   } finally {
     connection.release();
   }

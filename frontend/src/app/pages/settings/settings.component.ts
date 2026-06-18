@@ -13,6 +13,11 @@ import { UserService } from '../../services/user.service';
 import { environment } from '../../../environments/environment';
 import { TenantsStatusComponent } from '../tenants-status/tenants-status.component';
 import { SystemMonitorComponent } from '../system-monitor/system-monitor.component';
+import {
+  DEFAULT_LIMITE_INDICACAO_DIRECAO,
+  DEFAULT_LIMITE_INDICACAO_HORAS,
+  DirecaoLimiteIndicacao,
+} from '../../utils/convidados-limite-indicacao';
 
 @Component({
   selector: 'app-settings',
@@ -85,6 +90,21 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             <span>
               WT Pass
               <span class="block text-[10px] font-normal opacity-70">Política e bloqueio</span>
+            </span>
+          </button>
+          <button
+            (click)="abaAtual = 'convidados'; carregarGuestIndicationSettings()"
+            [ngClass]="
+              abaAtual === 'convidados'
+                ? 'bg-indigo-100 text-indigo-700 font-bold'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
+            "
+            class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
+          >
+            <span class="text-lg">🎟️</span>
+            <span>
+              Convidados / Ingressos
+              <span class="block text-[10px] font-normal opacity-70">Prazo de indicação</span>
             </span>
           </button>
           <button
@@ -538,6 +558,39 @@ import { SystemMonitorComponent } from '../system-monitor/system-monitor.compone
             </div>
           </div>
 
+          <div *ngIf="abaAtual === 'convidados' && !loading" class="space-y-6">
+            <div>
+              <h3 class="text-xl font-black text-[var(--app-text)]">Prazo de indicação de convidados</h3>
+              <p class="text-xs text-[var(--app-text-muted)] mt-1 max-w-2xl">
+                Define até quando os ganhadores podem indicar retirantes, com base no início do evento
+                (<strong>data e hora do jogo</strong>). Exemplo: evento às 18:00 com
+                <strong>2 horas depois</strong> → indicação permitida até 20:00 do mesmo dia.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+              <div class="bg-[var(--color-bg-surface-alt)] border border-[var(--app-border)] rounded-xl p-4">
+                <label for="convidados-horas" class="block text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-wide mb-2">Horas</label>
+                <input id="convidados-horas" type="number" min="0" max="720" step="1" [(ngModel)]="convidadosLimiteIndicacaoHoras" class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow" />
+                <p class="text-[11px] text-[var(--app-text-muted)] mt-2">Quantidade de horas de offset em relação ao início do evento (0 a 720).</p>
+              </div>
+              <div class="bg-[var(--color-bg-surface-alt)] border border-[var(--app-border)] rounded-xl p-4">
+                <label for="convidados-direcao" class="block text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-wide mb-2">Direção</label>
+                <select id="convidados-direcao" [(ngModel)]="convidadosLimiteIndicacaoDirecao" class="w-full h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-shadow">
+                  <option value="antes">Antes do início do evento</option>
+                  <option value="depois">Depois do início do evento</option>
+                </select>
+                <p class="text-[11px] text-[var(--app-text-muted)] mt-2">«Antes» encerra antes do horário de início; «depois», após o início.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+              <button type="button" (click)="salvarGuestIndicationSettings()" [disabled]="salvandoGuestIndication" class="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-xs uppercase tracking-wide transition-all">
+                {{ salvandoGuestIndication ? 'Salvando...' : 'Salvar configurações' }}
+              </button>
+            </div>
+          </div>
+
           <div *ngIf="abaAtual === 'tenants-status'">
             <app-tenants-status></app-tenants-status>
           </div>
@@ -580,6 +633,10 @@ export class SettingsComponent implements OnInit {
   wtPassFaltasPermitidas = 1;
   wtPassEventosBloqueio = 5;
   salvandoWtPass = false;
+
+  convidadosLimiteIndicacaoHoras = DEFAULT_LIMITE_INDICACAO_HORAS;
+  convidadosLimiteIndicacaoDirecao: DirecaoLimiteIndicacao = DEFAULT_LIMITE_INDICACAO_DIRECAO;
+  salvandoGuestIndication = false;
 
   get tinymceInit(): Record<string, unknown> {
     return {
@@ -627,12 +684,14 @@ export class SettingsComponent implements OnInit {
         aba === 'politica' ||
         aba === 'pontos' ||
         aba === 'wt-pass' ||
+        aba === 'convidados' ||
         aba === 'tenants-status' ||
         aba === 'monitor'
       ) {
         this.abaAtual = aba;
         if (aba === 'email' || aba === 'politica') this.carregarSettings();
         if (aba === 'wt-pass') this.carregarWtPassSettings();
+        if (aba === 'convidados') this.carregarGuestIndicationSettings();
       }
     });
   }
@@ -672,6 +731,63 @@ export class SettingsComponent implements OnInit {
         Swal.fire('Erro', 'Não foi possível carregar as configurações do WT Pass.', 'error');
       },
     });
+  }
+
+
+  carregarGuestIndicationSettings() {
+    this.loading = true;
+    this.settingsService.getGuestIndicationSettings().subscribe({
+      next: (cfg) => {
+        this.convidadosLimiteIndicacaoHoras =
+          Number(cfg?.convidados_limite_indicacao_horas) || DEFAULT_LIMITE_INDICACAO_HORAS;
+        this.convidadosLimiteIndicacaoDirecao =
+          cfg?.convidados_limite_indicacao_direcao === 'depois' ? 'depois' : 'antes';
+        this.loading = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        Swal.fire('Erro', 'Não foi possível carregar as configurações de convidados.', 'error');
+      },
+    });
+  }
+
+  salvarGuestIndicationSettings() {
+    const horas = Math.floor(Number(this.convidadosLimiteIndicacaoHoras));
+    if (!Number.isFinite(horas) || horas < 0 || horas > 720) {
+      Swal.fire('Valores inválidos', 'Informe horas entre 0 e 720.', 'warning');
+      return;
+    }
+    const direcao: DirecaoLimiteIndicacao =
+      this.convidadosLimiteIndicacaoDirecao === 'depois' ? 'depois' : 'antes';
+    this.salvandoGuestIndication = true;
+    this.settingsService
+      .updateGuestIndicationSettings(
+        {
+          convidados_limite_indicacao_horas: horas,
+          convidados_limite_indicacao_direcao: direcao,
+        },
+        this.currentUser?.id,
+      )
+      .subscribe({
+        next: (res) => {
+          this.convidadosLimiteIndicacaoHoras =
+            Number(res?.convidados_limite_indicacao_horas) || horas;
+          this.convidadosLimiteIndicacaoDirecao =
+            res?.convidados_limite_indicacao_direcao === 'depois' ? 'depois' : 'antes';
+          this.salvandoGuestIndication = false;
+          Swal.fire({
+            icon: 'success',
+            title: 'Configurações de convidados guardadas.',
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        },
+        error: (err) => {
+          this.salvandoGuestIndication = false;
+          Swal.fire('Erro', err.error?.error || 'Falha ao salvar configurações de convidados.', 'error');
+        },
+      });
   }
 
   salvarWtPassSettings() {

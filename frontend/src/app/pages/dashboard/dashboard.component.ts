@@ -3,10 +3,17 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
+import { SettingsService } from '../../services/settings.service';
 import { EventoRhService } from '../../services/evento-rh.service';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import {
+  calcularLimiteIndicacao,
+  DEFAULT_LIMITE_INDICACAO_DIRECAO,
+  DEFAULT_LIMITE_INDICACAO_HORAS,
+  DirecaoLimiteIndicacao,
+} from '../../utils/convidados-limite-indicacao';
 
 @Component({
   selector: 'app-dashboard',
@@ -28,9 +35,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   wtPassDisponiveisCount = 0;
   wtPassContagemCarregada = false;
 
+  limiteIndicacaoHoras = DEFAULT_LIMITE_INDICACAO_HORAS;
+  limiteIndicacaoDirecao: DirecaoLimiteIndicacao = DEFAULT_LIMITE_INDICACAO_DIRECAO;
+
   constructor(
     private matchService: MatchService,
     private guestService: GuestService,
+    private settingsService: SettingsService,
     private eventoRhService: EventoRhService,
     private router: Router,
     private cd: ChangeDetectorRef,
@@ -40,6 +51,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     this.isPortaria =
       String(this.currentUser?.role || this.currentUser?.perfil || '').toUpperCase() === 'PORTARIA';
+    this.carregarConfigLimiteIndicacao();
     this.carregarDados();
     if (!this.isPortaria) this.carregarContagemWtPass();
 
@@ -60,13 +72,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return uploadsPublicUrl(match.banner);
   }
 
+  private carregarConfigLimiteIndicacao() {
+    this.settingsService.getGuestIndicationSettings().subscribe({
+      next: (cfg) => {
+        this.limiteIndicacaoHoras =
+          Number(cfg?.convidados_limite_indicacao_horas) || DEFAULT_LIMITE_INDICACAO_HORAS;
+        this.limiteIndicacaoDirecao =
+          cfg?.convidados_limite_indicacao_direcao === 'depois' ? 'depois' : 'antes';
+        this.cd.detectChanges();
+      },
+    });
+  }
+
   private obterDataLimiteIndicacao(match: any): Date | null {
-    if (!match?.data_evento) return null;
-    const dataEvento = new Date(match.data_evento);
-    if (Number.isNaN(dataEvento.getTime())) return null;
-    dataEvento.setHours(0, 0, 0, 0);
-    dataEvento.setMilliseconds(dataEvento.getMilliseconds() - 1);
-    return dataEvento;
+    const dataRef = match?.data_evento ?? match?.data_jogo;
+    return calcularLimiteIndicacao(dataRef, this.limiteIndicacaoHoras, this.limiteIndicacaoDirecao);
+  }
+
+  indicacaoConvidadosEncerrada(match: any): boolean {
+    const limite = this.obterDataLimiteIndicacao(match);
+    if (!limite) return false;
+    return Date.now() > limite.getTime();
   }
 
   textoLimiteIndicacao(match: any): string {
@@ -356,6 +382,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // MODAL EM MASSA ALINHADO E COM BLOQUEIO DE SEGURANÇA (IGUAL MY-BETS)
   // =========================================================================
   async definirRetirantes(match: any) {
+    const dataLimiteIndicacao = this.obterDataLimiteIndicacao(match);
+    if (this.indicacaoConvidadosEncerrada(match) && dataLimiteIndicacao) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Prazo de indicação encerrado',
+        text: `A indicação de convidados encerrou em ${this.textoLimiteIndicacao(match)}.`,
+        confirmButtonColor: '#4f46e5',
+      });
+      return;
+    }
+
     this.guestService.getGuests(this.currentUser.id).subscribe(async (convidados: any[]) => {
       const htmlSelects = match.ingressos_ganhos_detalhes
         .map((ticket: any, index: number) => {
@@ -477,7 +514,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
               timer: 2000,
               showConfirmButton: false,
             });
-            this.carregarDados();
+            this.carregarConfigLimiteIndicacao();
+    this.carregarDados();
           } catch (e) {
             Swal.fire('Erro', 'Ocorreu um erro ao salvar alguns convidados.', 'error');
           }
@@ -881,16 +919,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
                   const pts = res?.pontos != null ? Number(res.pontos) : 0;
                   if (this.currentUser) this.currentUser.pontos = pts;
                   localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-                  this.carregarDados();
+                  this.carregarConfigLimiteIndicacao();
+    this.carregarDados();
                   this.cd.detectChanges();
                 },
                 error: () => {
-                  this.carregarDados();
+                  this.carregarConfigLimiteIndicacao();
+    this.carregarDados();
                   this.cd.detectChanges();
                 },
               });
             } else {
-              this.carregarDados();
+              this.carregarConfigLimiteIndicacao();
+    this.carregarDados();
               this.cd.detectChanges();
             }
           },

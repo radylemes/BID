@@ -597,7 +597,9 @@ async function initializeDatabase() {
       `INSERT IGNORE INTO configuracoes (chave, valor, descricao) VALUES
         ('wt_pass_faltas_permitidas', '1', 'Quantidade de faltas no WT Pass antes de gerar bloqueio.'),
         ('wt_pass_eventos_bloqueio', '5', 'Duração do bloqueio (em número de eventos novos criados) no WT Pass.'),
-        ('wt_pass_bloqueio_habilitado', '1', 'Ativa (1) ou desativa (0) o bloqueio por faltas no WT Pass.')`,
+        ('wt_pass_bloqueio_habilitado', '1', 'Ativa (1) ou desativa (0) o bloqueio por faltas no WT Pass.'),
+        ('convidados_limite_indicacao_horas', '24', 'Horas de offset para encerrar indicação de convidados em relação ao início do evento.'),
+        ('convidados_limite_indicacao_direcao', 'antes', 'Direção do offset: antes ou depois do início do evento (data_jogo).')`,
     );
 
     await connection.query(`

@@ -2,6 +2,10 @@ const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 const { normalizarCpfDigits, validarCpf } = require("../utils/cpf");
+const {
+  calcularLimiteIndicacao,
+  getLimiteIndicacaoConvidadosConfig,
+} = require("../utils/convidadosLimiteIndicacao");
 
 async function gravarAuditoria(
   connection,
@@ -26,15 +30,6 @@ async function gravarAuditoria(
   } catch (e) {
     await logErro("GUEST_CONTROLLER_GRAVAR_AUDITORIA", e);
   }
-}
-
-function calcularLimiteIndicacao(dataJogo) {
-  const dataEvento = new Date(dataJogo);
-  if (Number.isNaN(dataEvento.getTime())) return null;
-  const limite = new Date(dataEvento);
-  limite.setHours(0, 0, 0, 0);
-  limite.setMilliseconds(limite.getMilliseconds() - 1);
-  return limite;
 }
 
 function formatarDataHoraPtBr(data) {
@@ -275,7 +270,12 @@ exports.assignGuestToTicket = async (req, res) => {
         });
       }
 
-      const limiteIndicacao = calcularLimiteIndicacao(target.data_jogo);
+      const limiteConfig = await getLimiteIndicacaoConvidadosConfig(connection);
+      const limiteIndicacao = calcularLimiteIndicacao(
+        target.data_jogo,
+        limiteConfig.convidados_limite_indicacao_horas,
+        limiteConfig.convidados_limite_indicacao_direcao,
+      );
       if (!limiteIndicacao) {
         await connection.rollback();
         connection.release();

@@ -148,6 +148,37 @@ export class SettingsService {
     }>(`${this.apiUrl}/wt-pass`, body);
   }
 
+
+  /** Configurações de prazo para indicação de convidados. */
+  getGuestIndicationSettings(): Observable<{
+    convidados_limite_indicacao_horas: number;
+    convidados_limite_indicacao_direcao: 'antes' | 'depois';
+  }> {
+    return this.http.get<{
+      convidados_limite_indicacao_horas: number;
+      convidados_limite_indicacao_direcao: 'antes' | 'depois';
+    }>(`${this.apiUrl}/guest-indication`);
+  }
+
+  updateGuestIndicationSettings(
+    payload: {
+      convidados_limite_indicacao_horas: number;
+      convidados_limite_indicacao_direcao: 'antes' | 'depois';
+    },
+    adminId?: number,
+  ): Observable<{
+    message: string;
+    convidados_limite_indicacao_horas: number;
+    convidados_limite_indicacao_direcao: 'antes' | 'depois';
+  }> {
+    const body = adminId != null ? { ...payload, adminId } : payload;
+    return this.http.post<{
+      message: string;
+      convidados_limite_indicacao_horas: number;
+      convidados_limite_indicacao_direcao: 'antes' | 'depois';
+    }>(`${this.apiUrl}/guest-indication`, body);
+  }
+
   updateSettings(settings: Record<string, string>, adminId?: number): Observable<{ message: string }> {
     const body = adminId != null ? { ...settings, adminId } : settings;
     return this.http.post<{ message: string }>(this.apiUrl, body);

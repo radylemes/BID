@@ -294,8 +294,12 @@
             >
               <ng-container *ngIf="match.tickets_ganhos > 0">
                 <div
-                  (click)="definirRetirantes(match)"
-                  class="bg-[var(--color-bg-surface-alt)] hover:bg-[var(--app-nav-hover-bg)] rounded-xl p-4 border border-[var(--app-border)] hover:border-indigo-200 cursor-pointer transition-all flex flex-col w-full h-full justify-center group/area"
+                  (click)="!indicacaoConvidadosEncerrada(match) && definirRetirantes(match)"
+                  [ngClass]="{
+                    'bg-[var(--color-bg-surface-alt)] hover:bg-[var(--app-nav-hover-bg)] hover:border-indigo-200 cursor-pointer': !indicacaoConvidadosEncerrada(match),
+                    'bg-[var(--color-bg-surface-alt)] opacity-70 cursor-not-allowed': indicacaoConvidadosEncerrada(match)
+                  }"
+                  class="rounded-xl p-4 border border-[var(--app-border)] transition-all flex flex-col w-full h-full justify-center group/area"
                 >
                   <div
                     class="flex items-center justify-between mb-3 border-b border-[var(--app-border)] group-hover/area:border-indigo-200 pb-2 transition-colors"
@@ -444,7 +448,9 @@
               <button
                 *ngIf="match.tickets_ganhos > 0"
                 (click)="definirRetirantes(match)"
-                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                [disabled]="indicacaoConvidadosEncerrada(match)"
+                [ngClass]="indicacaoConvidadosEncerrada(match) ? 'bg-gray-300 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 cursor-pointer'"
+                class="w-full text-white font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-2"
               >
                 <span>🎟️</span>
                 {{ hasConvidadoIndicado(match) ? 'Alterar Convidados' : 'Informar Convidados' }}
