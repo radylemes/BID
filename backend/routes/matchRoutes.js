@@ -8,18 +8,31 @@ const { authMiddleware, authorizeRoles } = require("../middleware/authMiddleware
 const validateRequest = require("../middleware/validateRequest");
 const { placeBetSchema, finishMatchSchema, redistribuirSchema, acrescentarIngressosSchema } = require("../validations/matchSchema");
 
+const BANNER_UPLOAD_DIR = path.join(__dirname, "..", "uploads", "banners");
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = "uploads/banners/";
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
+    if (!fs.existsSync(BANNER_UPLOAD_DIR)) fs.mkdirSync(BANNER_UPLOAD_DIR, { recursive: true });
+    cb(null, BANNER_UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "banner-" + uniqueSuffix + path.extname(file.originalname));
+    const prefix = file.fieldname === "link_extra_file" ? "link-extra" : "banner";
+    cb(null, `${prefix}-${uniqueSuffix}.jpg`);
   },
 });
-const upload = multer({ storage });
+
+const imageFilter = (req, file, cb) => {
+  const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else cb(new Error("Formato de imagem não suportado."), false);
+};
+
+const uploadBidImages = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: imageFilter,
+});
 
 // Listagem e histórico público exigem usuário autenticado (app interno)
 router.get("/", authMiddleware, matchController.getMatches);
@@ -27,19 +40,25 @@ router.get("/my-bets/:userId", authMiddleware, matchController.getMyBets);
 router.get("/public/history", authMiddleware, matchController.getPublicHistory);
 router.get("/:id/banner", matchController.getBanner);
 
-// Gestão de eventos (ADMIN) — banner por URL; sem upload de ficheiro
+// Gestão de eventos (ADMIN) — upload de imagens banner / link extra
 router.post(
   "/",
   authMiddleware,
   authorizeRoles("ADMIN"),
-  multer().none(),
+  uploadBidImages.fields([
+    { name: "banner_file", maxCount: 1 },
+    { name: "link_extra_file", maxCount: 1 },
+  ]),
   matchController.createMatch,
 );
 router.put(
   "/:id",
   authMiddleware,
   authorizeRoles("ADMIN"),
-  multer().none(),
+  uploadBidImages.fields([
+    { name: "banner_file", maxCount: 1 },
+    { name: "link_extra_file", maxCount: 1 },
+  ]),
   matchController.updateMatch,
 );
 router.post(

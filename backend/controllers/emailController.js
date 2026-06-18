@@ -198,6 +198,26 @@ async function getBaseUrl() {
   return (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
 }
 
+function resolvePublicAssetUrl(stored, baseUrl) {
+  if (!stored || !String(stored).trim()) return "";
+  const s = String(stored).trim();
+  if (s.startsWith("http")) return s;
+  if (!baseUrl) return s;
+  return `${baseUrl}${s.startsWith("/") ? "" : "/"}${s}`;
+}
+
+function resolveBidBannerUrl(banner, partidaId, baseUrl) {
+  const b = banner && String(banner).trim();
+  if (b) {
+    if (b.startsWith("http")) return b;
+    if (b === "db") {
+      return baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+    }
+    return resolvePublicAssetUrl(b, baseUrl);
+  }
+  return baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+}
+
 /**
  * Substitui tags {{evento.campo}} e {{usuario.campo}} no texto pelos valores do contexto.
  * @param {string} text - Texto com tags
@@ -409,8 +429,8 @@ async function prepareDisparo(body, req) {
   }
   const p = partidas[0];
   const baseUrl = await getBaseUrl();
-  let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
-  if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+  const imagemUrl = resolveBidBannerUrl(p.banner, partidaId, baseUrl);
+  const linkExtraUrl = resolvePublicAssetUrl(p.link_extra, baseUrl);
   const partesJogo = extrairPartesData(p.data_jogo);
   const partesInicio = extrairPartesData(p.data_inicio_apostas);
   const partesLimite = extrairPartesData(p.data_limite_aposta);
@@ -440,7 +460,7 @@ async function prepareDisparo(body, req) {
     imagem: imagemUrl,
     subtitulo: p.subtitulo || "",
     informacoes_extras: p.informacoes_extras || "",
-    link_extra: p.link_extra || "",
+    link_extra: linkExtraUrl,
   };
 
   const [templates] = await db.query(
@@ -1343,10 +1363,11 @@ exports.previewTemplate = async (req, res) => {
         [partidaId]
       );
       const baseUrl = await getBaseUrl();
-      let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+      let imagemUrl = resolveBidBannerUrl(null, partidaId, baseUrl);
       if (partidas.length > 0) {
         const p = partidas[0];
-        if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+        imagemUrl = resolveBidBannerUrl(p.banner, partidaId, baseUrl);
+        const linkExtraUrl = resolvePublicAssetUrl(p.link_extra, baseUrl);
         const partesJogo = extrairPartesData(p.data_jogo);
         const partesInicio = extrairPartesData(p.data_inicio_apostas);
         const partesLimite = extrairPartesData(p.data_limite_aposta);
@@ -1376,7 +1397,7 @@ exports.previewTemplate = async (req, res) => {
           imagem: imagemUrl,
           subtitulo: p.subtitulo || "",
           informacoes_extras: p.informacoes_extras || "",
-          link_extra: p.link_extra || "",
+          link_extra: linkExtraUrl,
         };
       } else {
         evento.imagem = imagemUrl;
@@ -1414,10 +1435,11 @@ exports.previewDraft = async (req, res) => {
         [partidaId]
       );
       const baseUrl = await getBaseUrl();
-      let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+      let imagemUrl = resolveBidBannerUrl(null, partidaId, baseUrl);
       if (partidas.length > 0) {
         const p = partidas[0];
-        if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+        imagemUrl = resolveBidBannerUrl(p.banner, partidaId, baseUrl);
+        const linkExtraUrl = resolvePublicAssetUrl(p.link_extra, baseUrl);
         const partesJogo = extrairPartesData(p.data_jogo);
         const partesInicio = extrairPartesData(p.data_inicio_apostas);
         const partesLimite = extrairPartesData(p.data_limite_aposta);
@@ -1447,7 +1469,7 @@ exports.previewDraft = async (req, res) => {
           imagem: imagemUrl,
           subtitulo: p.subtitulo || "",
           informacoes_extras: p.informacoes_extras || "",
-          link_extra: p.link_extra || "",
+          link_extra: linkExtraUrl,
         };
       } else {
         evento.imagem = imagemUrl;
@@ -1507,10 +1529,11 @@ exports.testTemplate = async (req, res) => {
         [partidaId]
       );
       const baseUrl = await getBaseUrl();
-      let imagemUrl = baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+      let imagemUrl = resolveBidBannerUrl(null, partidaId, baseUrl);
       if (partidas.length > 0) {
         const p = partidas[0];
-        if (p.banner && String(p.banner).startsWith("http")) imagemUrl = p.banner;
+        imagemUrl = resolveBidBannerUrl(p.banner, partidaId, baseUrl);
+        const linkExtraUrl = resolvePublicAssetUrl(p.link_extra, baseUrl);
         const partesJogo = extrairPartesData(p.data_jogo);
         const partesInicio = extrairPartesData(p.data_inicio_apostas);
         const partesLimite = extrairPartesData(p.data_limite_aposta);
@@ -1540,7 +1563,7 @@ exports.testTemplate = async (req, res) => {
           imagem: imagemUrl,
           subtitulo: p.subtitulo || "",
           informacoes_extras: p.informacoes_extras || "",
-          link_extra: p.link_extra || "",
+          link_extra: linkExtraUrl,
         };
       } else {
         evento.imagem = imagemUrl;
@@ -1703,8 +1726,32 @@ async function buildListaGanhadoresPdf(partidaId) {
       bannerDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
     }
   }
-  if (!bannerDataUrl && p.banner && String(p.banner).trim().startsWith("http")) {
-    bannerUrl = String(p.banner).trim();
+  if (!bannerDataUrl && p.banner && String(p.banner).trim()) {
+    const b = String(p.banner).trim();
+    if (b.startsWith("http")) {
+      bannerUrl = b;
+    } else if (b !== "db") {
+      const bannerPath = path.isAbsolute(b)
+        ? b
+        : path.join(process.cwd(), b.replace(/^\/+/, ""));
+      try {
+        if (fs.existsSync(bannerPath)) {
+          const buf = fs.readFileSync(bannerPath);
+          const ext = path.extname(bannerPath).toLowerCase();
+          const mime =
+            ext === ".png"
+              ? "image/png"
+              : ext === ".gif"
+                ? "image/gif"
+                : ext === ".webp"
+                  ? "image/webp"
+                  : "image/jpeg";
+          bannerDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+        }
+      } catch (e) {
+        logErro("EMAIL_CONTROLLER_PDF_READ_BANNER", e).catch(() => {});
+      }
+    }
   }
 
   const ganhadoresComFoto = ganhadores.map((r) => {

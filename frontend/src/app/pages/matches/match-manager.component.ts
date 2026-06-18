@@ -25,6 +25,7 @@ import {
 import { EventoRhService } from '../../services/evento-rh.service';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { compressImageForBid } from '../../utils/bid-image';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -40,6 +41,8 @@ interface MatchWizardDadosBid {
   local: string;
   banner: string;
   link_extra: string;
+  bannerFile?: File | null;
+  linkExtraFile?: File | null;
   informacoes_extras: string;
   data_jogo_local: string;
   data_inicio_apostas_local: string;
@@ -664,9 +667,117 @@ export class MatchManagerComponent implements OnInit {
 
   getBannerThumbUrl(match: { banner?: string; id?: number }): string {
     if (!match?.banner) return 'assets/banner-placeholder.jpg';
-    if (String(match.banner).startsWith('http')) return String(match.banner);
-    if (match.banner === 'db' && match.id) return `${environment.apiUri}/matches/${match.id}/banner`;
-    return uploadsPublicUrl(String(match.banner));
+    return this.getStoredAssetThumbUrl(match.banner, match.id) || 'assets/banner-placeholder.jpg';
+  }
+
+  private getStoredAssetThumbUrl(stored?: string | null, matchId?: number): string {
+    if (!stored) return '';
+    if (String(stored).startsWith('http')) return String(stored);
+    if (stored === 'db' && matchId) return `${environment.apiUri}/matches/${matchId}/banner`;
+    return uploadsPublicUrl(String(stored));
+  }
+
+  private buildBidImageFieldHtml(
+    label: string,
+    fileInputId: string,
+    previewId: string,
+    currentThumbUrl: string,
+    showKeepHint: boolean,
+  ): string {
+    const preview = currentThumbUrl
+      ? `<img id="${previewId}" src="${this.escapeHtmlWizard(currentThumbUrl)}" alt="" class="mt-1 h-16 w-auto max-w-full rounded border border-gray-200 object-cover">`
+      : `<img id="${previewId}" src="" alt="" class="mt-1 h-16 w-auto max-w-full rounded border border-gray-200 object-cover hidden">`;
+    const hint = showKeepHint
+      ? '<p class="text-[10px] text-gray-400 mt-1">Deixe vazio para manter a imagem atual.</p>'
+      : '';
+    return `
+      <div>
+        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">${label}</label>
+        <input id="${fileInputId}" type="file" accept="image/*" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700">
+        ${preview}
+        ${hint}
+      </div>`;
+  }
+
+  private wireBidFilePreview(fileInputId: string, previewId: string): void {
+    const input = document.getElementById(fileInputId) as HTMLInputElement | null;
+    const preview = document.getElementById(previewId) as HTMLImageElement | null;
+    if (!input || !preview) return;
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove('hidden');
+      preview.style.display = '';
+    });
+  }
+
+  private setBidPreviewImage(previewId: string, url: string): void {
+    const preview = document.getElementById(previewId) as HTMLImageElement | null;
+    if (!preview) return;
+    if (url) {
+      preview.src = url;
+      preview.classList.remove('hidden');
+      preview.style.display = '';
+    } else {
+      preview.src = '';
+      preview.classList.add('hidden');
+    }
+  }
+
+  private async compressBidFilesFromInputs(
+    bannerInputId: string,
+    linkExtraInputId: string,
+    existing?: { bannerFile?: File | null; linkExtraFile?: File | null },
+  ): Promise<{ bannerFile: File | null; linkExtraFile: File | null } | false> {
+    const bannerInput = document.getElementById(bannerInputId) as HTMLInputElement | null;
+    const linkInput = document.getElementById(linkExtraInputId) as HTMLInputElement | null;
+    let bannerFile = existing?.bannerFile ?? null;
+    let linkExtraFile = existing?.linkExtraFile ?? null;
+    const rawBanner = bannerInput?.files?.[0];
+    const rawLink = linkInput?.files?.[0];
+
+    if (rawBanner) {
+      try {
+        bannerFile = await compressImageForBid(rawBanner);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Não foi possível processar o banner.';
+        Swal.showValidationMessage(msg);
+        return false;
+      }
+    }
+    if (rawLink) {
+      try {
+        linkExtraFile = await compressImageForBid(rawLink);
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : 'Não foi possível processar a imagem do link extra.';
+        Swal.showValidationMessage(msg);
+        return false;
+      }
+    }
+    return { bannerFile, linkExtraFile };
+  }
+
+  private appendBidImagesToFormData(
+    fd: FormData,
+    opts: {
+      banner?: string | null;
+      link_extra?: string | null;
+      bannerFile?: File | null;
+      linkExtraFile?: File | null;
+    },
+  ): void {
+    if (opts.bannerFile) {
+      fd.append('banner_file', opts.bannerFile, opts.bannerFile.name);
+    } else {
+      fd.append('banner', opts.banner ?? '');
+    }
+    if (opts.linkExtraFile) {
+      fd.append('link_extra_file', opts.linkExtraFile, opts.linkExtraFile.name);
+    } else {
+      fd.append('link_extra', opts.link_extra ?? '');
+    }
   }
 
   get matchesNaAba(): any[] {
@@ -1255,8 +1366,7 @@ export class MatchManagerComponent implements OnInit {
         subtitulo: match.subtitulo ? String(match.subtitulo) : '',
         setor_evento_id: match.setor_evento_id != null ? String(match.setor_evento_id) : 'null',
         local: match.local ? String(match.local) : '',
-        banner:
-          match.banner && String(match.banner).startsWith('http') ? String(match.banner) : '',
+        banner: match.banner ? String(match.banner) : '',
         link_extra: match.link_extra ? String(match.link_extra) : '',
         informacoes_extras: match.informacoes_extras ? String(match.informacoes_extras) : '',
         data_jogo_local: this.formatIsoParaDatetimeLocal(match.data_jogo),
@@ -1316,10 +1426,14 @@ export class MatchManagerComponent implements OnInit {
     fd.append('titulo', dados.titulo.trim());
     fd.append('grupo_id', grupoId);
     fd.append('setor_evento_id', dados.setor_evento_id || 'null');
-    fd.append('banner', dados.banner ?? '');
+    this.appendBidImagesToFormData(fd, {
+      banner: dados.banner,
+      link_extra: dados.link_extra,
+      bannerFile: dados.bannerFile,
+      linkExtraFile: dados.linkExtraFile,
+    });
     fd.append('subtitulo', dados.subtitulo ?? '');
     fd.append('informacoes_extras', dados.informacoes_extras ?? '');
-    fd.append('link_extra', dados.link_extra ?? '');
     fd.append('local', dados.local ?? '');
     fd.append('data_jogo', toIsoUtc(dados.data_jogo_local) || dados.data_jogo_local);
     fd.append(
@@ -1360,7 +1474,7 @@ export class MatchManagerComponent implements OnInit {
     };
   }
 
-  private applyDadosBidToDom(d: MatchWizardDadosBid): void {
+  private applyDadosBidToDom(d: MatchWizardDadosBid, matchId?: number): void {
     const setVal = (id: string, v: string) => {
       const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
       if (el) el.value = v ?? '';
@@ -1370,8 +1484,19 @@ export class MatchManagerComponent implements OnInit {
     const setor = document.getElementById('bid-w-setorEventoId') as HTMLSelectElement | null;
     if (setor) setor.value = d.setor_evento_id || 'null';
     setVal('bid-w-local', d.local);
-    setVal('bid-w-banner', d.banner);
-    setVal('bid-w-linkExtra', d.link_extra);
+    const clearFile = (id: string) => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el) el.value = '';
+    };
+    clearFile('bid-w-bannerFile');
+    clearFile('bid-w-linkExtraFile');
+    this.setBidPreviewImage('bid-w-bannerPreview', this.getStoredAssetThumbUrl(d.banner, matchId));
+    this.setBidPreviewImage(
+      'bid-w-linkExtraPreview',
+      this.getStoredAssetThumbUrl(d.link_extra),
+    );
+    this.wireBidFilePreview('bid-w-bannerFile', 'bid-w-bannerPreview');
+    this.wireBidFilePreview('bid-w-linkExtraFile', 'bid-w-linkExtraPreview');
     setVal('bid-w-informacoesExtras', d.informacoes_extras);
     setVal('bid-w-dataEvento', d.data_jogo_local);
     setVal('bid-w-dataInicio', d.data_inicio_apostas_local);
@@ -1379,7 +1504,7 @@ export class MatchManagerComponent implements OnInit {
     setVal('bid-w-dataApuracao', d.data_apuracao_local);
   }
 
-  private readDadosBidFromDom(): MatchWizardDadosBid | null {
+  private readDadosBidFromDom(prev?: MatchWizardDadosBid): MatchWizardDadosBid | null {
     const getVal = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value ?? '';
     const getTa = (id: string) =>
       (document.getElementById(id) as HTMLTextAreaElement)?.value ?? '';
@@ -1395,8 +1520,10 @@ export class MatchManagerComponent implements OnInit {
       setor_evento_id:
         (document.getElementById('bid-w-setorEventoId') as HTMLSelectElement)?.value ?? 'null',
       local: getVal('bid-w-local'),
-      banner: getVal('bid-w-banner'),
-      link_extra: getVal('bid-w-linkExtra'),
+      banner: prev?.banner ?? '',
+      link_extra: prev?.link_extra ?? '',
+      bannerFile: prev?.bannerFile ?? null,
+      linkExtraFile: prev?.linkExtraFile ?? null,
       informacoes_extras: getTa('bid-w-informacoesExtras'),
       data_jogo_local: dataJogo,
       data_inicio_apostas_local: getVal('bid-w-dataInicio'),
@@ -1433,14 +1560,8 @@ export class MatchManagerComponent implements OnInit {
           </div>
 
           <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Banner (URL da imagem)</label>
-                <input id="bid-w-banner" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://...">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link extra</label>
-                <input id="bid-w-linkExtra" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... (opcional)">
-              </div>
+              ${this.buildBidImageFieldHtml('Banner (imagem)', 'bid-w-bannerFile', 'bid-w-bannerPreview', '', false)}
+              ${this.buildBidImageFieldHtml('Link extra (imagem)', 'bid-w-linkExtraFile', 'bid-w-linkExtraPreview', '', false)}
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Informações extras</label>
@@ -1495,11 +1616,7 @@ export class MatchManagerComponent implements OnInit {
       confirmButtonText: 'Próximo',
       cancelButtonText: 'Cancelar',
       didOpen: () => {
-        this.applyDadosBidToDom(state.dados);
-        if (match && isClone) {
-          const bannerEl = document.getElementById('bid-w-banner') as HTMLInputElement;
-          if (bannerEl && match.banner) bannerEl.value = match.banner.startsWith('http') ? match.banner : '';
-        }
+        this.applyDadosBidToDom(state.dados, match?.id);
         if (!isClone) {
           const titleEl = document.querySelector('.swal2-title') as HTMLElement | null;
           if (titleEl) {
@@ -1513,10 +1630,16 @@ export class MatchManagerComponent implements OnInit {
           }
         }
       },
-      preConfirm: () => {
-        const dados = this.readDadosBidFromDom();
+      preConfirm: async () => {
+        const dados = this.readDadosBidFromDom(state.dados);
         if (!dados) return false;
-        state.dados = dados;
+        const files = await this.compressBidFilesFromInputs(
+          'bid-w-bannerFile',
+          'bid-w-linkExtraFile',
+          { bannerFile: state.dados.bannerFile, linkExtraFile: state.dados.linkExtraFile },
+        );
+        if (files === false) return false;
+        state.dados = { ...dados, ...files };
         return true;
       },
     }).then((r) => {
@@ -2025,17 +2148,23 @@ export class MatchManagerComponent implements OnInit {
       width: '700px',
       didOpen: () => {
         if (match) {
-          const bannerEl = document.getElementById('banner') as HTMLInputElement;
           const subtituloEl = document.getElementById('subtitulo') as HTMLInputElement;
           const informacoesEl = document.getElementById('informacoesExtras') as HTMLTextAreaElement;
-          const linkExtraEl = document.getElementById('linkExtra') as HTMLInputElement;
           const dataApuracaoEl = document.getElementById('dataApuracao') as HTMLInputElement;
-          if (bannerEl && match.banner) bannerEl.value = match.banner.startsWith('http') ? match.banner : '';
           if (subtituloEl && match.subtitulo) subtituloEl.value = match.subtitulo;
           if (informacoesEl && match.informacoes_extras) informacoesEl.value = match.informacoes_extras;
-          if (linkExtraEl && match.link_extra) linkExtraEl.value = match.link_extra;
           if (dataApuracaoEl && match.data_apuracao) dataApuracaoEl.value = formatData(match.data_apuracao);
+          this.setBidPreviewImage(
+            'bannerPreview',
+            this.getStoredAssetThumbUrl(match.banner, match.id),
+          );
+          this.setBidPreviewImage(
+            'linkExtraPreview',
+            this.getStoredAssetThumbUrl(match.link_extra),
+          );
         }
+        this.wireBidFilePreview('bannerFile', 'bannerPreview');
+        this.wireBidFilePreview('linkExtraFile', 'linkExtraPreview');
         if (somenteSetor) {
           document.querySelectorAll('.swal2-input, .swal2-select, .swal2-textarea').forEach((el) => {
             const node = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -2098,14 +2227,20 @@ export class MatchManagerComponent implements OnInit {
           </div>
 
           <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Banner (URL da imagem)</label>
-                <input id="banner" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://...">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link extra</label>
-                <input id="linkExtra" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... (opcional)">
-              </div>
+              ${this.buildBidImageFieldHtml(
+                'Banner (imagem)',
+                'bannerFile',
+                'bannerPreview',
+                match ? this.getStoredAssetThumbUrl(match.banner, match.id) : '',
+                !!match && (isEdit || somenteSetor),
+              )}
+              ${this.buildBidImageFieldHtml(
+                'Link extra (imagem)',
+                'linkExtraFile',
+                'linkExtraPreview',
+                match ? this.getStoredAssetThumbUrl(match.link_extra) : '',
+                !!match && (isEdit || somenteSetor),
+              )}
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Informações extras</label>
@@ -2142,7 +2277,7 @@ export class MatchManagerComponent implements OnInit {
       showCancelButton: true,
       confirmButtonColor: '#4f46e5',
       confirmButtonText: 'Salvar BID',
-      preConfirm: () => {
+      preConfirm: async () => {
         const getVal = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value;
         const getTextarea = (id: string) => (document.getElementById(id) as HTMLTextAreaElement)?.value ?? '';
         const toIsoUtc = (v: string) => (v ? new Date(v).toISOString() : '');
@@ -2187,20 +2322,28 @@ export class MatchManagerComponent implements OnInit {
             : getVal('grupoId'),
         );
         formData.append('setor_evento_id', setorVal);
-        formData.append(
-          'banner',
-          somenteSetor
-            ? match.banner && String(match.banner).startsWith('http')
-              ? String(match.banner)
-              : ''
-            : getVal('banner'),
-        );
+
+        if (somenteSetor) {
+          this.appendBidImagesToFormData(formData, {
+            banner: match.banner ? String(match.banner) : '',
+            link_extra: match.link_extra ? String(match.link_extra) : '',
+          });
+        } else {
+          const files = await this.compressBidFilesFromInputs('bannerFile', 'linkExtraFile');
+          if (files === false) return false;
+          this.appendBidImagesToFormData(formData, {
+            banner: match?.banner ? String(match.banner) : '',
+            link_extra: match?.link_extra ? String(match.link_extra) : '',
+            bannerFile: files.bannerFile,
+            linkExtraFile: files.linkExtraFile,
+          });
+        }
+
         formData.append('subtitulo', somenteSetor ? match.subtitulo || '' : getVal('subtitulo'));
         formData.append(
           'informacoes_extras',
           somenteSetor ? match.informacoes_extras || '' : getTextarea('informacoesExtras'),
         );
-        formData.append('link_extra', somenteSetor ? match.link_extra || '' : getVal('linkExtra'));
         formData.append('local', somenteSetor ? match.local || '' : getVal('local'));
         formData.append(
           'data_jogo',

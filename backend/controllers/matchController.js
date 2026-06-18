@@ -1,6 +1,33 @@
 const db = require("../config/db");
 const fs = require("fs");
+const path = require("path");
 const logErro = require("../utils/errorLogger");
+
+function normalizeUploadPath(filePath) {
+  const norm = path.normalize(filePath).replace(/\\/g, "/");
+  const marker = "uploads/";
+  const idx = norm.indexOf(marker);
+  return idx >= 0 ? norm.slice(idx) : `uploads/banners/${path.basename(norm)}`;
+}
+
+function resolveBidImageField(req, bodyField, fileField) {
+  const files = req.files?.[fileField];
+  if (files?.[0]) {
+    return normalizeUploadPath(files[0].path);
+  }
+  const val = req.body[bodyField];
+  return val && String(val).trim() ? String(val).trim() : null;
+}
+
+function tryDeleteLocalUpload(storedPath) {
+  if (!storedPath || String(storedPath).startsWith("http") || storedPath === "db") return;
+  const norm = String(storedPath).replace(/\\/g, "/");
+  if (!norm.includes("uploads/banners/")) return;
+  const abs = path.isAbsolute(norm) ? norm : path.join(process.cwd(), norm);
+  try {
+    if (fs.existsSync(abs)) fs.unlinkSync(abs);
+  } catch (_) {}
+}
 const {
   safeAuditoriaDetalhes,
   truncateMotivo,
@@ -283,7 +310,8 @@ exports.createMatch = async (req, res) => {
     const inicioFormatado = data_inicio_apostas
       ? formatarDataLocal(data_inicio_apostas)
       : formatarDataLocal(new Date());
-    const bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;
+    const bannerVal = resolveBidImageField(req, "banner", "banner_file");
+    const linkExtraVal = resolveBidImageField(req, "link_extra", "link_extra_file");
 
     const connection = await db.getConnection();
     try {
@@ -292,10 +320,10 @@ exports.createMatch = async (req, res) => {
         `INSERT INTO partidas (titulo, banner, subtitulo, informacoes_extras, link_extra, local, data_jogo, data_inicio_apostas, data_limite_aposta, data_apuracao, quantidade_premios, grupo_id, setor_evento_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ABERTA')`,
         [
           titulo,
-          bannerUrl,
+          bannerVal,
           subtitulo && String(subtitulo).trim() ? String(subtitulo).trim() : null,
           informacoes_extras && String(informacoes_extras).trim() ? String(informacoes_extras).trim() : null,
-          link_extra && String(link_extra).trim() ? String(link_extra).trim() : null,
+          linkExtraVal,
           local || "Local a definir",
           formatarDataLocal(data_jogo),
           inicioFormatado,
@@ -391,10 +419,10 @@ exports.updateMatch = async (req, res) => {
       }
     }
 
-    const bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;
+    const bannerVal = resolveBidImageField(req, "banner", "banner_file");
     const subtituloVal = subtitulo && String(subtitulo).trim() ? String(subtitulo).trim() : null;
     const informacoesExtrasVal = informacoes_extras && String(informacoes_extras).trim() ? String(informacoes_extras).trim() : null;
-    const linkExtraVal = link_extra && String(link_extra).trim() ? String(link_extra).trim() : null;
+    const linkExtraVal = resolveBidImageField(req, "link_extra", "link_extra_file");
     const localVal = local && String(local).trim() ? String(local).trim() : "Local a definir";
     const qtdPremiosVal = Number(quantidade_premios) || 1;
     const dataApuracaoVal = data_apuracao ? formatarDataLocal(data_apuracao) : null;
@@ -420,11 +448,17 @@ exports.updateMatch = async (req, res) => {
         [setorEventoIdFinal, id],
       );
     } else {
+      if (bannerVal && atual.banner && bannerVal !== atual.banner) {
+        tryDeleteLocalUpload(atual.banner);
+      }
+      if (linkExtraVal && atual.link_extra && linkExtraVal !== atual.link_extra) {
+        tryDeleteLocalUpload(atual.link_extra);
+      }
       [result] = await connection.execute(
         `UPDATE partidas SET titulo = ?, banner = ?, subtitulo = ?, informacoes_extras = ?, link_extra = ?, local = ?, data_jogo = ?, data_inicio_apostas = ?, data_limite_aposta = ?, data_apuracao = ?, quantidade_premios = ?, grupo_id = ?, setor_evento_id = ? WHERE id = ?`,
         [
           titulo,
-          bannerUrl,
+          bannerVal,
           subtituloVal,
           informacoesExtrasVal,
           linkExtraVal,
