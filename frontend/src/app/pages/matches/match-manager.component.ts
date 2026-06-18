@@ -74,6 +74,8 @@ interface MatchWizardState {
   wtPassSeeded: boolean;
 }
 
+type FiltroGrupoMatch = number | 'PUBLICO' | null;
+
 @Component({
   selector: 'app-match-manager',
   standalone: true,
@@ -214,20 +216,82 @@ interface MatchWizardState {
             <thead class="sticky top-0 z-20">
               <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
                 <th
-                  class="min-w-[220px] sm:min-w-[280px] sm:w-auto sticky left-0 z-20 bg-[var(--color-bg-surface-alt)] px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)] align-middle"
+                  class="min-w-[220px] sm:min-w-[280px] sm:w-auto sticky left-0 z-20 bg-[var(--color-bg-surface-alt)] px-3 sm:px-5 py-3 sm:py-3.5 text-left align-middle shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
                 >
-                  BID
+                  <div
+                    #grupoFiltroHost
+                    class="relative inline-flex items-center gap-1.5"
+                  >
+                    <span
+                      class="text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap"
+                    >BID</span>
+                    <button
+                      type="button"
+                      class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface-alt)]"
+                      [ngClass]="{
+                        'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroGrupoAtivo,
+                      }"
+                      [attr.aria-expanded]="menuFiltroGrupoAberto"
+                      aria-haspopup="true"
+                      aria-label="Filtrar por grupo"
+                      (click)="toggleFiltroGrupoMenu($event)"
+                    >
+                      <svg
+                        class="h-3.5 w-3.5"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </th>
                 <th
-                  class="w-[200px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle leading-tight"
-                  title="Ingressos disponíveis / Apostas realizadas"
+                  class="w-[210px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider align-middle leading-tight whitespace-nowrap"
+                  title="Ingressos disponíveis | Ingressos sobresalentes (não sorteados) | Apostas realizadas (após encerramento do prazo)"
                 >
-                  Ingr. / Apostas
+                  Ing. | Sobr. | Ap.
                 </th>
-                <th
-                  class="w-[170px] px-3 sm:px-4 py-3 sm:py-3.5 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap align-middle"
-                >
-                  Datas
+                <th class="w-[170px] px-3 sm:px-4 py-3 sm:py-3.5 text-center align-middle">
+                  <div
+                    #dataFiltroHost
+                    class="relative inline-flex items-center justify-center gap-1.5"
+                  >
+                    <span
+                      class="text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wider whitespace-nowrap"
+                    >Datas</span>
+                    <button
+                      type="button"
+                      class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface-alt)]"
+                      [ngClass]="{
+                        'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroDataAtivo,
+                      }"
+                      [attr.aria-expanded]="menuFiltroDataAberto"
+                      aria-haspopup="true"
+                      aria-label="Filtrar por data do evento"
+                      (click)="toggleFiltroDataMenu($event)"
+                    >
+                      <svg
+                        class="h-3.5 w-3.5"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </th>
                 <th class="min-w-[120px] w-[120px] px-2 sm:px-3 py-3 sm:py-3.5 text-center align-middle">
                   <div
@@ -240,6 +304,9 @@ interface MatchWizardState {
                     <button
                       type="button"
                       class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface-alt)]"
+                      [ngClass]="{
+                        'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': !!filtroStatus,
+                      }"
                       [attr.aria-expanded]="menuFiltroStatusAberto"
                       aria-haspopup="true"
                       aria-label="Filtrar por status"
@@ -324,14 +391,8 @@ interface MatchWizardState {
                   <div class="flex items-center justify-center min-h-[52px] gap-2 flex-wrap">
                     <span
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shrink-0"
-                      [title]="
-                        (m.ingressos_transferidos || 0) > 0
-                          ? (m.quantidade_premios_efetiva ?? m.quantidade_premios ?? 1) +
-                            ' orig., ' +
-                            m.ingressos_transferidos +
-                            ' transf.'
-                          : 'Ingressos'
-                      "
+                      [title]="getTooltipIngressosDisponiveis(m)"
+                      [attr.aria-label]="getTooltipIngressosDisponiveis(m)"
                       ><img
                         src="assets/allianz_ticket_blue_cartoon.png"
                         alt=""
@@ -345,24 +406,37 @@ interface MatchWizardState {
                           1
                       }}</span
                     >
-                    <span class="text-[var(--app-text-muted)] text-xs shrink-0">/</span>
+                    <span class="text-[var(--app-text-muted)] text-xs shrink-0">|</span>
                     <span
                       *ngIf="!isApuracaoEncerrada(m) && m.status !== 'ABERTA' && (m.ingressos_nao_sorteados || 0) > 0"
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
-                      title="Apostas realizadas"
+                      [title]="getTooltipIngressosSobresalentes(m)"
+                      [attr.aria-label]="getTooltipIngressosSobresalentes(m)"
                       ><span aria-hidden="true">🎟️</span> {{ m.ingressos_nao_sorteados }}</span
-                    >
-                    <span
-                      *ngIf="isPrazoApostasEncerrado(m)"
-                      class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
-                      title="Apostas realizadas"
-                      ><span aria-hidden="true">🧾</span> {{ m.total_apostas_realizadas }}</span
                     >
                     <span
                       *ngIf="!isPrazoApostasEncerrado(m) && (m.status === 'ABERTA' || (m.ingressos_nao_sorteados || 0) === 0)"
                       class="text-[var(--app-text-muted)] text-xs shrink-0"
-                      title="Apostas realizadas"
+                      [title]="getTooltipApostasIndisponivel(m)"
+                      [attr.aria-label]="getTooltipApostasIndisponivel(m)"
                       >—</span
+                    >
+                    <span
+                      *ngIf="
+                        isPrazoApostasEncerrado(m) &&
+                        !isApuracaoEncerrada(m) &&
+                        m.status !== 'ABERTA' &&
+                        (m.ingressos_nao_sorteados || 0) > 0
+                      "
+                      class="text-[var(--app-text-muted)] text-xs shrink-0"
+                      >|</span
+                    >
+                    <span
+                      *ngIf="isPrazoApostasEncerrado(m)"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
+                      [title]="getTooltipApostasRealizadas(m)"
+                      [attr.aria-label]="getTooltipApostasRealizadas(m)"
+                      ><span aria-hidden="true">🧾</span> {{ m.total_apostas_realizadas }}</span
                     >
                   </div>
                 </td>
@@ -370,11 +444,19 @@ interface MatchWizardState {
                   <div class="flex items-center justify-center min-h-[52px]">
                   <div class="flex flex-col gap-0.5 text-xs whitespace-nowrap items-center">
                     <span
+                      class="text-sky-600 font-semibold flex items-center justify-center gap-1"
+                      [title]="m.data_jogo ? 'Data do evento' : 'Data do evento não definida'"
+                      ><span aria-hidden="true">📅</span>
+                      {{ m.data_jogo ? (m.data_jogo | date: 'dd/MM HH:mm') : 'Sem evento' }}</span
+                    >
+                    <span
                       class="text-emerald-600 font-medium flex items-center justify-center gap-1"
+                      title="Início das apostas"
                       ><span aria-hidden="true">🟢</span>
                       {{ m.data_inicio_apostas | date: 'dd/MM HH:mm' }}</span
                     >
                     <span class="text-rose-500 font-medium flex items-center justify-center gap-1"
+                      title="Fim das apostas"
                       ><span aria-hidden="true">🔴</span>
                       {{ m.data_limite_aposta | date: 'dd/MM HH:mm' }}</span
                     >
@@ -494,6 +576,77 @@ interface MatchWizardState {
           </table>
         </div>
         <div
+          *ngIf="menuFiltroGrupoAberto"
+          #grupoFiltroPanel
+          class="fixed z-[200] max-h-56 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+          [style.top.px]="grupoFiltroPanelTop"
+          [style.left.px]="grupoFiltroPanelLeft"
+          [style.minWidth.px]="grupoFiltroPanelMinWidth"
+          role="menu"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="filtroGrupoId === null"
+            (click)="selectGrupoFiltro(null)"
+          >
+            Todos os grupos
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="filtroGrupoId === 'PUBLICO'"
+            (click)="selectGrupoFiltro('PUBLICO')"
+          >
+            Público
+          </button>
+          <button
+            *ngFor="let g of groups"
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="filtroGrupoId === g.id"
+            (click)="selectGrupoFiltro(g.id)"
+          >
+            {{ g.nome }}
+          </button>
+        </div>
+        <div
+          *ngIf="menuFiltroDataAberto"
+          #dataFiltroPanel
+          class="fixed z-[200] rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+          [style.top.px]="dataFiltroPanelTop"
+          [style.left.px]="dataFiltroPanelLeft"
+          [style.minWidth.px]="dataFiltroPanelMinWidth"
+          role="menu"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+            [class.font-semibold]="!filtroDataEvento"
+            (click)="limparFiltroData()"
+          >
+            Todas as datas
+          </button>
+          <div class="px-3 py-2 border-t border-[var(--app-border)]">
+            <label class="block text-[10px] font-semibold uppercase text-[var(--app-text-muted)] mb-1.5">
+              Data do evento
+            </label>
+            <input
+              type="date"
+              name="filtroDataEvento"
+              class="w-full rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+              [(ngModel)]="filtroDataEvento"
+              (ngModelChange)="selectDataEventoFiltro($event)"
+              (change)="selectDataEventoFiltro(filtroDataEvento)"
+              (click)="$event.stopPropagation()"
+            />
+          </div>
+        </div>
+        <div
           *ngIf="menuFiltroStatusAberto"
           #statusFiltroPanel
           class="fixed z-[200] rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
@@ -543,6 +696,10 @@ interface MatchWizardState {
 export class MatchManagerComponent implements OnInit {
   @ViewChild('statusFiltroHost', { read: ElementRef }) statusFiltroHost?: ElementRef<HTMLElement>;
   @ViewChild('statusFiltroPanel', { read: ElementRef }) statusFiltroPanel?: ElementRef<HTMLElement>;
+  @ViewChild('grupoFiltroHost', { read: ElementRef }) grupoFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('grupoFiltroPanel', { read: ElementRef }) grupoFiltroPanel?: ElementRef<HTMLElement>;
+  @ViewChild('dataFiltroHost', { read: ElementRef }) dataFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('dataFiltroPanel', { read: ElementRef }) dataFiltroPanel?: ElementRef<HTMLElement>;
 
   matches: any[] = [];
   groups: any[] = [];
@@ -552,18 +709,55 @@ export class MatchManagerComponent implements OnInit {
   abaAtiva: 'atuais' | 'anteriores' = 'atuais';
   filtroBusca = '';
   filtroStatus = '';
+  filtroGrupoId: FiltroGrupoMatch = null;
+  filtroDataEvento = '';
   menuFiltroStatusAberto = false;
+  menuFiltroGrupoAberto = false;
+  menuFiltroDataAberto = false;
   statusFiltroPanelTop = 0;
   statusFiltroPanelLeft = 0;
   statusFiltroPanelMinWidth = 168;
+  grupoFiltroPanelTop = 0;
+  grupoFiltroPanelLeft = 0;
+  grupoFiltroPanelMinWidth = 168;
+  dataFiltroPanelTop = 0;
+  dataFiltroPanelLeft = 0;
+  dataFiltroPanelMinWidth = 220;
+
+  get filtroGrupoAtivo(): boolean {
+    return this.filtroGrupoId !== null;
+  }
+
+  get filtroDataAtivo(): boolean {
+    return !!this.filtroDataEvento;
+  }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(ev: MouseEvent): void {
-    if (!this.menuFiltroStatusAberto) return;
     const t = ev.target as Node;
-    if (this.statusFiltroHost?.nativeElement?.contains(t)) return;
-    if (this.statusFiltroPanel?.nativeElement?.contains(t)) return;
-    this.menuFiltroStatusAberto = false;
+    if (this.menuFiltroStatusAberto) {
+      if (this.statusFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.statusFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroStatusAberto = false;
+    }
+    if (this.menuFiltroGrupoAberto) {
+      if (this.grupoFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.grupoFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroGrupoAberto = false;
+    }
+    if (this.menuFiltroDataAberto) {
+      if (this.dataFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.dataFiltroPanel?.nativeElement?.contains(t)) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement && active.type === 'date') return;
+      setTimeout(() => {
+        if (!this.menuFiltroDataAberto) return;
+        const focused = document.activeElement;
+        if (focused instanceof HTMLInputElement && focused.type === 'date') return;
+        this.menuFiltroDataAberto = false;
+        this.cdr.markForCheck();
+      }, 0);
+    }
   }
 
   @HostListener('window:resize')
@@ -571,31 +765,100 @@ export class MatchManagerComponent implements OnInit {
     if (this.menuFiltroStatusAberto) {
       this.updateStatusFiltroMenuPosition();
     }
+    if (this.menuFiltroGrupoAberto) {
+      this.updateGrupoFiltroMenuPosition();
+    }
+    if (this.menuFiltroDataAberto) {
+      this.updateDataFiltroMenuPosition();
+    }
+  }
+
+  private fecharOutrosFiltroMenus(
+    exceto?: 'status' | 'grupo' | 'data',
+  ): void {
+    if (exceto !== 'status') this.menuFiltroStatusAberto = false;
+    if (exceto !== 'grupo') this.menuFiltroGrupoAberto = false;
+    if (exceto !== 'data') this.menuFiltroDataAberto = false;
   }
 
   toggleFiltroStatusMenu(ev: MouseEvent): void {
     ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('status');
     this.menuFiltroStatusAberto = !this.menuFiltroStatusAberto;
     if (this.menuFiltroStatusAberto) {
       requestAnimationFrame(() => this.updateStatusFiltroMenuPosition());
     }
   }
 
+  toggleFiltroGrupoMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('grupo');
+    this.menuFiltroGrupoAberto = !this.menuFiltroGrupoAberto;
+    if (this.menuFiltroGrupoAberto) {
+      requestAnimationFrame(() => this.updateGrupoFiltroMenuPosition());
+    }
+  }
+
+  toggleFiltroDataMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('data');
+    this.menuFiltroDataAberto = !this.menuFiltroDataAberto;
+    if (this.menuFiltroDataAberto) {
+      requestAnimationFrame(() => this.updateDataFiltroMenuPosition());
+    }
+  }
+
   private updateStatusFiltroMenuPosition(): void {
-    const hostEl = this.statusFiltroHost?.nativeElement;
+    this.posicionarFiltroMenu(
+      this.statusFiltroHost?.nativeElement,
+      'status',
+      this.statusFiltroPanelMinWidth,
+    );
+  }
+
+  private updateGrupoFiltroMenuPosition(): void {
+    this.posicionarFiltroMenu(
+      this.grupoFiltroHost?.nativeElement,
+      'grupo',
+      this.grupoFiltroPanelMinWidth,
+    );
+  }
+
+  private updateDataFiltroMenuPosition(): void {
+    this.posicionarFiltroMenu(
+      this.dataFiltroHost?.nativeElement,
+      'data',
+      this.dataFiltroPanelMinWidth,
+    );
+  }
+
+  private posicionarFiltroMenu(
+    hostEl: HTMLElement | undefined,
+    alvo: 'status' | 'grupo' | 'data',
+    minW: number,
+  ): void {
     if (!hostEl) return;
     const r = hostEl.getBoundingClientRect();
     const gap = 4;
-    const minW = 168;
     let left = r.left + r.width / 2 - minW / 2;
     const top = r.bottom + gap;
     const pad = 8;
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
     if (left < pad) left = pad;
     if (left + minW > vw - pad) left = Math.max(pad, vw - pad - minW);
-    this.statusFiltroPanelTop = top;
-    this.statusFiltroPanelLeft = left;
-    this.statusFiltroPanelMinWidth = minW;
+    if (alvo === 'status') {
+      this.statusFiltroPanelTop = top;
+      this.statusFiltroPanelLeft = left;
+      this.statusFiltroPanelMinWidth = minW;
+    } else if (alvo === 'grupo') {
+      this.grupoFiltroPanelTop = top;
+      this.grupoFiltroPanelLeft = left;
+      this.grupoFiltroPanelMinWidth = minW;
+    } else {
+      this.dataFiltroPanelTop = top;
+      this.dataFiltroPanelLeft = left;
+      this.dataFiltroPanelMinWidth = minW;
+    }
     this.cdr.markForCheck();
   }
 
@@ -604,9 +867,25 @@ export class MatchManagerComponent implements OnInit {
     this.menuFiltroStatusAberto = false;
   }
 
+  selectGrupoFiltro(grupoId: FiltroGrupoMatch): void {
+    this.filtroGrupoId = grupoId;
+    this.menuFiltroGrupoAberto = false;
+  }
+
+  selectDataEventoFiltro(val: string): void {
+    this.filtroDataEvento = (val || '').trim();
+    this.cdr.markForCheck();
+  }
+
+  limparFiltroData(): void {
+    this.filtroDataEvento = '';
+    this.menuFiltroDataAberto = false;
+    this.cdr.markForCheck();
+  }
+
   setAba(value: string): void {
     this.abaAtiva = value === 'anteriores' ? 'anteriores' : 'atuais';
-    this.menuFiltroStatusAberto = false;
+    this.fecharOutrosFiltroMenus();
   }
 
   private get hojeInicio(): Date {
@@ -657,12 +936,41 @@ export class MatchManagerComponent implements OnInit {
     return this.canEditMatch(m) && this.isPrazoApostasEncerrado(m);
   }
 
+  temApostasRealizadas(m: any): boolean {
+    return Number(m?.total_apostas_realizadas || 0) > 0;
+  }
+
   getEditTooltip(m: any): string {
     if (this.isApuracaoEncerrada(m)) return 'Edição bloqueada: data de apuração encerrada';
     if (m?.status !== 'ABERTA') return 'Edição não permitida';
     if (this.isEdicaoSomenteSetor(m))
       return 'Edição limitada: apenas setor do evento (período de apostas encerrado)';
     return 'Editar';
+  }
+
+  getTooltipIngressosDisponiveis(m: any): string {
+    const qtd =
+      m.quantidade_premios_restante ?? m.quantidade_premios_efetiva ?? m.quantidade_premios ?? 1;
+    if ((m.ingressos_transferidos || 0) > 0) {
+      const orig = m.quantidade_premios_efetiva ?? m.quantidade_premios ?? 1;
+      return `Ingressos disponíveis: ${qtd} (${orig} orig., ${m.ingressos_transferidos} transf.)`;
+    }
+    return `Ingressos disponíveis: ${qtd}`;
+  }
+
+  getTooltipIngressosSobresalentes(m: any): string {
+    const qtd = m.ingressos_nao_sorteados || 0;
+    return `Ingressos sobresalentes (não sorteados): ${qtd}`;
+  }
+
+  getTooltipApostasRealizadas(m: any): string {
+    return `Apostas realizadas: ${m.total_apostas_realizadas ?? 0}`;
+  }
+
+  getTooltipApostasIndisponivel(m: any): string {
+    if (m.status === 'ABERTA') return 'Apostas: exibidas após encerramento do prazo';
+    if ((m.ingressos_nao_sorteados || 0) === 0) return 'Sem ingressos sobresalentes';
+    return 'Apostas: exibidas após encerramento do prazo';
   }
 
   getBannerThumbUrl(match: { banner?: string; id?: number }): string {
@@ -789,10 +1097,37 @@ export class MatchManagerComponent implements OnInit {
   get displayedMatches(): any[] {
     const base = [...this.matchesNaAba].sort((a, b) => this.compareByDataEvento(a, b));
     const q = (this.filtroBusca || '').trim().toLowerCase();
-    const afterSearch = !q ? base : base.filter((m) => this.bidMatchesSearch(m, q));
+    let result = !q ? base : base.filter((m) => this.bidMatchesSearch(m, q));
+
+    if (this.filtroGrupoId !== null) {
+      result = result.filter((m) => this.matchMatchesGrupoFiltro(m));
+    }
+    if (this.filtroDataEvento) {
+      result = result.filter((m) => this.matchMatchesDataEventoFiltro(m));
+    }
+
     const st = (this.filtroStatus || '').trim().toUpperCase();
-    if (!st) return afterSearch;
-    return afterSearch.filter((m) => String(m?.status || '').toUpperCase() === st);
+    if (st) {
+      result = result.filter((m) => String(m?.status || '').toUpperCase() === st);
+    }
+    return result;
+  }
+
+  private matchMatchesGrupoFiltro(m: any): boolean {
+    if (this.filtroGrupoId === 'PUBLICO') return m.grupo_id == null;
+    return Number(m.grupo_id) === this.filtroGrupoId;
+  }
+
+  private matchMatchesDataEventoFiltro(m: any): boolean {
+    const key = this.dataJogoParaChave(m);
+    if (!key) return false;
+    return key === this.filtroDataEvento;
+  }
+
+  private dataJogoParaChave(m: any): string | null {
+    const local = this.formatIsoParaDatetimeLocal(m?.data_jogo);
+    const key = this.dataJogoParaApenasData(local);
+    return key || null;
   }
 
   private compareByDataEvento(a: any, b: any): number {
@@ -2107,6 +2442,7 @@ export class MatchManagerComponent implements OnInit {
   async abrirFormulario(match: any = null, isClone: boolean = false) {
     const isEdit = !!match && !isClone;
     const somenteSetor = isEdit && this.isEdicaoSomenteSetor(match);
+    const bloquearInicioApostas = isEdit && this.temApostasRealizadas(match);
 
     const tituloModal = somenteSetor
       ? '✏️ Editar BID — apenas setor'
@@ -2172,6 +2508,12 @@ export class MatchManagerComponent implements OnInit {
             node.disabled = true;
             node.classList.add('opacity-60', 'cursor-not-allowed');
           });
+        } else if (bloquearInicioApostas) {
+          const dataInicioEl = document.getElementById('dataInicio') as HTMLInputElement | null;
+          if (dataInicioEl) {
+            dataInicioEl.disabled = true;
+            dataInicioEl.classList.add('opacity-60', 'cursor-not-allowed');
+          }
         }
         if (!isEdit && !isClone) {
           const titleEl = document.querySelector('.swal2-title') as HTMLElement | null;
@@ -2193,7 +2535,11 @@ export class MatchManagerComponent implements OnInit {
               ? `<div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   O período de apostas encerrou. Apenas o <strong>setor do evento</strong> pode ser alterado.
                 </div>`
-              : ''
+              : bloquearInicioApostas
+                ? `<div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    Este BID já possui apostas realizadas. A <strong>data de início das apostas</strong> não pode ser alterada.
+                  </div>`
+                : ''
           }
           <div class="grid grid-cols-2 gap-4">
             <div>
@@ -2351,7 +2697,7 @@ export class MatchManagerComponent implements OnInit {
         );
         formData.append(
           'data_inicio_apostas',
-          somenteSetor
+          somenteSetor || bloquearInicioApostas
             ? toIsoUtcFromMatch(match.data_inicio_apostas)
             : toIsoUtc(getVal('dataInicio')) || getVal('dataInicio'),
         );

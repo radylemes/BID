@@ -433,6 +433,23 @@ exports.updateMatch = async (req, res) => {
       return res.status(400).json({ error: "Data do evento obrigatória." });
     }
 
+    if (!prazoEncerrado && data_inicio_apostas) {
+      const [apostasRows] = await connection.execute(
+        `SELECT COUNT(*) AS total FROM apostas WHERE partida_id = ?`,
+        [id],
+      );
+      const totalApostas = Number(apostasRows[0]?.total || 0);
+      if (
+        totalApostas > 0 &&
+        !datasUtcIguais(atual.data_inicio_apostas, data_inicio_apostas)
+      ) {
+        return res.status(403).json({
+          error:
+            "Não é permitido alterar a data de início das apostas quando já existem apostas realizadas neste BID.",
+        });
+      }
+    }
+
     await connection.beginTransaction();
 
     const tituloAuditoria = atual.titulo;
