@@ -20,6 +20,72 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function truncateMsg(msg: string, max = 280): string {
+  const s = String(msg || '').trim();
+  if (s.length <= max) return escapeHtml(s);
+  return `${escapeHtml(s.slice(0, max))}…`;
+}
+
+/** Tabela de destinatários com estilos inline (SweetAlert não aplica Tailwind no HTML injetado). */
+export function buildDestinatariosTableHtml(destinatarios: DisparoDestinatario[]): string {
+  if (!destinatarios.length) return '';
+
+  const erros = destinatarios.filter((d) => d.status === 'erro');
+  const sucessos = destinatarios.filter((d) => d.status === 'enviado');
+
+  const renderTable = (items: DisparoDestinatario[], maxHeight?: string) => {
+    const rows = items
+      .map((d) => {
+        const isErro = d.status === 'erro';
+        const badgeBg = isErro ? '#fee2e2' : '#d1fae5';
+        const badgeColor = isErro ? '#b91c1c' : '#047857';
+        const badgeLabel = isErro ? 'Erro' : 'Enviado';
+        const msg = isErro && d.mensagem ? truncateMsg(d.mensagem) : '—';
+        const fullMsg = isErro && d.mensagem ? escapeHtml(d.mensagem) : '';
+        return `<tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;word-break:break-all;vertical-align:top;color:#1f2937;">${escapeHtml(d.email)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;white-space:nowrap;width:88px;">
+            <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${badgeBg};color:${badgeColor};">${badgeLabel}</span>
+          </td>
+          <td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;word-break:break-word;overflow-wrap:anywhere;vertical-align:top;font-size:11px;color:#6b7280;"${fullMsg ? ` title="${fullMsg}"` : ''}>${msg}</td>
+        </tr>`;
+      })
+      .join('');
+
+    const wrapStart = maxHeight
+      ? `<div style="max-height:${maxHeight};overflow:auto;border:1px solid #e5e7eb;border-radius:8px;background:#fff;">`
+      : `<div style="border:1px solid #e5e7eb;border-radius:8px;background:#fff;overflow:hidden;">`;
+    return `${wrapStart}
+      <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;">
+        <colgroup>
+          <col style="width:36%">
+          <col style="width:14%">
+          <col style="width:50%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;background:#f9fafb;font-weight:600;color:#4b5563;position:sticky;top:0;">E-mail</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;background:#f9fafb;font-weight:600;color:#4b5563;position:sticky;top:0;">Status</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;background:#f9fafb;font-weight:600;color:#4b5563;position:sticky;top:0;">Mensagem</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  };
+
+  let html = '';
+  if (erros.length > 0) {
+    html += `<p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#dc2626;">Falhas (${erros.length})</p>`;
+    html += renderTable(erros);
+  }
+  if (sucessos.length > 0) {
+    html += `<p style="margin:${erros.length ? '16px' : '0'} 0 8px;font-size:13px;font-weight:600;color:#059669;">Enviados com sucesso (${sucessos.length})</p>`;
+    html += renderTable(sucessos, sucessos.length > 15 ? '220px' : undefined);
+  }
+  return html;
+}
+
 function buildProgressHtml(state: DisparoProgressState): string {
   const total = state.total || 0;
   const processados = state.processados || 0;
@@ -28,27 +94,29 @@ function buildProgressHtml(state: DisparoProgressState): string {
   const rows = recent
     .map(
       (d) =>
-        `<div class="flex items-start justify-between gap-2 py-1 border-b border-gray-100 last:border-0">
-          <span class="text-xs text-gray-800 truncate flex-1">${escapeHtml(d.email)}</span>
-          <span class="shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
-            d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+        `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span style="font-size:12px;color:#1f2937;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(d.email)}</span>
+          <span style="flex-shrink:0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;${
+            d.status === 'enviado'
+              ? 'background:#d1fae5;color:#047857;'
+              : 'background:#fee2e2;color:#b91c1c;'
           }">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span>
         </div>
-        ${d.status === 'erro' && d.mensagem ? `<div class="text-xs text-red-600 pb-1 pl-1">${escapeHtml(d.mensagem)}</div>` : ''}`
+        ${d.status === 'erro' && d.mensagem ? `<div style="font-size:11px;color:#dc2626;padding:0 0 4px 4px;word-break:break-word;">${truncateMsg(d.mensagem, 120)}</div>` : ''}`
     )
     .join('');
 
   return `
-    <div class="text-left space-y-3">
-      <p class="text-sm text-gray-600">
+    <div style="text-align:left;">
+      <p style="margin:0 0 12px;font-size:14px;color:#4b5563;">
         Enviando e-mail <strong>${processados}</strong> de <strong>${total || '…'}</strong>
-        ${state.enviados > 0 ? `<span class="text-emerald-600">(${state.enviados} com sucesso)</span>` : ''}
+        ${state.enviados > 0 ? `<span style="color:#059669;"> (${state.enviados} com sucesso)</span>` : ''}
       </p>
-      <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-        <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+      <div style="width:100%;height:10px;background:#e5e7eb;border-radius:9999px;overflow:hidden;margin-bottom:12px;">
+        <div style="height:10px;background:#4f46e5;border-radius:9999px;width:${pct}%;transition:width 0.3s;"></div>
       </div>
-      <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
-        ${rows || '<p class="text-xs text-gray-400 py-2 text-center">Aguardando primeiro envio…</p>'}
+      <div style="max-height:192px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:8px;">
+        ${rows || '<p style="font-size:12px;color:#9ca3af;text-align:center;padding:8px 0;margin:0;">Aguardando primeiro envio…</p>'}
       </div>
     </div>
   `;
@@ -57,55 +125,22 @@ function buildProgressHtml(state: DisparoProgressState): string {
 function buildResultHtml(res: SendEmailsResponse): string {
   const dest = res.destinatarios || [];
   const erros = dest.filter((d) => d.status === 'erro');
-  const sucesso = dest.filter((d) => d.status === 'enviado');
 
   if (dest.length === 0 && res.erros?.length) {
     return `
-      <ul class="text-left text-sm text-red-700 max-h-60 overflow-y-auto space-y-1">
-        ${res.erros.map((e) => `<li>• ${escapeHtml(e)}</li>`).join('')}
+      <ul style="text-align:left;font-size:13px;color:#b91c1c;max-height:240px;overflow-y:auto;margin:0;padding-left:18px;">
+        ${res.erros.map((e) => `<li style="margin-bottom:4px;word-break:break-word;">${escapeHtml(e)}</li>`).join('')}
       </ul>
     `;
   }
 
-  const rows = dest
-    .map(
-      (d) =>
-        `<tr class="border-b border-gray-100">
-          <td class="p-2 text-sm text-gray-800">${escapeHtml(d.email)}</td>
-          <td class="p-2">
-            <span class="px-2 py-0.5 rounded text-xs font-medium ${
-              d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-            }">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span>
-          </td>
-          <td class="p-2 text-xs text-gray-500">${d.status === 'erro' && d.mensagem ? escapeHtml(d.mensagem) : '—'}</td>
-        </tr>`
-    )
-    .join('');
-
   return `
-    <div class="text-left space-y-3">
-      <p class="text-sm text-gray-700">
+    <div style="text-align:left;">
+      <p style="margin:0 0 12px;font-size:14px;color:#374151;">
         <strong>${res.enviados}</strong> de <strong>${res.total}</strong> e-mail(s) enviado(s) com sucesso.
-        ${erros.length > 0 ? `<span class="text-red-600">${erros.length} falha(s).</span>` : ''}
+        ${erros.length > 0 ? `<span style="color:#dc2626;"> ${erros.length} falha(s).</span>` : ''}
       </p>
-      ${
-        rows
-          ? `<div class="overflow-x-auto max-h-60 overflow-y-auto rounded-lg border border-gray-200">
-              <table class="w-full text-left text-xs border-collapse">
-                <thead class="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th class="p-2 font-semibold text-gray-600">E-mail</th>
-                    <th class="p-2 font-semibold text-gray-600">Status</th>
-                    <th class="p-2 font-semibold text-gray-600">Mensagem</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </div>`
-          : sucesso.length > 0
-            ? `<p class="text-sm text-emerald-700">${sucesso.length} e-mail(s) enviado(s).</p>`
-            : ''
-      }
+      ${dest.length > 0 ? buildDestinatariosTableHtml(dest) : ''}
     </div>
   `;
 }
@@ -160,9 +195,9 @@ export async function showDisparoResultModal(res: SendEmailsResponse): Promise<v
     icon,
     title,
     html: buildResultHtml(res),
-    width: '640px',
+    width: '820px',
     confirmButtonText: 'Fechar',
-    customClass: { popup: 'rounded-xl' },
+    customClass: { popup: 'rounded-xl', htmlContainer: 'disparo-result-html' },
   });
 }
 
@@ -192,9 +227,9 @@ export async function showDisparoPartialErrorModal(
         <p class="text-sm text-red-700 mb-3">${escapeHtml(message)}</p>
         ${buildResultHtml(partial)}
       `,
-      width: '640px',
+      width: '820px',
       confirmButtonText: 'Fechar',
-      customClass: { popup: 'rounded-xl' },
+      customClass: { popup: 'rounded-xl', htmlContainer: 'disparo-result-html' },
     });
     return;
   }

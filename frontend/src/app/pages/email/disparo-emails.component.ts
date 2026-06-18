@@ -14,6 +14,7 @@ import {
   showDisparoResultModal,
   showDisparoPartialErrorModal,
   buildPartialFromProgress,
+  buildDestinatariosTableHtml,
   DisparoProgressState,
 } from './email-disparo-progress.util';
 import Swal from 'sweetalert2';
@@ -1174,29 +1175,7 @@ export class DisparoEmailsComponent implements OnInit {
                 let corpoTabela = '';
 
                 if (temDestinatarios) {
-                  const rows = dest
-                    .map(
-                      (d: any) =>
-                        `<tr class="border-b border-gray-100 hover:bg-gray-50">
-                          <td class="p-2 text-sm text-gray-800">${this.escapeHtml(d.email)}</td>
-                          <td class="p-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${d.status === 'enviado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${d.status === 'enviado' ? 'Enviado' : 'Erro'}</span></td>
-                          <td class="p-2 text-xs text-gray-500">${d.status === 'erro' && d.mensagem ? this.escapeHtml(d.mensagem) : '—'}</td>
-                        </tr>`
-                    )
-                    .join('');
-                  corpoTabela = `
-                    <div class="overflow-x-auto max-h-48 overflow-y-auto">
-                      <table class="w-full text-left text-xs border-collapse">
-                        <thead class="bg-gray-50 sticky top-0">
-                          <tr>
-                            <th class="p-2 border-b font-semibold text-gray-600">E-mail</th>
-                            <th class="p-2 border-b font-semibold text-gray-600">Status</th>
-                            <th class="p-2 border-b font-semibold text-gray-600">Mensagem</th>
-                          </tr>
-                        </thead>
-                        <tbody class="bg-white">${rows}</tbody>
-                      </table>
-                    </div>`;
+                  corpoTabela = `<div style="padding:12px;background:#fff;">${buildDestinatariosTableHtml(dest)}</div>`;
                 } else {
                   const errosHtml =
                     errosLista.length > 0
