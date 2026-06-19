@@ -7,12 +7,49 @@ const dbUtcToISO = (v) => {
   return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
 };
 
-function mapBidRow(row) {
+async function getBaseUrl() {
+  const [rows] = await db.query(
+    "SELECT valor FROM configuracoes WHERE chave = 'app_base_url' LIMIT 1",
+  );
+  const fromConfig = rows[0]?.valor?.trim();
+  if (fromConfig) return fromConfig.replace(/\/$/, "");
+  return (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
+}
+
+function resolvePublicAssetUrl(stored, baseUrl) {
+  if (!stored || !String(stored).trim()) return "";
+  const s = String(stored).trim();
+  if (s.startsWith("http")) return s;
+  if (!baseUrl) return s;
+  return `${baseUrl}${s.startsWith("/") ? "" : "/"}${s}`;
+}
+
+function resolveBidImagemUrl(banner, partidaId, baseUrl) {
+  const b = banner && String(banner).trim();
+  if (b) {
+    if (b.startsWith("http")) return b;
+    if (b === "db") {
+      return baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+    }
+    return resolvePublicAssetUrl(b, baseUrl);
+  }
+  return baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+}
+
+function resolveWtPassImagemUrl(banner, baseUrl) {
+  const b = banner && String(banner).trim();
+  if (!b) return "";
+  if (b.startsWith("http")) return b;
+  return baseUrl ? `${baseUrl}${b.startsWith("/") ? "" : "/"}${b}` : b;
+}
+
+function mapBidRow(row, baseUrl) {
   return {
     id: row.id,
     titulo: row.titulo || "Evento sem título",
     subtitulo: row.subtitulo || null,
     local: row.local || null,
+    imagem_url: resolveBidImagemUrl(row.banner, row.id, baseUrl) || null,
     data_jogo: dbUtcToISO(row.data_jogo),
     data_inicio_apostas: dbUtcToISO(row.data_inicio_apostas),
     data_limite_aposta: dbUtcToISO(row.data_limite_aposta),
@@ -25,7 +62,7 @@ function mapBidRow(row) {
   };
 }
 
-function mapWtPassRow(row) {
+function mapWtPassRow(row, baseUrl) {
   const vagas = Number(row.vagas) || 1;
   const ocupadas = Number(row.ocupadas) || 0;
   const filaCount = Number(row.fila_count) || 0;
@@ -34,6 +71,7 @@ function mapWtPassRow(row) {
     titulo: row.titulo || "Evento sem título",
     subtitulo: row.subtitulo || null,
     local: row.local || null,
+    imagem_url: resolveWtPassImagemUrl(row.banner, baseUrl) || null,
     data_evento: dbUtcToISO(row.data_evento),
     data_inicio_inscricao: dbUtcToISO(row.data_inicio_inscricao),
     data_limite_inscricao: dbUtcToISO(row.data_limite_inscricao),
@@ -46,9 +84,9 @@ function mapWtPassRow(row) {
   };
 }
 
-async function fetchBidsByStatus(status) {
+async function fetchBidsByStatus(status, baseUrl) {
   const [rows] = await db.execute(
-    `SELECT p.id, p.titulo, p.subtitulo, p.local, p.data_jogo, p.data_inicio_apostas,
+    `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.data_jogo, p.data_inicio_apostas,
             p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios,
             se.nome AS setor_evento_nome,
             (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) AS total_apostas,
@@ -59,12 +97,12 @@ async function fetchBidsByStatus(status) {
      ORDER BY p.data_jogo DESC`,
     [status],
   );
-  return rows.map(mapBidRow);
+  return rows.map((row) => mapBidRow(row, baseUrl));
 }
 
-async function fetchBidWinners() {
+async function fetchBidWinners(baseUrl) {
   const [events] = await db.execute(
-    `SELECT p.id, p.titulo, p.subtitulo, p.local, p.data_jogo, p.data_inicio_apostas,
+    `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.data_jogo, p.data_inicio_apostas,
             p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios,
             se.nome AS setor_evento_nome,
             (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) AS total_apostas,
@@ -105,15 +143,15 @@ async function fetchBidWinners() {
   }
 
   return events.map((event) => ({
-    ...mapBidRow(event),
+    ...mapBidRow(event, baseUrl),
     vencedores: winnersMap.get(event.id) || [],
   }));
 }
 
-async function fetchWtPassByStatus(statusList) {
+async function fetchWtPassByStatus(statusList, baseUrl) {
   const placeholders = statusList.map(() => "?").join(", ");
   const [rows] = await db.execute(
-    `SELECT e.id, e.titulo, e.subtitulo, e.local,
+    `SELECT e.id, e.titulo, e.subtitulo, e.banner, e.local,
             e.data_inicio_inscricao, e.data_limite_inscricao, e.data_evento,
             e.vagas, e.status, e.partida_id,
             COALESCE(s.ocupadas, 0) AS ocupadas,
@@ -130,11 +168,11 @@ async function fetchWtPassByStatus(statusList) {
      ORDER BY e.data_evento DESC`,
     statusList,
   );
-  return rows.map(mapWtPassRow);
+  return rows.map((row) => mapWtPassRow(row, baseUrl));
 }
 
-async function fetchWtPassWinners() {
-  const encerrados = await fetchWtPassByStatus(["ENCERRADO", "REALIZADO", "CANCELADO"]);
+async function fetchWtPassWinners(baseUrl) {
+  const encerrados = await fetchWtPassByStatus(["ENCERRADO", "REALIZADO", "CANCELADO"], baseUrl);
   if (encerrados.length === 0) return [];
 
   const eventIds = encerrados.map((e) => e.id);
@@ -172,14 +210,15 @@ async function fetchWtPassWinners() {
 
 exports.getEventos = async (req, res) => {
   try {
+    const baseUrl = await getBaseUrl();
     const [bidsAbertos, bidsEncerrados, bidsVencedores, wtAbertos, wtEncerrados, wtVencedores] =
       await Promise.all([
-        fetchBidsByStatus("ABERTA"),
-        fetchBidsByStatus("FINALIZADA"),
-        fetchBidWinners(),
-        fetchWtPassByStatus(["ABERTO"]),
-        fetchWtPassByStatus(["ENCERRADO", "REALIZADO", "CANCELADO"]),
-        fetchWtPassWinners(),
+        fetchBidsByStatus("ABERTA", baseUrl),
+        fetchBidsByStatus("FINALIZADA", baseUrl),
+        fetchBidWinners(baseUrl),
+        fetchWtPassByStatus(["ABERTO"], baseUrl),
+        fetchWtPassByStatus(["ENCERRADO", "REALIZADO", "CANCELADO"], baseUrl),
+        fetchWtPassWinners(baseUrl),
       ]);
 
     res.json({
