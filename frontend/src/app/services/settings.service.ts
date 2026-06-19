@@ -179,6 +179,43 @@ export class SettingsService {
     }>(`${this.apiUrl}/guest-indication`, body);
   }
 
+  getExternalApiSettings(): Observable<{
+    enabled: boolean;
+    key_masked: string;
+    has_key: boolean;
+  }> {
+    return this.http.get<{
+      enabled: boolean;
+      key_masked: string;
+      has_key: boolean;
+    }>(`${this.apiUrl}/external-api`);
+  }
+
+  updateExternalApiSettings(
+    enabled: boolean,
+    adminId?: number,
+  ): Observable<{ message: string; enabled: boolean }> {
+    const body = adminId != null ? { enabled, adminId } : { enabled };
+    return this.http.post<{ message: string; enabled: boolean }>(`${this.apiUrl}/external-api`, body);
+  }
+
+  regenerateExternalApiKey(adminId?: number): Observable<{
+    message: string;
+    api_key: string;
+    enabled: boolean;
+    key_masked: string;
+    has_key: boolean;
+  }> {
+    const body = adminId != null ? { adminId } : {};
+    return this.http.post<{
+      message: string;
+      api_key: string;
+      enabled: boolean;
+      key_masked: string;
+      has_key: boolean;
+    }>(`${this.apiUrl}/external-api/regenerate`, body);
+  }
+
   updateSettings(settings: Record<string, string>, adminId?: number): Observable<{ message: string }> {
     const body = adminId != null ? { ...settings, adminId } : settings;
     return this.http.post<{ message: string }>(this.apiUrl, body);

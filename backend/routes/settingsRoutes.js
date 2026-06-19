@@ -82,6 +82,26 @@ router.post(
   settingsController.updateGuestIndicationSettings,
 );
 
+// Configurações da API de integração externa (ADMIN)
+router.get(
+  "/external-api",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  settingsController.getExternalApiSettings,
+);
+router.post(
+  "/external-api",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  settingsController.updateExternalApiSettings,
+);
+router.post(
+  "/external-api/regenerate",
+  authMiddleware,
+  authorizeRoles("ADMIN"),
+  settingsController.regenerateExternalApiKey,
+);
+
 // Atualiza as configurações (ADMIN)
 router.post(
   "/",

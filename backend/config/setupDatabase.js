@@ -599,7 +599,9 @@ async function initializeDatabase() {
         ('wt_pass_eventos_bloqueio', '5', 'Duração do bloqueio (em número de eventos novos criados) no WT Pass.'),
         ('wt_pass_bloqueio_habilitado', '1', 'Ativa (1) ou desativa (0) o bloqueio por faltas no WT Pass.'),
         ('convidados_limite_indicacao_horas', '24', 'Horas de offset para encerrar indicação de convidados em relação ao início do evento.'),
-        ('convidados_limite_indicacao_direcao', 'antes', 'Direção do offset: antes ou depois do início do evento (data_jogo).')`,
+        ('convidados_limite_indicacao_direcao', 'antes', 'Direção do offset: antes ou depois do início do evento (data_jogo).'),
+        ('external_api_enabled', '0', 'Ativa (1) ou desativa (0) a API de integração externa.'),
+        ('external_api_key', '', 'Chave de API para consulta externa de BIDs e WT Pass.')`,
     );
 
     await connection.query(`

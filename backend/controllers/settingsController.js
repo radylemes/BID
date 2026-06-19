@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 const {
@@ -502,6 +503,107 @@ exports.uploadWtPassPolicyPdf = async (req, res) => {
     await connection.rollback();
     await logErro("SETTINGS_CONTROLLER_UPLOAD_WT_PASS_POLICY_PDF", error);
     res.status(500).json({ error: "Erro ao guardar PDF da política WT Pass." });
+  } finally {
+    connection.release();
+  }
+};
+
+function parseExternalApiEnabled(valor) {
+  if (valor == null) return false;
+  const v = String(valor).trim().toLowerCase();
+  return v === "1" || v === "true" || v === "sim" || v === "yes";
+}
+
+function maskExternalApiKey(key) {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  if (s.length <= 8) return "••••••••";
+  return `${"•".repeat(Math.max(8, s.length - 4))}${s.slice(-4)}`;
+}
+
+/** Lê configurações da API de integração externa (chave mascarada). */
+exports.getExternalApiSettings = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT chave, valor FROM configuracoes WHERE chave IN ('external_api_enabled', 'external_api_key')",
+    );
+    const mapa = rows.reduce((acc, r) => {
+      acc[r.chave] = r.valor;
+      return acc;
+    }, {});
+    const key = String(mapa.external_api_key || "").trim();
+    res.json({
+      enabled: parseExternalApiEnabled(mapa.external_api_enabled),
+      key_masked: maskExternalApiKey(key),
+      has_key: Boolean(key),
+    });
+  } catch (error) {
+    await logErro("SETTINGS_CONTROLLER_GET_EXTERNAL_API", error);
+    res.status(500).json({ error: "Erro ao carregar configurações da API externa." });
+  }
+};
+
+/** Atualiza o estado ativo/inativo da API de integração externa. */
+exports.updateExternalApiSettings = async (req, res) => {
+  const { adminId, enabled } = req.body || {};
+  const habilitado =
+    enabled === true || enabled === 1 || enabled === "1" || String(enabled).toLowerCase() === "true";
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
+      ["external_api_enabled", habilitado ? "1" : "0"],
+    );
+    await gravarAuditoria(connection, adminId, "CONFIG_SISTEMA", "UPDATE_EXTERNAL_API_SETTINGS", null, {
+      external_api_enabled: habilitado,
+    });
+    await connection.commit();
+    res.json({
+      message: "Configurações da API externa atualizadas.",
+      enabled: habilitado,
+    });
+  } catch (error) {
+    await connection.rollback();
+    await logErro("SETTINGS_CONTROLLER_UPDATE_EXTERNAL_API", error);
+    res.status(500).json({ error: "Erro ao salvar configurações da API externa." });
+  } finally {
+    connection.release();
+  }
+};
+
+/** Gera nova chave de API de integração externa. */
+exports.regenerateExternalApiKey = async (req, res) => {
+  const { adminId } = req.body || {};
+  const newKey = crypto.randomBytes(32).toString("hex");
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
+      ["external_api_key", newKey],
+    );
+    await connection.execute(
+      "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)",
+      ["external_api_enabled", "1"],
+    );
+    await gravarAuditoria(connection, adminId, "CONFIG_SISTEMA", "REGENERATE_EXTERNAL_API_KEY", null, {
+      key_suffix: newKey.slice(-4),
+    });
+    await connection.commit();
+    res.json({
+      message: "Nova chave de API gerada.",
+      api_key: newKey,
+      enabled: true,
+      key_masked: maskExternalApiKey(newKey),
+      has_key: true,
+    });
+  } catch (error) {
+    await connection.rollback();
+    await logErro("SETTINGS_CONTROLLER_REGENERATE_EXTERNAL_API_KEY", error);
+    res.status(500).json({ error: "Erro ao gerar chave de API." });
   } finally {
     connection.release();
   }

@@ -108,6 +108,21 @@ import {
             </span>
           </button>
           <button
+            (click)="abaAtual = 'integracao-api'; carregarExternalApiSettings()"
+            [ngClass]="
+              abaAtual === 'integracao-api'
+                ? 'bg-indigo-100 text-indigo-700 font-bold'
+                : 'text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)]'
+            "
+            class="w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 text-sm"
+          >
+            <span class="text-lg">🔌</span>
+            <span>
+              Integração API
+              <span class="block text-[10px] font-normal opacity-70">BIDs e WT Pass</span>
+            </span>
+          </button>
+          <button
             (click)="abaAtual = 'tenants-status'"
             [ngClass]="
               abaAtual === 'tenants-status'
@@ -591,6 +606,96 @@ import {
             </div>
           </div>
 
+          <div *ngIf="abaAtual === 'integracao-api' && !loading" class="space-y-6">
+            <div>
+              <h3 class="text-xl font-black text-[var(--app-text)]">Integração API externa</h3>
+              <p class="text-xs text-[var(--app-text-muted)] mt-1 max-w-2xl">
+                Permite que outra aplicação consulte BIDs e WT Pass (abertos, encerrados e vencedores)
+                via chave de API.
+              </p>
+            </div>
+
+            <div
+              class="rounded-xl border border-[var(--app-border)] p-4 bg-[var(--color-bg-surface-alt)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+              <div>
+                <p class="text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-wide">
+                  API externa
+                </p>
+                <p
+                  class="text-sm font-bold mt-1"
+                  [class.text-emerald-700]="externalApiEnabled"
+                  [class.text-[var(--app-text-muted)]]="!externalApiEnabled"
+                >
+                  {{ externalApiEnabled ? 'Ativa' : 'Desativada' }}
+                </p>
+              </div>
+              <label class="inline-flex items-center gap-3 cursor-pointer">
+                <span class="text-xs font-bold text-[var(--app-text-muted)] uppercase">Ativar</span>
+                <input
+                  type="checkbox"
+                  [(ngModel)]="externalApiEnabled"
+                  (change)="salvarExternalApiEnabled()"
+                  [disabled]="salvandoExternalApi"
+                  class="h-5 w-5 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+
+            <div class="rounded-xl border border-[var(--app-border)] p-4 bg-[var(--color-bg-surface-alt)] space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-wide mb-2">
+                  Chave de API
+                </label>
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    [value]="externalApiKeyDisplay"
+                    readonly
+                    class="flex-1 h-11 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-[var(--app-text)] font-mono"
+                    placeholder="Nenhuma chave gerada"
+                  />
+                  <div class="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      (click)="copiarExternalApiKey()"
+                      [disabled]="!externalApiKeyPlain && !externalApiHasKey"
+                      class="h-11 px-4 rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--app-nav-hover-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Copiar
+                    </button>
+                    <button
+                      type="button"
+                      (click)="gerarExternalApiKey()"
+                      [disabled]="salvandoExternalApi"
+                      class="h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold uppercase tracking-wide"
+                    >
+                      {{ salvandoExternalApi ? 'Gerando...' : 'Gerar nova chave' }}
+                    </button>
+                  </div>
+                </div>
+                <p class="text-[11px] text-[var(--app-text-muted)] mt-2">
+                  A chave completa só é exibida no momento da geração. Guarde-a em local seguro.
+                </p>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
+              <h4 class="text-sm font-black text-indigo-900">Como consumir</h4>
+              <div class="text-xs text-indigo-900/80 space-y-2 font-mono break-all">
+                <p><strong>GET</strong> {{ integracaoApiUrl }}</p>
+                <p><strong>Header:</strong> X-API-Key: &lt;sua-chave&gt;</p>
+              </div>
+              <p class="text-[11px] text-indigo-900/70 leading-relaxed">
+                A resposta inclui <code class="text-[10px]">bids</code> e
+                <code class="text-[10px]">wtpass</code>, cada um com listas
+                <code class="text-[10px]">abertos</code>,
+                <code class="text-[10px]">encerrados</code> e
+                <code class="text-[10px]">vencedores</code>.
+              </p>
+            </div>
+          </div>
+
           <div *ngIf="abaAtual === 'tenants-status'">
             <app-tenants-status></app-tenants-status>
           </div>
@@ -637,6 +742,18 @@ export class SettingsComponent implements OnInit {
   convidadosLimiteIndicacaoHoras = DEFAULT_LIMITE_INDICACAO_HORAS;
   convidadosLimiteIndicacaoDirecao: DirecaoLimiteIndicacao = DEFAULT_LIMITE_INDICACAO_DIRECAO;
   salvandoGuestIndication = false;
+
+  externalApiEnabled = false;
+  externalApiKeyMasked = '';
+  externalApiHasKey = false;
+  externalApiKeyPlain = '';
+  salvandoExternalApi = false;
+  integracaoApiUrl = `${environment.apiUri}/integracao/eventos`;
+
+  get externalApiKeyDisplay(): string {
+    if (this.externalApiKeyPlain) return this.externalApiKeyPlain;
+    return this.externalApiKeyMasked;
+  }
 
   get tinymceInit(): Record<string, unknown> {
     return {
@@ -685,6 +802,7 @@ export class SettingsComponent implements OnInit {
         aba === 'pontos' ||
         aba === 'wt-pass' ||
         aba === 'convidados' ||
+        aba === 'integracao-api' ||
         aba === 'tenants-status' ||
         aba === 'monitor'
       ) {
@@ -692,6 +810,7 @@ export class SettingsComponent implements OnInit {
         if (aba === 'email' || aba === 'politica') this.carregarSettings();
         if (aba === 'wt-pass') this.carregarWtPassSettings();
         if (aba === 'convidados') this.carregarGuestIndicationSettings();
+        if (aba === 'integracao-api') this.carregarExternalApiSettings();
       }
     });
   }
@@ -787,6 +906,103 @@ export class SettingsComponent implements OnInit {
           this.salvandoGuestIndication = false;
           Swal.fire('Erro', err.error?.error || 'Falha ao salvar configurações de convidados.', 'error');
         },
+      });
+  }
+
+  carregarExternalApiSettings() {
+    this.loading = true;
+    this.settingsService.getExternalApiSettings().subscribe({
+      next: (cfg) => {
+        this.externalApiEnabled = cfg?.enabled === true;
+        this.externalApiKeyMasked = cfg?.key_masked ?? '';
+        this.externalApiHasKey = cfg?.has_key === true;
+        this.externalApiKeyPlain = '';
+        this.loading = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        Swal.fire('Erro', 'Não foi possível carregar as configurações da API externa.', 'error');
+      },
+    });
+  }
+
+  salvarExternalApiEnabled() {
+    this.salvandoExternalApi = true;
+    this.settingsService.updateExternalApiSettings(this.externalApiEnabled, this.currentUser?.id).subscribe({
+      next: (res) => {
+        this.externalApiEnabled = res?.enabled === true;
+        this.salvandoExternalApi = false;
+        Swal.fire({
+          icon: 'success',
+          title: res?.message || 'Configurações atualizadas.',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      },
+      error: (err) => {
+        this.salvandoExternalApi = false;
+        Swal.fire('Erro', err.error?.error || 'Falha ao salvar configurações da API externa.', 'error');
+        this.carregarExternalApiSettings();
+      },
+    });
+  }
+
+  gerarExternalApiKey() {
+    Swal.fire({
+      title: 'Gerar nova chave?',
+      text: 'A chave anterior deixará de funcionar imediatamente.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Gerar',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      this.salvandoExternalApi = true;
+      this.settingsService.regenerateExternalApiKey(this.currentUser?.id).subscribe({
+        next: (res) => {
+          this.externalApiEnabled = res?.enabled === true;
+          this.externalApiKeyPlain = res?.api_key ?? '';
+          this.externalApiKeyMasked = res?.key_masked ?? '';
+          this.externalApiHasKey = res?.has_key === true;
+          this.salvandoExternalApi = false;
+          Swal.fire({
+            icon: 'success',
+            title: 'Nova chave gerada',
+            html: `<p class="text-sm mb-3">Copie e guarde a chave agora. Ela não será exibida novamente.</p><code class="text-xs break-all">${res?.api_key ?? ''}</code>`,
+            confirmButtonText: 'Entendi',
+          });
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.salvandoExternalApi = false;
+          Swal.fire('Erro', err.error?.error || 'Falha ao gerar chave de API.', 'error');
+        },
+      });
+    });
+  }
+
+  copiarExternalApiKey() {
+    const key = this.externalApiKeyPlain || this.externalApiKeyMasked;
+    if (!key) {
+      Swal.fire('Aviso', 'Gere uma chave antes de copiar.', 'info');
+      return;
+    }
+    if (!this.externalApiKeyPlain) {
+      Swal.fire(
+        'Aviso',
+        'Só é possível copiar a chave completa logo após a geração. Gere uma nova chave se necessário.',
+        'info',
+      );
+      return;
+    }
+    navigator.clipboard
+      .writeText(this.externalApiKeyPlain)
+      .then(() => {
+        Swal.fire({ icon: 'success', title: 'Chave copiada.', timer: 1200, showConfirmButton: false });
+      })
+      .catch(() => {
+        Swal.fire('Erro', 'Não foi possível copiar a chave.', 'error');
       });
   }
 
@@ -1513,7 +1729,7 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-carregarGrupos() {
+  carregarGrupos() {
     this.http.get<any[]>(`${environment.apiUri}/groups`).subscribe({
       next: (res) => (this.grupos = res),
     });
