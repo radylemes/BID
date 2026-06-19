@@ -253,34 +253,7 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
               </div>
 
               <div class="p-3 sm:p-4 md:p-5 lg:p-8 flex-1 flex flex-col justify-center gap-3 sm:gap-4 lg:gap-6 min-w-0">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
-                  <div
-                    class="bg-indigo-50/50 border border-indigo-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
-                    role="group"
-                    title="Vagas ocupadas no evento"
-                    [attr.aria-label]="h.ocupadas + ' de ' + (h.vagas || 0) + ' vagas ocupadas'"
-                  >
-                    <span class="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-widest"
-                      >Vagas Ocupadas</span
-                    >
-                    <span class="text-lg sm:text-xl lg:text-2xl font-black text-indigo-700 leading-none mt-0.5 sm:mt-1 truncate max-w-full tabular-nums">
-                      {{ h.ocupadas }}
-                    </span>
-                    <span class="text-[9px] sm:text-[10px] text-indigo-400 font-bold mt-0.5">de {{ h.vagas || 0 }} vagas</span>
-                  </div>
-
-                  <div
-                    class="bg-emerald-50/50 border border-emerald-100 p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0"
-                  >
-                    <span class="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest"
-                      >Vagas Livres</span
-                    >
-                    <span class="text-lg sm:text-xl lg:text-2xl font-black text-emerald-600 leading-none mt-0.5 sm:mt-1 truncate max-w-full tabular-nums">
-                      {{ h.vagas_restantes }}
-                    </span>
-                    <span class="text-[9px] sm:text-[10px] text-emerald-400">vagas</span>
-                  </div>
-
+                <div class="grid grid-cols-1 gap-2 sm:gap-3 lg:gap-4">
                   <div
                     class="p-2.5 sm:p-3 lg:p-4 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center text-center min-w-0 border"
                     [ngClass]="

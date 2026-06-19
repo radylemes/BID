@@ -375,34 +375,6 @@ import { FormsModule } from '@angular/forms';
                   {{ labelSituacaoWtCard(ev) }}
                 </div>
               </div>
-              <div
-                *ngIf="!bloqueadoPenalidadeNoEvento(ev)"
-                class="rounded-xl lg:rounded-2xl border border-indigo-100 bg-indigo-50/50 dark:bg-indigo-500/10 dark:border-indigo-400/20 px-2 sm:px-3 py-2.5 flex flex-col items-center justify-center gap-1 min-h-[4.5rem] sm:min-h-[4.75rem] min-w-0 h-full text-center"
-                role="group"
-                title="Ocupação do evento: vagas preenchidas e disponíveis"
-                [attr.aria-label]="
-                  (ev.ocupadas || 0) +
-                  ' de ' +
-                  (ev.vagas || 0) +
-                  ' vagas ocupadas, ' +
-                  (ev.vagas_restantes ?? 0) +
-                  ' vagas livres'
-                "
-              >
-                <div class="text-sm sm:text-base font-black tabular-nums leading-tight px-0.5 text-[var(--app-text)]">
-                  <span>{{ ev.ocupadas || 0 }}</span>
-                  <span class="text-[var(--app-text-muted)] font-bold"> de </span>
-                  <span>{{ ev.vagas || 0 }}</span>
-                  <span
-                    class="block text-[10px] sm:text-[11px] font-black text-[var(--app-text-muted)] normal-case tracking-normal mt-0.5"
-                    >vagas ocupadas</span
-                  >
-                </div>
-                <div class="text-[10px] sm:text-[11px] font-black tabular-nums leading-tight text-[var(--app-text)]">
-                  <span>{{ ev.vagas_restantes ?? 0 }}</span>
-                  <span class="text-[var(--app-text-muted)] font-bold"> vagas livres</span>
-                </div>
-              </div>
             </div>
             <div class="mt-2 sm:mt-3 flex flex-col gap-2 shrink-0">
               <div
