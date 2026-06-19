@@ -18,6 +18,10 @@ node_modules/
 backend/uploads/
 backend/logs/
 backend/.cache/
+backend/tmp/
+backend/tmp/puppeteer-cache/
+backend/tmp/puppeteer-config/
+backend/tmp/puppeteer-user-data/
 
 # --- Frontend (Angular) ---
 frontend/dist/
