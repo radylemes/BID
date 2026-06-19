@@ -167,7 +167,11 @@ exports.getEventGuests = async (req, res) => {
 };
 
 exports.checkin = async (req, res) => {
-  const documentoBase64 = req.body.documentoBase64 || req.body.recebedorDocumentoBase64;
+  const documentoBase64Raw = req.body.documentoBase64 || req.body.recebedorDocumentoBase64;
+  const documentoBase64 =
+    documentoBase64Raw && typeof documentoBase64Raw === "string" && documentoBase64Raw.trim() !== ""
+      ? documentoBase64Raw.trim()
+      : null;
   const { assinaturaBase64, recebedorNome, recebedorCpf, adminId } = req.body;
 
   const inscricaoRhIdRaw = req.body.inscricaoRhId;
@@ -195,10 +199,6 @@ exports.checkin = async (req, res) => {
   if (isWtCheckin && (!Number.isFinite(partidaIdBody) || partidaIdBody <= 0)) {
     return res.status(400).json({ error: "partidaId é obrigatório para check-in WT Pass." });
   }
-  if (!documentoBase64 || typeof documentoBase64 !== "string" || documentoBase64.trim() === "") {
-    return res.status(400).json({ error: "Documento da pessoa é obrigatório para o check-in." });
-  }
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -262,7 +262,7 @@ exports.checkin = async (req, res) => {
           titular: titularNome,
           recebedor: recebedorNome,
           cpf_recebedor: recebedorCpf,
-          documento_anexado: true,
+          documento_anexado: documentoBase64 != null,
           motivo: `O(a) funcionário(a) ${nomePorteiro} liberou a entrada de ${recebedorNome} (WT Pass inscrição #${inscricaoRhId}) titular ${titularNome} no evento: ${eventoTitulo}`,
         },
       );
@@ -292,7 +292,7 @@ exports.checkin = async (req, res) => {
           titular: titularNome,
           recebedor: recebedorNome,
           cpf_recebedor: recebedorCpf,
-          documento_anexado: true,
+          documento_anexado: documentoBase64 != null,
           motivo: `O(a) funcionário(a) ${nomePorteiro} liberou a entrada de ${recebedorNome} usando o ingresso #${idFinal} de ${titularNome} no evento: ${eventoTitulo}`,
         },
       );

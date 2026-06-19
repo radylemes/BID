@@ -454,7 +454,7 @@ import { environment } from '../../../environments/environment';
                 <div class="mt-2 sm:mt-3 pl-1 sm:pl-2">
                   <label
                     class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1"
-                    >Foto do documento (RG/CNH) da pessoa</label
+                    >Foto do documento (RG/CNH) da pessoa (opcional)</label
                   >
                   <input
                     type="file"
@@ -961,18 +961,6 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   confirmarCheckinLote() {
-    const semDocumento = this.ingressosParaAssinar.filter(
-      (t) => !t.recebedor_documento || (typeof t.recebedor_documento === 'string' && t.recebedor_documento.trim() === ''),
-    );
-    if (semDocumento.length > 0) {
-      Swal.fire(
-        'Atenção',
-        'Por favor, anexe o documento (foto) da pessoa que vai entrar.',
-        'warning',
-      );
-      return;
-    }
-
     const inputsInvalidos = this.ingressosParaAssinar.filter(
       (t) => !t.recebedor_nome || !t.recebedor_cpf,
     );
@@ -1005,7 +993,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         ingressoId?: number;
       } = {
         assinaturaBase64: base64Signature,
-        documentoBase64: ticket.recebedor_documento,
+        documentoBase64: ticket.recebedor_documento || null,
         recebedorNome: ticket.recebedor_nome,
         recebedorCpf: ticket.recebedor_cpf,
         adminId: this.currentUser.id,

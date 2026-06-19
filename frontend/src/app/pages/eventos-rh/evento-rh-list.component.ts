@@ -338,12 +338,8 @@ import { FormsModule } from '@angular/forms';
             </div>
 
             <div
-              class="mt-2 grid gap-2 sm:gap-2.5 min-h-0"
-              [ngClass]="
-                bloqueadoPenalidadeNoEvento(ev)
-                  ? 'flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)]'
-                  : 'grid-cols-1 sm:grid-cols-2 items-stretch'
-              "
+              class="mt-2 grid grid-cols-1 gap-2 sm:gap-2.5 min-h-0"
+              [ngClass]="bloqueadoPenalidadeNoEvento(ev) ? 'flex-1 grid-rows-[minmax(0,1fr)]' : null"
             >
               <div
                 class="rounded-xl lg:rounded-2xl border px-2 sm:px-3 text-center flex flex-col items-center justify-center min-w-0"
