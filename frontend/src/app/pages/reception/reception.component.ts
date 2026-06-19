@@ -10,9 +10,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, interval, Subscription } from 'rxjs';
+import { forkJoin, interval, Subscription, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
+import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 
 @Component({
   selector: 'app-reception',
@@ -21,61 +23,82 @@ import { environment } from '../../../environments/environment';
   template: `
     <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
-        class="bg-indigo-900 text-white p-3 sm:p-4 shadow-md sticky top-0 z-30 flex items-center justify-between gap-2"
+        class="bg-indigo-900 text-white shadow-md sticky top-0 z-30"
       >
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-          <span class="text-2xl sm:text-3xl shrink-0">📱</span>
-          <div class="min-w-0">
-            <h1 class="text-base sm:text-xl font-black tracking-tight leading-none truncate">Concierge BID</h1>
-            <p class="text-[9px] sm:text-[10px] text-indigo-200 uppercase tracking-widest mt-0.5">
-              Gestão de Portaria e Acessos
-            </p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 sm:gap-4 shrink-0">
-          <div *ngIf="events.length > 0" class="hidden sm:flex items-center gap-2 min-w-[220px] max-w-[340px]">
-            <label class="text-[9px] font-black uppercase tracking-widest text-indigo-200 shrink-0">
-              Evento
-            </label>
-            <select
-              [ngModel]="selectedEventId"
-              (ngModelChange)="onSelectEvent($event)"
-              class="flex-1 min-w-0 bg-indigo-900/70 text-white border border-indigo-700 rounded-lg px-2.5 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option *ngFor="let ev of events" [ngValue]="ev.id">
-                {{ ev.titulo }} - {{ (ev.data_evento || ev.data_jogo) | date: 'dd/MM HH:mm' }}
-              </option>
-            </select>
-          </div>
-          <a
-            routerLink="/reception/confirmados"
-            class="text-emerald-200 hover:text-white flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold transition-colors bg-indigo-800 hover:bg-emerald-700/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-600 hover:border-emerald-500 active:scale-95"
-            title="Ver convidados já confirmados"
-          >
-            <span class="text-sm sm:text-base leading-none">✅</span>
-            <span class="hidden sm:inline">Confirmados</span>
-          </a>
-          <button
-            (click)="carregarTudoUnificado()"
-            class="text-indigo-200 hover:text-white flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold transition-colors bg-indigo-800 hover:bg-indigo-700 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-600 active:scale-95"
-            title="Sincronizar dados agora"
-          >
-            <span class="text-sm sm:text-base leading-none">↻</span>
-            <span class="hidden md:inline">Sincronizar</span>
-          </button>
-
-          <span
-            *ngIf="events.length > 0"
-            class="text-[10px] sm:text-xs font-bold text-indigo-200 hidden sm:flex flex-col border-l border-indigo-700 pl-2 sm:pl-4 max-w-[200px] lg:max-w-xs text-right leading-tight"
-            [title]="tituloEventoSelecionado()"
-          >
-            <span class="text-indigo-300/90">{{ events.length }} evento(s)</span>
-            <span class="truncate text-white">{{ tituloEventoSelecionado() }}</span>
-          </span>
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:p-4">
           <div
-            class="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-700 rounded-full flex items-center justify-center font-bold text-xs sm:text-base border border-indigo-500 shadow-inner shrink-0"
+            class="relative flex items-center justify-center lg:justify-start w-full px-3 pt-3 pb-2 border-b border-indigo-700/50 lg:border-0 lg:px-0 lg:pt-0 lg:pb-0 lg:w-auto"
           >
-            PT
+            <div class="flex items-center gap-2 lg:gap-3 min-w-0 justify-center lg:justify-start lg:flex-1">
+              <span class="text-2xl lg:text-3xl shrink-0 leading-none">📱</span>
+              <div class="min-w-0">
+                <h1
+                  class="text-base lg:text-xl font-black tracking-tight leading-none whitespace-nowrap text-center lg:text-left"
+                >
+                  Concierge BID
+                </h1>
+                <p
+                  class="hidden lg:block text-[9px] lg:text-[10px] text-indigo-200 uppercase tracking-widest mt-0.5"
+                >
+                  Gestão de Portaria e Acessos
+                </p>
+              </div>
+            </div>
+            <div
+              class="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-700 rounded-full flex items-center justify-center font-bold text-xs border border-indigo-500 shadow-inner shrink-0 lg:hidden"
+            >
+              PT
+            </div>
+          </div>
+
+          <div
+            class="flex items-center justify-center gap-2 w-full px-3 py-2 pb-3 lg:px-0 lg:py-0 lg:pb-0 lg:w-auto lg:shrink-0 lg:justify-end lg:flex-wrap"
+          >
+            <div
+              class="flex items-center gap-2 shrink-0 lg:min-w-[150px] lg:max-w-[210px]"
+            >
+              <label class="text-[9px] font-black uppercase tracking-widest text-indigo-200 shrink-0">
+                Dia
+              </label>
+              <input
+                type="date"
+                [ngModel]="selectedDate"
+                (ngModelChange)="onSelectDate($event)"
+                [min]="minDateIso"
+                class="w-[132px] lg:flex-1 lg:min-w-0 bg-indigo-900/70 text-white border border-indigo-700 rounded-lg px-2 py-1.5 text-[11px] font-bold text-center lg:text-left outline-none focus:ring-2 focus:ring-indigo-400 [color-scheme:dark]"
+              />
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+            <a
+              routerLink="/reception/confirmados"
+              class="text-emerald-200 hover:text-white flex items-center gap-1 lg:gap-1.5 text-[10px] lg:text-xs font-bold transition-colors bg-indigo-800 hover:bg-emerald-700/50 px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg border border-indigo-600 hover:border-emerald-500 active:scale-95 shrink-0"
+              title="Ver convidados já confirmados"
+            >
+              <span class="text-sm lg:text-base leading-none">✅</span>
+              <span>Confirmados</span>
+            </a>
+            <button
+              (click)="carregarTudoUnificado()"
+              class="text-indigo-200 hover:text-white flex items-center gap-1 lg:gap-1.5 text-[10px] lg:text-xs font-bold transition-colors bg-indigo-800 hover:bg-indigo-700 px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg border border-indigo-600 active:scale-95 shrink-0"
+              title="Sincronizar dados agora"
+            >
+              <span class="text-sm lg:text-base leading-none">↻</span>
+              <span>Sincronizar</span>
+            </button>
+            </div>
+
+            <span
+              *ngIf="selectedDate"
+              class="text-[10px] lg:text-xs font-bold text-indigo-200 hidden lg:flex flex-col border-l border-indigo-700 pl-2 lg:pl-4 max-w-[200px] xl:max-w-xs text-right leading-tight shrink-0"
+              [title]="resumoDiaSelecionado()"
+            >
+              <span class="text-indigo-300/90">{{ resumoDiaSelecionado() }}</span>
+            </span>
+            <div
+              class="hidden lg:flex w-8 h-8 lg:w-10 lg:h-10 bg-indigo-700 rounded-full items-center justify-center font-bold text-xs lg:text-base border border-indigo-500 shadow-inner shrink-0"
+            >
+              PT
+            </div>
           </div>
         </div>
       </header>
@@ -86,23 +109,47 @@ import { environment } from '../../../environments/environment';
           class="bg-white p-6 sm:p-8 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 text-center"
         >
           <span class="text-4xl block mb-2">📅</span>
-          <h3 class="font-black text-gray-800 text-sm sm:text-base">Nenhum evento hoje</h3>
+          <h3 class="font-black text-gray-800 text-sm sm:text-base">Nenhum evento nesta data</h3>
         </div>
 
         <div
           *ngIf="!loading && events.length > 0 && allGuests.length === 0"
           class="bg-amber-50 p-4 sm:p-5 rounded-xl border border-amber-200 text-center"
         >
-          <p class="text-amber-900 font-bold text-sm">Nenhum convidado na lista para este evento</p>
+          <p class="text-amber-900 font-bold text-sm">Nenhum convidado na lista para esta data</p>
           <p class="text-amber-800/80 text-xs mt-1">
-            Não há ingressos BID (apostas ganhas) nem inscrições WT Pass com vaga vinculadas a esta partida.
+            Não há ingressos BID (apostas ganhas) nem inscrições WT Pass com vaga vinculadas aos eventos deste dia.
           </p>
         </div>
 
         <div
-          *ngIf="!loading && allGuests.length > 0"
-          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200"
+          *ngIf="!loading && allGuests.length > 0 && guestsDoSetorAtivo().length > 0"
+          class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch"
         >
+          <div
+            *ngIf="primeiroEventoDoDia() as ev"
+            class="relative rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-hidden shrink-0 w-full sm:w-40 md:w-48 lg:w-52 self-stretch min-h-[160px] sm:min-h-0"
+          >
+            <img
+              [src]="getEventBannerUrl(ev)"
+              [alt]="ev.titulo"
+              class="absolute inset-0 w-full h-full object-cover"
+              (error)="onBannerError($event)"
+            />
+          </div>
+
+          <div class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 flex-1 min-w-0">
+          <div
+            *ngIf="events.length > 0"
+            class="mb-3 pb-3 border-b border-gray-100"
+          >
+            <p
+              class="font-black text-indigo-900 text-[10px] sm:text-xs leading-tight line-clamp-2 uppercase"
+              [title]="primeiroEventoDoDia()?.titulo"
+            >
+              {{ primeiroEventoDoDia()?.titulo }}
+            </p>
+          </div>
           <h3
             class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-2"
           >
@@ -116,7 +163,7 @@ import { environment } from '../../../environments/environment';
             >
               <div
                 class="font-black text-indigo-900 text-[10px] sm:text-xs uppercase mb-0.5 sm:mb-1 truncate"
-                title="{{ emp.nome }}"
+                [title]="emp.nome"
               >
                 {{ emp.nome }}
               </div>
@@ -137,10 +184,11 @@ import { environment } from '../../../environments/environment';
               </div>
             </div>
           </div>
+          </div>
         </div>
 
         <div
-          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-md border border-gray-200 flex flex-col lg:flex-row gap-3 sm:gap-4 items-stretch lg:items-center justify-between sticky top-14 sm:top-[72px] z-20"
+          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-md border border-gray-200 flex flex-col lg:flex-row gap-3 sm:gap-4 items-stretch lg:items-center justify-between sticky top-[88px] lg:top-[72px] z-20"
         >
           <div class="relative w-full lg:w-1/3 min-w-0">
             <span class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base sm:text-lg">🔍</span>
@@ -153,7 +201,7 @@ import { environment } from '../../../environments/environment';
           </div>
 
           <div
-            *ngIf="!loading && allGuests.length > 0"
+            *ngIf="!loading && guestsDoSetorAtivo().length > 0"
             class="flex flex-wrap items-center justify-center lg:justify-end gap-1.5 sm:gap-2 w-full lg:w-auto"
           >
             <div
@@ -193,6 +241,37 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
 
+        <div
+          *ngIf="exibirAbasSetor && !loading && allGuests.length > 0"
+          class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar"
+        >
+          <div class="flex items-center gap-2 min-w-max">
+            <button
+              *ngFor="let setor of setoresDisponiveis"
+              type="button"
+              (click)="selecionarSetor(setor.key)"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
+              [ngClass]="
+                selectedSetorKey === setor.key
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+              "
+            >
+              <span>{{ setor.label }}</span>
+              <span
+                class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                [ngClass]="
+                  selectedSetorKey === setor.key
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-white text-indigo-600 border border-indigo-100'
+                "
+              >
+                {{ setor.total }}
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div *ngIf="loading" class="text-center py-12 sm:py-20">
           <div
             class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-indigo-600 mx-auto mb-3 sm:mb-4"
@@ -204,7 +283,7 @@ import { environment } from '../../../environments/environment';
 
         <!-- Lista mobile: só Titular + Convidado, ao clicar abre modal com tudo -->
         <div
-          *ngIf="!loading && allGuests.length > 0"
+          *ngIf="!loading && guestsDoSetorAtivo().length > 0"
           class="md:hidden space-y-2"
         >
           <div
@@ -248,23 +327,22 @@ import { environment } from '../../../environments/environment';
 
         <!-- Tabela desktop -->
         <div
-          *ngIf="!loading && allGuests.length > 0"
+          *ngIf="!loading && guestsDoSetorAtivo().length > 0"
           class="hidden md:block bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0"
         >
           <div class="overflow-x-auto custom-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
-            <table class="w-full min-w-full text-left text-sm lg:min-w-[700px]">
+            <table class="w-full table-fixed min-w-full text-left text-sm lg:min-w-[680px]">
               <thead
                 class="bg-indigo-50/50 text-indigo-900 uppercase font-black text-[9px] sm:text-[10px] tracking-wider border-b border-gray-200"
               >
                 <tr>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell">Usuário (Titular)</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell">Empresa</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell">Tipo</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell">Setor</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-indigo-50/50 min-w-[140px] lg:min-w-[180px]">Convidado (Retirante)</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden sm:table-cell">Evento / Data</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Status</th>
-                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">Ação</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden md:table-cell w-[12%]">Usuário (Titular)</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell w-[10%]">Empresa</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell w-[7%]">Tipo</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell min-w-[140px] w-[14%]">Setor</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-indigo-50/50 min-w-[140px] lg:min-w-[180px] w-[18%]">Convidado (Retirante)</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center w-[9%]">Status</th>
+                  <th class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center w-[10%]">Ação</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
@@ -295,7 +373,10 @@ import { environment } from '../../../environments/environment';
                       {{ rotuloTipoConvite(group.tipo_convite) }}
                     </span>
                   </td>
-                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell text-[10px] font-bold text-gray-600 max-w-[120px] truncate" [title]="group.setor_evento_nome || ''">
+                  <td
+                    class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell align-top whitespace-normal break-words text-[10px] font-bold text-gray-600"
+                    [title]="group.setor_evento_nome || ''"
+                  >
                     {{ group.setor_evento_nome || '—' }}
                   </td>
 
@@ -334,14 +415,6 @@ import { environment } from '../../../environments/environment';
                           Setor: {{ group.setor_evento_nome }}
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden sm:table-cell">
-                    <div class="font-bold text-gray-800 text-[10px] sm:text-xs max-w-[140px] lg:max-w-none truncate">{{ group.evento_titulo }}</div>
-                    <div
-                      class="text-[9px] sm:text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-0.5"
-                    >
-                      <span>📅</span> {{ group.data_evento | date: 'dd/MM/yyyy HH:mm' }}
                     </div>
                   </td>
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">
@@ -638,12 +711,19 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   currentUser: any = {};
   loading = false;
   events: any[] = [];
-  /** ID da partida selecionada nas abas (auto: primeiro evento do dia). */
-  selectedEventId: number | null = null;
+  selectedDate = ReceptionComponent.hojeLocalIso();
+  minDateIso = ReceptionComponent.hojeLocalIso();
   allGuests: any[] = [];
   /** Uma linha por ingresso (sem agrupar por retirante). */
   guestsList: any[] = [];
+
+  private static readonly SETOR_TODOS = '__todos__';
+  private static readonly SETOR_SEM = '__sem_setor__';
+
   searchTerm = '';
+  selectedSetorKey = ReceptionComponent.SETOR_TODOS;
+  setoresDisponiveis: { key: string; label: string; total: number }[] = [];
+  exibirAbasSetor = false;
 
   /** CPF do retirante ou do titular quando não houver indicação (usa `titular_cpf` da API). */
   cpfRetiranteOuTitular(g: any): string {
@@ -727,11 +807,10 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       this.cd.detectChanges();
     }
 
-    this.http.get<any[]>(`${this.apiUrl}/events/today`).subscribe({
+    this.http.get<any[]>(`${this.apiUrl}/events/today?date=${this.selectedDate}`).subscribe({
       next: (eventsRes) => {
         this.events = Array.isArray(eventsRes) ? eventsRes : [];
         if (this.events.length === 0) {
-          this.selectedEventId = null;
           this.allGuests = [];
           if (!silencioso) this.loading = false;
           this.agruparEAtualizar();
@@ -739,22 +818,33 @@ export class ReceptionComponent implements OnInit, OnDestroy {
           return;
         }
 
-        const ids = new Set(this.events.map((e) => e.id));
-        if (this.selectedEventId == null || !ids.has(this.selectedEventId)) {
-          this.selectedEventId = this.events[0].id;
-        }
+        const guestRequests = this.events.map((ev) =>
+          this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).pipe(
+            map((guestsRes) => {
+              const raw = Array.isArray(guestsRes) ? guestsRes : [];
+              return raw.map((g) => ({
+                ...g,
+                checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
+                partida_id: ev.id,
+                evento_titulo: ev.titulo,
+                data_evento: ev.data_evento || ev.data_jogo,
+              }));
+            }),
+            catchError(() => of([])),
+          ),
+        );
 
-        const ev = this.events.find((e) => e.id === this.selectedEventId) ?? this.events[0];
-
-        this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).subscribe({
-          next: (guestsRes) => {
-            const raw = Array.isArray(guestsRes) ? guestsRes : [];
-            this.allGuests = raw.map((g) => ({
-              ...g,
-              checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
-              evento_titulo: ev.titulo,
-              data_evento: ev.data_evento || ev.data_jogo,
-            }));
+        forkJoin(guestRequests).subscribe({
+          next: (results) => {
+            this.allGuests = results
+              .flat()
+              .sort((a, b) =>
+                String(a.retirante_nome || a.titular_nome || '').localeCompare(
+                  String(b.retirante_nome || b.titular_nome || ''),
+                  'pt',
+                  { sensitivity: 'base' },
+                ),
+              );
             if (!silencioso) this.loading = false;
             this.agruparEAtualizar();
             this.cd.detectChanges();
@@ -774,28 +864,137 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     });
   }
 
-  onSelectEvent(eventId: number | string | null) {
-    const parsedId = Number(eventId);
-    if (!Number.isFinite(parsedId)) return;
-    if (this.selectedEventId === parsedId) return;
-    this.selectedEventId = parsedId;
+  onSelectDate(date: string) {
+    if (!date || date === this.selectedDate) return;
+    if (date < this.minDateIso) return;
+    this.selectedDate = date;
     this.carregarTudoUnificado(false);
   }
 
-  tituloEventoSelecionado(): string {
-    if (this.selectedEventId == null) return '';
-    const ev = this.events.find((e) => e.id === this.selectedEventId);
-    return ev?.titulo ?? '';
+  resumoDiaSelecionado(): string {
+    if (!this.selectedDate) return '';
+    const [y, m, d] = this.selectedDate.split('-');
+    const dataFmt = `${d}/${m}/${y}`;
+    if (this.events.length === 0) return `Sem eventos · ${dataFmt}`;
+    return `${this.events.length} evento(s) · ${dataFmt}`;
+  }
+
+  primeiroEventoDoDia(): any | null {
+    return this.events.length > 0 ? this.events[0] : null;
+  }
+
+  getEventBannerUrl(ev: { banner?: string | null; id?: number }): string {
+    if (!ev?.banner) return 'assets/banner-placeholder.jpg';
+    if (String(ev.banner).startsWith('http')) return ev.banner;
+    if (ev.banner === 'db' && ev.id) return `${environment.apiUri}/matches/${ev.id}/banner`;
+    return uploadsPublicUrl(ev.banner);
+  }
+
+  onBannerError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    if (img) img.src = 'assets/banner-placeholder.jpg';
+  }
+
+  private static hojeLocalIso(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   agruparEAtualizar() {
+    this.guestsList = this.allGuests.map((guest) => ({
+      ...guest,
+      documento: guest.documento ?? null,
+      quantidade_ingressos: 1,
+      ingressos_liberados: guest.checkin ? 1 : 0,
+      ingressos_detalhes: [
+        {
+          ingresso_id: guest.ingresso_id,
+          inscricao_rh_id: guest.inscricao_rh_id,
+          aposta_id: guest.aposta_id,
+          checkin: guest.checkin,
+          recebedor_nome: guest.recebedor_nome || '',
+          recebedor_cpf: guest.recebedor_cpf || '',
+        },
+      ],
+    }));
+
+    this.atualizarSetoresDisponiveis();
+    this.recalcularEstatisticas(this.guestsDoSetorAtivo());
+  }
+
+  setorKey(nome: string | null | undefined): string {
+    const trimmed = nome != null ? String(nome).trim() : '';
+    return trimmed ? trimmed : ReceptionComponent.SETOR_SEM;
+  }
+
+  setorLabel(key: string): string {
+    if (key === ReceptionComponent.SETOR_SEM) return 'Sem setor';
+    return key;
+  }
+
+  atualizarSetoresDisponiveis() {
+    const mapa = new Map<string, number>();
+    this.allGuests.forEach((guest) => {
+      const key = this.setorKey(guest.setor_evento_nome);
+      mapa.set(key, (mapa.get(key) || 0) + 1);
+    });
+
+    const setoresReais = Array.from(mapa.entries())
+      .map(([key, total]) => ({ key, label: this.setorLabel(key), total }))
+      .sort((a, b) => {
+        if (a.key === ReceptionComponent.SETOR_SEM) return 1;
+        if (b.key === ReceptionComponent.SETOR_SEM) return -1;
+        return a.label.localeCompare(b.label, 'pt');
+      });
+
+    this.exibirAbasSetor = setoresReais.length > 1;
+
+    if (this.exibirAbasSetor) {
+      this.setoresDisponiveis = [
+        {
+          key: ReceptionComponent.SETOR_TODOS,
+          label: 'Todos',
+          total: this.allGuests.length,
+        },
+        ...setoresReais,
+      ];
+    } else {
+      this.setoresDisponiveis = [];
+    }
+
+    const keysValidas = new Set(this.setoresDisponiveis.map((s) => s.key));
+    if (!keysValidas.has(this.selectedSetorKey)) {
+      this.selectedSetorKey = ReceptionComponent.SETOR_TODOS;
+    }
+  }
+
+  guestsDoSetorAtivo(): any[] {
+    if (this.selectedSetorKey === ReceptionComponent.SETOR_TODOS || !this.exibirAbasSetor) {
+      return this.guestsList;
+    }
+    return this.guestsList.filter(
+      (guest) => this.setorKey(guest.setor_evento_nome) === this.selectedSetorKey,
+    );
+  }
+
+  selecionarSetor(key: string) {
+    if (this.selectedSetorKey === key) return;
+    this.selectedSetorKey = key;
+    this.recalcularEstatisticas(this.guestsDoSetorAtivo());
+    this.cd.detectChanges();
+  }
+
+  private recalcularEstatisticas(guests: any[]) {
     const mapaEmpresas = new Map<string, any>();
 
     this.totalConvidados = 0;
     this.totalLiberados = 0;
     this.totalPendentes = 0;
 
-    this.allGuests.forEach((guest) => {
+    guests.forEach((guest) => {
       this.totalConvidados++;
       if (guest.checkin) this.totalLiberados++;
       else this.totalPendentes++;
@@ -813,32 +1012,15 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     this.estatisticasEmpresas = Array.from(mapaEmpresas.values()).sort((a, b) =>
       a.nome.localeCompare(b.nome),
     );
-
-    // Uma linha por ingresso (sem consolidar múltiplos ingressos do mesmo retirante).
-    this.guestsList = this.allGuests.map((guest) => ({
-      ...guest,
-      documento: guest.documento ?? null,
-      quantidade_ingressos: 1,
-      ingressos_liberados: guest.checkin ? 1 : 0,
-      ingressos_detalhes: [
-        {
-          ingresso_id: guest.ingresso_id,
-          inscricao_rh_id: guest.inscricao_rh_id,
-          aposta_id: guest.aposta_id,
-          checkin: guest.checkin,
-          recebedor_nome: guest.recebedor_nome || '',
-          recebedor_cpf: guest.recebedor_cpf || '',
-        },
-      ],
-    }));
   }
 
   filteredGuests() {
-    if (!this.searchTerm) return this.guestsList;
+    const base = this.guestsDoSetorAtivo();
+    if (!this.searchTerm) return base;
     const term = this.searchTerm.toLowerCase();
     const termDigits = term.replace(/\D/g, '');
 
-    return this.guestsList.filter((g) => {
+    return base.filter((g) => {
       const cpf = this.cpfRetiranteOuTitular(g);
       const tipoLbl = this.rotuloTipoConvite(g.tipo_convite).toLowerCase();
       const setor = g.setor_evento_nome != null ? String(g.setor_evento_nome).toLowerCase() : '';
@@ -865,6 +1047,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       {
         ingresso_id: guest.ingresso_id ?? null,
         inscricao_rh_id: guest.inscricao_rh_id ?? null,
+        partida_id: guest.partida_id ?? null,
         checkin: guest.checkin,
         recebedor_nome: guest.retirante_nome || guest.titular_nome || '',
         recebedor_cpf: this.cpfParaCampoCheckin(guest),
@@ -1000,7 +1183,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       };
       if (ticket.inscricao_rh_id != null && Number(ticket.inscricao_rh_id) > 0) {
         body.inscricaoRhId = ticket.inscricao_rh_id;
-        body.partidaId = this.selectedEventId;
+        body.partidaId = ticket.partida_id;
       } else {
         body.ingressoId = ticket.ingresso_id;
       }

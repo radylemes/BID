@@ -30,8 +30,28 @@ async function gravarAuditoria(
 
 exports.getTodayEvents = async (req, res) => {
   try {
+    const dateParam = req.query.date;
+    let filterDate = null;
+
+    if (dateParam != null && String(dateParam).trim() !== "") {
+      const normalized = String(dateParam).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        return res.status(400).json({ error: "Formato de data inválido. Use YYYY-MM-DD." });
+      }
+      const [todayRows] = await db.execute(`SELECT CURDATE() AS hoje`);
+      const hoje = todayRows[0]?.hoje;
+      const hojeStr =
+        hoje instanceof Date
+          ? hoje.toISOString().slice(0, 10)
+          : String(hoje).slice(0, 10);
+      if (normalized < hojeStr) {
+        return res.status(400).json({ error: "Não é permitido consultar datas anteriores a hoje." });
+      }
+      filterDate = normalized;
+    }
+
     const [rows] = await db.execute(
-      `SELECT id, titulo, data_jogo as data_evento
+      `SELECT id, titulo, banner, data_jogo as data_evento
        FROM partidas p
        WHERE EXISTS (
          SELECT 1
@@ -39,8 +59,10 @@ exports.getTodayEvents = async (req, res) => {
          WHERE a.partida_id = p.id
            AND a.status = 'GANHOU'
        )
+       AND DATE(p.data_jogo) = ${filterDate ? "?" : "CURDATE()"}
        AND DATE(p.data_jogo) >= CURDATE()
-       ORDER BY data_jogo DESC`,
+       ORDER BY data_jogo ASC`,
+      filterDate ? [filterDate] : [],
     );
     res.json(rows);
   } catch (error) {

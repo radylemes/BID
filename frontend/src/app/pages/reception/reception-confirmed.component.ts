@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { of } from 'rxjs';
+import { of, forkJoin } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
@@ -14,7 +14,7 @@ import { environment } from '../../../environments/environment';
   template: `
     <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
-        class="bg-emerald-800 text-white p-3 sm:p-4 shadow-md sticky top-0 z-30 flex items-center justify-between gap-2"
+        class="bg-emerald-800 text-white p-3 sm:p-4 shadow-md sticky top-0 z-30 flex items-center justify-between gap-2 flex-wrap"
       >
         <div class="flex items-center gap-2 sm:gap-3 min-w-0">
           <a
@@ -28,27 +28,25 @@ import { environment } from '../../../environments/environment';
             <h1 class="text-base sm:text-xl font-black tracking-tight leading-none truncate">
               Convidados Confirmados
             </h1>
-            <p class="text-[9px] sm:text-[10px] text-emerald-200 uppercase tracking-widest mt-0.5">
+            <p class="hidden sm:block text-[9px] sm:text-[10px] text-emerald-200 uppercase tracking-widest mt-0.5">
               Quem já entrou no evento
             </p>
           </div>
         </div>
-        <div *ngIf="events.length > 0" class="hidden sm:flex items-center gap-2 min-w-[220px] max-w-[340px]">
+        <div class="flex items-center gap-2 min-w-[150px] max-w-[210px]">
           <label class="text-[9px] font-black uppercase tracking-widest text-emerald-200 shrink-0">
-            Evento
+            Dia
           </label>
-          <select
-            [ngModel]="selectedEventId"
-            (ngModelChange)="onSelectEvent($event)"
-            class="flex-1 min-w-0 bg-emerald-900/70 text-white border border-emerald-700 rounded-lg px-2.5 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-emerald-400"
-          >
-            <option *ngFor="let ev of events" [ngValue]="ev.id">
-              {{ ev.titulo }} - {{ (ev.data_evento || ev.data_jogo) | date: 'dd/MM HH:mm' }}
-            </option>
-          </select>
+          <input
+            type="date"
+            [ngModel]="selectedDate"
+            (ngModelChange)="onSelectDate($event)"
+            [min]="minDateIso"
+            class="flex-1 min-w-0 bg-emerald-900/70 text-white border border-emerald-700 rounded-lg px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]"
+          />
         </div>
         <div
-          class="flex items-center gap-2 bg-emerald-700/50 px-3 py-1.5 rounded-xl border border-emerald-600"
+          class="flex items-center gap-2 bg-emerald-700/50 px-3 py-1.5 rounded-xl border border-emerald-600 shrink-0"
         >
           <span class="text-lg">✅</span>
           <span class="text-sm font-black">{{ confirmedList.length }}</span>
@@ -70,17 +68,17 @@ import { environment } from '../../../environments/environment';
           class="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-200 mb-4"
         >
           <span class="text-4xl block mb-2 opacity-50">📅</span>
-          <h3 class="text-gray-700 font-bold text-sm">Nenhum evento hoje</h3>
-          <p class="text-gray-500 text-xs mt-1">Não há partidas para a data de hoje.</p>
+          <h3 class="text-gray-700 font-bold text-sm">Nenhum evento nesta data</h3>
+          <p class="text-gray-500 text-xs mt-1">Não há partidas para a data selecionada.</p>
         </div>
 
         <div
-          *ngIf="!loading && confirmedList.length === 0 && events.length > 0"
+          *ngIf="!loading && confirmedList.length === 0 && events.length > 0 && allGuests.length > 0 && totalConfirmadosDia() === 0"
           class="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-200"
         >
           <span class="text-5xl block mb-3 opacity-50">📋</span>
           <h3 class="text-gray-600 font-bold text-sm sm:text-base">
-            Nenhum convidado confirmado neste evento
+            Nenhum convidado confirmado nesta data
           </h3>
           <p class="text-gray-400 text-xs sm:text-sm mt-1">
             As liberações aparecerão aqui quando forem feitas na portaria.
@@ -91,6 +89,56 @@ import { environment } from '../../../environments/environment';
           >
             Ir para Portaria
           </a>
+        </div>
+
+        <div
+          *ngIf="!loading && confirmedList.length === 0 && events.length > 0 && allGuests.length > 0 && totalConfirmadosDia() > 0"
+          class="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-200"
+        >
+          <span class="text-5xl block mb-3 opacity-50">📋</span>
+          <h3 class="text-gray-600 font-bold text-sm sm:text-base">
+            Nenhum convidado confirmado neste setor
+          </h3>
+          <p class="text-gray-400 text-xs sm:text-sm mt-1">
+            As liberações aparecerão aqui quando forem feitas na portaria.
+          </p>
+          <a
+            routerLink="/reception"
+            class="inline-block mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+          >
+            Ir para Portaria
+          </a>
+        </div>
+
+        <div
+          *ngIf="exibirAbasSetor && !loading && allGuests.length > 0"
+          class="bg-white p-2 sm:p-3 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar mb-4"
+        >
+          <div class="flex items-center gap-2 min-w-max">
+            <button
+              *ngFor="let setor of setoresDisponiveis"
+              type="button"
+              (click)="selecionarSetor(setor.key)"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
+              [ngClass]="
+                selectedSetorKey === setor.key
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+              "
+            >
+              <span>{{ setor.label }}</span>
+              <span
+                class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                [ngClass]="
+                  selectedSetorKey === setor.key
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white text-emerald-600 border border-emerald-100'
+                "
+              >
+                {{ setor.total }}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div *ngIf="!loading && confirmedList.length > 0" class="space-y-3">
@@ -147,8 +195,17 @@ export class ReceptionConfirmedComponent implements OnInit {
   apiUrl = `${environment.apiUri}/reception`;
   loading = true;
   events: any[] = [];
-  selectedEventId: number | null = null;
+  selectedDate = ReceptionConfirmedComponent.hojeLocalIso();
+  minDateIso = ReceptionConfirmedComponent.hojeLocalIso();
+
+  private static readonly SETOR_TODOS = '__todos__';
+  private static readonly SETOR_SEM = '__sem_setor__';
+
+  allGuests: any[] = [];
   confirmedList: any[] = [];
+  selectedSetorKey = ReceptionConfirmedComponent.SETOR_TODOS;
+  setoresDisponiveis: { key: string; label: string; total: number }[] = [];
+  exibirAbasSetor = false;
 
   cpfRetiranteOuTitular(g: any): string {
     const r = g?.retirante_cpf;
@@ -171,75 +228,160 @@ export class ReceptionConfirmedComponent implements OnInit {
   carregarConfirmados() {
     this.loading = true;
     this.confirmedList = [];
+    this.allGuests = [];
     this.cd.detectChanges();
 
-    this.http.get<any[]>(`${this.apiUrl}/events/today`).pipe(
-      catchError(() => of([])),
-    ).subscribe({
-      next: (eventsRes) => {
-        const rawEvents = Array.isArray(eventsRes) ? eventsRes : (eventsRes as any)?.data;
-        this.events = Array.isArray(rawEvents) ? rawEvents : [];
-        if (this.events.length === 0) {
-          this.selectedEventId = null;
-          this.confirmedList = [];
-          this.loading = false;
-          this.cd.detectChanges();
-          return;
-        }
+    this.http
+      .get<any[]>(`${this.apiUrl}/events/today?date=${this.selectedDate}`)
+      .pipe(catchError(() => of([])))
+      .subscribe({
+        next: (eventsRes) => {
+          const rawEvents = Array.isArray(eventsRes) ? eventsRes : (eventsRes as any)?.data;
+          this.events = Array.isArray(rawEvents) ? rawEvents : [];
+          if (this.events.length === 0) {
+            this.allGuests = [];
+            this.confirmedList = [];
+            this.setoresDisponiveis = [];
+            this.exibirAbasSetor = false;
+            this.loading = false;
+            this.cd.detectChanges();
+            return;
+          }
 
-        const ids = new Set(this.events.map((e) => e.id));
-        if (this.selectedEventId == null || !ids.has(this.selectedEventId)) {
-          this.selectedEventId = this.events[0].id;
-        }
+          const guestRequests = this.events.map((ev) =>
+            this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).pipe(
+              map((guestsRes) => {
+                const raw = Array.isArray(guestsRes) ? guestsRes : ((guestsRes as any)?.data ?? []);
+                return raw.map((g: any) => ({
+                  ...g,
+                  checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
+                  partida_id: ev.id,
+                  evento_titulo: ev.titulo || g.evento_titulo,
+                  data_evento: ev.data_evento || ev.data_jogo || g.data_evento,
+                }));
+              }),
+              catchError(() => of([])),
+            ),
+          );
 
-        const ev = this.events.find((e) => e.id === this.selectedEventId) ?? this.events[0];
-
-        this.http
-          .get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`)
-          .pipe(
-            map((guestsRes) => {
-              const raw = Array.isArray(guestsRes) ? guestsRes : ((guestsRes as any)?.data ?? []);
-              return raw.map((g: any) => ({
-                ...g,
-                checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
-                evento_titulo: ev.titulo || g.evento_titulo,
-                data_evento: ev.data_evento || ev.data_jogo || g.data_evento,
-              }));
-            }),
-            catchError(() => of([])),
-          )
-          .subscribe({
-            next: (guests) => {
-              this.montarListaConfirmados(guests);
+          forkJoin(guestRequests).subscribe({
+            next: (results) => {
+              this.montarListaConfirmados(results.flat());
               this.loading = false;
               this.cd.detectChanges();
             },
             error: () => {
+              this.allGuests = [];
               this.confirmedList = [];
               this.loading = false;
               this.cd.detectChanges();
             },
           });
-      },
-      error: () => {
-        this.loading = false;
-        this.confirmedList = [];
-        this.events = [];
-        this.cd.detectChanges();
-      },
-    });
+        },
+        error: () => {
+          this.loading = false;
+          this.confirmedList = [];
+          this.allGuests = [];
+          this.events = [];
+          this.cd.detectChanges();
+        },
+      });
   }
 
-  onSelectEvent(eventId: number | string | null) {
-    const parsedId = Number(eventId);
-    if (!Number.isFinite(parsedId)) return;
-    if (this.selectedEventId === parsedId) return;
-    this.selectedEventId = parsedId;
+  onSelectDate(date: string) {
+    if (!date || date === this.selectedDate) return;
+    if (date < this.minDateIso) return;
+    this.selectedDate = date;
     this.carregarConfirmados();
   }
 
+  private static hojeLocalIso(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   private montarListaConfirmados(guests: any[]) {
-    const liberados = (guests || []).filter(
+    this.allGuests = guests || [];
+    this.atualizarSetoresDisponiveis();
+    this.atualizarListaConfirmada();
+  }
+
+  setorKey(nome: string | null | undefined): string {
+    const trimmed = nome != null ? String(nome).trim() : '';
+    return trimmed ? trimmed : ReceptionConfirmedComponent.SETOR_SEM;
+  }
+
+  setorLabel(key: string): string {
+    if (key === ReceptionConfirmedComponent.SETOR_SEM) return 'Sem setor';
+    return key;
+  }
+
+  atualizarSetoresDisponiveis() {
+    const mapa = new Map<string, number>();
+    this.allGuests.forEach((guest) => {
+      const key = this.setorKey(guest.setor_evento_nome);
+      mapa.set(key, (mapa.get(key) || 0) + 1);
+    });
+
+    const setoresReais = Array.from(mapa.entries())
+      .map(([key, total]) => ({ key, label: this.setorLabel(key), total }))
+      .sort((a, b) => {
+        if (a.key === ReceptionConfirmedComponent.SETOR_SEM) return 1;
+        if (b.key === ReceptionConfirmedComponent.SETOR_SEM) return -1;
+        return a.label.localeCompare(b.label, 'pt');
+      });
+
+    this.exibirAbasSetor = setoresReais.length > 1;
+
+    if (this.exibirAbasSetor) {
+      this.setoresDisponiveis = [
+        {
+          key: ReceptionConfirmedComponent.SETOR_TODOS,
+          label: 'Todos',
+          total: this.allGuests.length,
+        },
+        ...setoresReais,
+      ];
+    } else {
+      this.setoresDisponiveis = [];
+    }
+
+    const keysValidas = new Set(this.setoresDisponiveis.map((s) => s.key));
+    if (!keysValidas.has(this.selectedSetorKey)) {
+      this.selectedSetorKey = ReceptionConfirmedComponent.SETOR_TODOS;
+    }
+  }
+
+  guestsDoSetorAtivo(): any[] {
+    if (
+      this.selectedSetorKey === ReceptionConfirmedComponent.SETOR_TODOS ||
+      !this.exibirAbasSetor
+    ) {
+      return this.allGuests;
+    }
+    return this.allGuests.filter(
+      (guest) => this.setorKey(guest.setor_evento_nome) === this.selectedSetorKey,
+    );
+  }
+
+  selecionarSetor(key: string) {
+    if (this.selectedSetorKey === key) return;
+    this.selectedSetorKey = key;
+    this.atualizarListaConfirmada();
+    this.cd.detectChanges();
+  }
+
+  totalConfirmadosDia(): number {
+    return this.allGuests.filter(
+      (guest) => guest.checkin === true || guest.checkin === 1 || guest.checkin === '1',
+    ).length;
+  }
+
+  private atualizarListaConfirmada() {
+    const liberados = this.guestsDoSetorAtivo().filter(
       (guest) => guest.checkin === true || guest.checkin === 1 || guest.checkin === '1',
     );
 
