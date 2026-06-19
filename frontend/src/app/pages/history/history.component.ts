@@ -65,33 +65,22 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                 class="w-full h-full object-cover opacity-60 grayscale transition-opacity hover:grayscale-0"
               />
               <div
-                class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-gray-900/90 to-transparent"
+                class="absolute inset-0 bg-gradient-to-b md:bg-gradient-to-r from-gray-900/90 via-gray-900/40 to-transparent"
               ></div>
 
-              <div class="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4">
-                <div class="flex flex-wrap gap-1.5 mb-1.5 sm:mb-2">
-                  <span
-                    *ngIf="match.data_jogo"
-                    class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm inline-block"
-                  >
-                    Evento em {{ match.data_jogo | date: 'dd/MM/yyyy' }}
-                  </span>
-                  <span
-                    *ngIf="match.data_limite_aposta"
-                    class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm inline-block"
-                  >
-                    Encerrado em {{ match.data_limite_aposta | date: 'dd/MM/yyyy HH:mm' }}
-                  </span>
-                </div>
-                <p
-                  *ngIf="match.setor_evento_nome"
-                  class="text-[10px] sm:text-[11px] text-white/90 font-bold mb-1 flex items-center gap-1"
-                >
-                  <span aria-hidden="true">🪑</span> {{ match.setor_evento_nome }}
-                </p>
-                <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words">
+              <div class="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-[1]">
+                <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words mb-1">
                   {{ match.titulo }}
                 </h3>
+                <p *ngIf="match.setor_evento_nome" class="text-[10px] sm:text-[11px] font-bold mb-0.5">
+                  <span class="text-white/80">Setor:</span><span class="text-amber-300">{{ match.setor_evento_nome }}</span>
+                </p>
+                <p *ngIf="match.data_jogo" class="text-[10px] sm:text-[11px] font-bold mb-0.5">
+                  <span class="text-white/80">Data Evento:</span><span class="text-sky-300">{{ match.data_jogo | date: 'dd/MM/yyyy' }}</span>
+                </p>
+                <p *ngIf="match.data_limite_aposta" class="text-[10px] sm:text-[11px] font-bold">
+                  <span class="text-rose-300">Encerrado em {{ match.data_limite_aposta | date: 'dd/MM/yyyy HH:mm' }}</span>
+                </p>
               </div>
             </div>
 
@@ -217,50 +206,49 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                   (error)="$any($event.target).src = 'assets/placeholder.jpg'"
                 />
                 <div
-                  class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-gray-900/90 to-transparent"
+                  class="absolute inset-0 bg-gradient-to-b md:bg-gradient-to-r from-gray-900/90 via-gray-900/40 to-transparent"
                 ></div>
 
-                <div class="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex justify-between items-start gap-2 z-[1]">
-                  <span
-                    class="bg-gray-800 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-sm inline-block max-w-[65%] truncate"
-                  >
-                    Evento em {{ formatarDataCurtaWt(h.data_evento) }}
-                  </span>
-                  <div class="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
-                      [ngClass]="{
-                        'bg-emerald-500 text-white': statusBadgeWtHistorico(h) === 'Aberto',
-                        'bg-blue-600 text-white': statusBadgeWtHistorico(h) === 'Em Breve',
-                        'bg-gray-800 text-white': statusBadgeWtHistorico(h) === 'Fechado'
-                      }"
-                    >
-                      {{ statusBadgeWtHistorico(h) }}
-                    </span>
-                    <span
-                      *ngIf="seloDestaqueHistoricoWt(h) as selo"
-                      class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
-                      [ngClass]="{
-                        'bg-amber-500 text-white': selo.tone === 'amber',
-                        'bg-emerald-600 text-white': selo.tone === 'emerald',
-                        'bg-slate-600 text-white': selo.tone === 'slate'
-                      }"
-                    >
-                      {{ selo.texto }}
-                    </span>
+                <div class="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-[1]">
+                  <div class="flex justify-between items-start gap-2">
+                    <div class="min-w-0 flex-1">
+                      <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words line-clamp-2 mb-1">
+                        {{ h.titulo || 'Sem título' }}
+                      </h3>
+                      <p *ngIf="h.setor_evento_nome" class="text-[10px] sm:text-[11px] font-bold mb-0.5">
+                        <span class="text-white/80">Setor:</span><span class="text-amber-300">{{ h.setor_evento_nome }}</span>
+                      </p>
+                      <p *ngIf="h.data_evento" class="text-[10px] sm:text-[11px] font-bold mb-0.5">
+                        <span class="text-white/80">Data Evento:</span><span class="text-sky-300">{{ formatarDataCurtaWt(h.data_evento) }}</span>
+                      </p>
+                      <p *ngIf="h.data_limite_inscricao" class="text-[10px] sm:text-[11px] font-bold">
+                        <span class="text-rose-300">Encerrado em {{ h.data_limite_inscricao | date: 'dd/MM/yyyy HH:mm' }}</span>
+                      </p>
+                    </div>
+                    <div class="flex flex-col items-end gap-1.5 shrink-0">
+                      <span
+                        class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                        [ngClass]="{
+                          'bg-emerald-500 text-white': statusBadgeWtHistorico(h) === 'Aberto',
+                          'bg-blue-600 text-white': statusBadgeWtHistorico(h) === 'Em Breve',
+                          'bg-gray-800 text-white': statusBadgeWtHistorico(h) === 'Fechado'
+                        }"
+                      >
+                        {{ statusBadgeWtHistorico(h) }}
+                      </span>
+                      <span
+                        *ngIf="seloDestaqueHistoricoWt(h) as selo"
+                        class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-sm"
+                        [ngClass]="{
+                          'bg-amber-500 text-white': selo.tone === 'amber',
+                          'bg-emerald-600 text-white': selo.tone === 'emerald',
+                          'bg-slate-600 text-white': selo.tone === 'slate'
+                        }"
+                      >
+                        {{ selo.texto }}
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                <div class="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4">
-                  <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-white leading-tight drop-shadow-md break-words line-clamp-2">
-                    {{ h.titulo || 'Sem título' }}
-                  </h3>
-                  <p
-                    *ngIf="h.setor_evento_nome"
-                    class="text-[10px] sm:text-[11px] text-white/90 font-bold mt-1 flex items-center gap-1"
-                  >
-                    <span aria-hidden="true">🪑</span> {{ h.setor_evento_nome }}
-                  </p>
                 </div>
               </div>
 
@@ -630,11 +618,13 @@ export class HistoryComponent implements OnInit {
           <img src="${bannerUrl || placeholderImg}" alt="" class="w-full h-full object-cover" onerror="this.src='${placeholderImg}'" />
         </div>
         <div class="min-w-0 flex-1 flex flex-col justify-center">
-          <h4 class="text-lg font-black text-gray-800 mb-3 break-words">${match.titulo || 'Evento'}</h4>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-            ${dataEncerrado ? `<p class="text-gray-600 font-medium">📅 ${dataEncerrado}</p>` : ''}
+          <h4 class="text-lg font-black text-gray-800 mb-2 break-words">${match.titulo || 'Evento'}</h4>
+          ${match.subtitulo ? `<p class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">${match.subtitulo}</p>` : ''}
+          <div class="space-y-1 text-sm mb-2">
+            ${setorEvento ? `<p class="font-bold"><span class="text-gray-500">Setor:</span> <span class="text-amber-600">${setorEvento}</span></p>` : ''}
+            ${match.data_jogo ? `<p class="font-bold"><span class="text-gray-500">Data Evento:</span> <span class="text-sky-600">${new Date(match.data_jogo).toLocaleDateString('pt-BR')}</span></p>` : ''}
+            ${dataEncerrado ? `<p class="font-medium text-gray-500">Encerrado em ${dataEncerrado}</p>` : ''}
             ${localEvento ? `<p class="text-gray-600">📍 ${localEvento}</p>` : ''}
-            ${setorEvento ? `<p class="text-gray-600">🏷️ ${setorEvento}</p>` : ''}
             <p class="text-indigo-600 font-semibold">🎫 ${qtdIngressos} ingresso${qtdIngressos !== 1 ? 's' : ''}</p>
           </div>
           ${detalhesIngressos}
