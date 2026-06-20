@@ -15,6 +15,7 @@ import { catchError, map } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { formatarTituloPt } from '../../utils/formatar-texto';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -154,10 +155,10 @@ import { AuthService } from '../../services/auth.service';
             class="mb-3 pb-3 border-b border-gray-100"
           >
             <p
-              class="font-black text-indigo-900 text-[10px] sm:text-xs leading-tight line-clamp-2 uppercase"
+              class="font-black text-indigo-900 text-[10px] sm:text-xs leading-tight line-clamp-2"
               [title]="primeiroEventoDoDia()?.titulo"
             >
-              {{ primeiroEventoDoDia()?.titulo }}
+              {{ formatarTituloPt(primeiroEventoDoDia()?.titulo, 'Sem título') }}
             </p>
           </div>
           <h3
@@ -172,10 +173,10 @@ import { AuthService } from '../../services/auth.service';
               class="bg-gray-50 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow min-w-0"
             >
               <div
-                class="font-black text-indigo-900 text-[10px] sm:text-xs uppercase mb-0.5 sm:mb-1 truncate"
+                class="font-black text-indigo-900 text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate"
                 [title]="emp.nome"
               >
-                {{ emp.nome }}
+                {{ formatarTituloPt(emp.nome) }}
               </div>
               <div class="text-[9px] sm:text-[10px] font-bold text-gray-500 mb-1.5 sm:mb-2">
                 🎟️ {{ emp.total }} Ingressos
@@ -198,9 +199,9 @@ import { AuthService } from '../../services/auth.service';
         </div>
 
         <div
-          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-md border border-gray-200 flex flex-col lg:flex-row gap-3 sm:gap-4 items-stretch lg:items-center justify-between sticky top-[88px] lg:top-[72px] z-20"
+          class="bg-white p-3 sm:p-4 rounded-xl lg:rounded-2xl shadow-md border border-gray-200 flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto custom-scrollbar sticky top-[88px] lg:top-[72px] z-20 min-w-0"
         >
-          <div class="relative w-full lg:w-1/3 min-w-0">
+          <div class="relative flex-1 min-w-[10rem] xl:max-w-sm">
             <span class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base sm:text-lg">🔍</span>
             <input
               type="text"
@@ -211,97 +212,95 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <div
+            *ngIf="exibirFiltroStatus && !loading && allGuests.length > 0"
+            class="grid grid-cols-2 gap-2 w-auto min-w-[15.5rem] shrink-0"
+          >
+            <button
+              *ngFor="let st of statusDisponiveis"
+              type="button"
+              (click)="selecionarStatus(st.key)"
+              class="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border"
+              [ngClass]="
+                selectedStatusKey === st.key
+                  ? st.key === 'LIBERADOS'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              "
+            >
+              <span class="shrink-0">{{ st.label }}</span>
+              <span
+                class="shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black tabular-nums"
+                [ngClass]="
+                  selectedStatusKey === st.key
+                    ? st.key === 'LIBERADOS'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-amber-400 text-white'
+                    : st.key === 'LIBERADOS'
+                      ? 'bg-white text-emerald-600 border border-emerald-100'
+                      : 'bg-white text-amber-600 border border-amber-100'
+                "
+              >
+                {{ st.total }}
+              </span>
+            </button>
+          </div>
+
+          <div
             *ngIf="!loading && allGuests.length > 0"
-            class="flex flex-wrap items-center justify-center lg:justify-end gap-1.5 sm:gap-2 w-full lg:w-auto"
+            class="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto"
           >
             <div
-              class="flex items-center gap-1.5 sm:gap-2.5 bg-indigo-50 border border-indigo-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
+              class="flex items-center gap-1.5 sm:gap-2 bg-indigo-50 border border-indigo-100 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
               title="Total de Ingressos"
             >
-              <span class="text-base sm:text-xl leading-none shrink-0">🎟️</span>
+              <span class="text-base sm:text-lg leading-none shrink-0">🎟️</span>
               <div class="flex flex-col min-w-0">
                 <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-indigo-400 truncate"
                   >Total</span
                 >
-                <span class="text-sm sm:text-lg font-black text-indigo-700 leading-none">{{ totalConvidados }}</span>
+                <span class="text-sm sm:text-base font-black text-indigo-700 leading-none">{{ totalConvidados }}</span>
               </div>
             </div>
             <div
-              class="flex items-center gap-1.5 sm:gap-2.5 bg-emerald-50 border border-emerald-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
+              class="flex items-center gap-1.5 sm:gap-2 bg-emerald-50 border border-emerald-100 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
             >
-              <span class="text-base sm:text-xl leading-none shrink-0">✅</span>
+              <span class="text-base sm:text-lg leading-none shrink-0">✅</span>
               <div class="flex flex-col min-w-0">
                 <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-emerald-500 truncate"
                   >Entraram</span
                 >
-                <span class="text-sm sm:text-lg font-black text-emerald-600 leading-none">{{ totalLiberados }}</span>
+                <span class="text-sm sm:text-base font-black text-emerald-600 leading-none">{{ totalLiberados }}</span>
               </div>
             </div>
             <div
-              class="flex items-center gap-1.5 sm:gap-2.5 bg-amber-50 border border-amber-100 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
+              class="flex items-center gap-1.5 sm:gap-2 bg-amber-50 border border-amber-100 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl min-w-0"
             >
-              <span class="text-base sm:text-xl leading-none shrink-0">⏳</span>
+              <span class="text-base sm:text-lg leading-none shrink-0">⏳</span>
               <div class="flex flex-col min-w-0">
                 <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-amber-500 truncate"
                   >Pendentes</span
                 >
-                <span class="text-sm sm:text-lg font-black text-amber-600 leading-none">{{ totalPendentes }}</span>
+                <span class="text-sm sm:text-base font-black text-amber-600 leading-none">{{ totalPendentes }}</span>
               </div>
             </div>
           </div>
         </div>
 
         <div
-          *ngIf="(exibirFiltroStatus || exibirAbasTipo || exibirAbasSetor) && !loading && allGuests.length > 0"
-          class="flex flex-col sm:flex-row gap-2 sm:gap-3"
+          *ngIf="(exibirAbasTipo || exibirAbasSetor) && !loading && allGuests.length > 0"
+          class="grid grid-cols-1 xl:grid-cols-[minmax(18rem,3fr)_minmax(0,7fr)] gap-2 sm:gap-3"
         >
           <div
-            *ngIf="exibirFiltroStatus"
-            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
-          >
-            <div class="flex items-center gap-2 min-w-max">
-              <button
-                *ngFor="let st of statusDisponiveis"
-                type="button"
-                (click)="selecionarStatus(st.key)"
-                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
-                [ngClass]="
-                  selectedStatusKey === st.key
-                    ? st.key === 'LIBERADOS'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                "
-              >
-                <span>{{ st.label }}</span>
-                <span
-                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
-                  [ngClass]="
-                    selectedStatusKey === st.key
-                      ? st.key === 'LIBERADOS'
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-amber-400 text-white'
-                      : st.key === 'LIBERADOS'
-                        ? 'bg-white text-emerald-600 border border-emerald-100'
-                        : 'bg-white text-amber-600 border border-amber-100'
-                  "
-                >
-                  {{ st.total }}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div
             *ngIf="exibirAbasTipo"
-            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 min-w-0"
           >
-            <div class="flex items-center gap-2 min-w-max">
+            <div class="grid grid-cols-3 gap-2">
               <button
                 *ngFor="let tipo of tiposDisponiveis"
                 type="button"
                 (click)="selecionarTipo(tipo.key)"
-                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
+                class="inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border"
                 [ngClass]="
                   selectedTipoKey === tipo.key
                     ? tipo.key === 'WT_PASS'
@@ -310,9 +309,9 @@ import { AuthService } from '../../services/auth.service';
                     : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
                 "
               >
-                <span>{{ tipo.label }}</span>
+                <span class="shrink-0">{{ tipo.label }}</span>
                 <span
-                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                  class="shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black tabular-nums"
                   [ngClass]="
                     selectedTipoKey === tipo.key
                       ? tipo.key === 'WT_PASS'
@@ -329,7 +328,7 @@ import { AuthService } from '../../services/auth.service';
 
           <div
             *ngIf="exibirAbasSetor"
-            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar min-w-0"
           >
             <div class="flex items-center gap-2 min-w-max">
               <button
@@ -398,12 +397,12 @@ import { AuthService } from '../../services/auth.service';
               {{ group.checkin ? '✓' : inicialRetirante(group) }}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="font-black text-gray-900 text-sm truncate">{{ group.retirante_nome }}</p>
-              <p class="text-xs text-gray-500 truncate">Titular: {{ group.titular_nome }}</p>
+              <p class="font-black text-gray-900 text-sm truncate">{{ formatarTituloPt(group.retirante_nome) }}</p>
+              <p class="text-xs text-gray-500 truncate">Titular: {{ formatarTituloPt(group.titular_nome) }}</p>
               <p class="text-[10px] text-gray-400 font-mono mt-0.5">CPF {{ cpfRetiranteOuTitular(group) }}</p>
               <p class="text-[10px] text-violet-600 font-bold mt-0.5">{{ rotuloTipoConvite(group.tipo_convite) }}</p>
               <p *ngIf="group.setor_evento_nome" class="text-[10px] text-gray-500 truncate mt-0.5">
-                Setor: {{ group.setor_evento_nome }}
+                Setor: {{ formatarTituloPt(group.setor_evento_nome) }}
               </p>
             </div>
             <span
@@ -446,14 +445,14 @@ import { AuthService } from '../../services/auth.service';
                   *ngFor="let group of filteredGuests()"
                   class="hover:bg-gray-50 transition-colors group"
                 >
-                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-bold text-gray-700 text-xs hidden md:table-cell">{{ group.titular_nome }}</td>
+                  <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 font-bold text-gray-700 text-xs hidden md:table-cell">{{ formatarTituloPt(group.titular_nome) }}</td>
 
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden lg:table-cell">
                     <div
-                      class="inline-block max-w-[130px] truncate align-middle bg-indigo-100 text-indigo-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-black tracking-wider uppercase border border-indigo-200 cursor-help"
-                      title="{{ group.empresa }}"
+                      class="inline-block max-w-[130px] truncate align-middle bg-indigo-100 text-indigo-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-black tracking-wider border border-indigo-200 cursor-help"
+                      title="{{ formatarTituloPt(group.empresa) }}"
                     >
-                      {{ group.empresa }}
+                      {{ formatarTituloPt(group.empresa) }}
                     </div>
                   </td>
 
@@ -471,9 +470,9 @@ import { AuthService } from '../../services/auth.service';
                   </td>
                   <td
                     class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 hidden xl:table-cell align-top whitespace-normal break-words text-[10px] font-bold text-gray-600"
-                    [title]="group.setor_evento_nome || ''"
+                    [title]="formatarTituloPt(group.setor_evento_nome) || ''"
                   >
-                    {{ group.setor_evento_nome || '—' }}
+                    {{ formatarTituloPt(group.setor_evento_nome) }}
                   </td>
 
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]">
@@ -490,7 +489,7 @@ import { AuthService } from '../../services/auth.service';
                       </div>
                       <div class="min-w-0">
                         <div class="font-black text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                          <span class="truncate">{{ group.retirante_nome }}</span>
+                          <span class="truncate">{{ formatarTituloPt(group.retirante_nome) }}</span>
                           <span
                             class="xl:hidden inline-block px-1.5 py-0.5 rounded text-[8px] font-black uppercase border shrink-0"
                             [ngClass]="
@@ -508,7 +507,7 @@ import { AuthService } from '../../services/auth.service';
                           class="xl:hidden text-[9px] text-gray-500 truncate mt-0.5"
                           *ngIf="group.setor_evento_nome"
                         >
-                          Setor: {{ group.setor_evento_nome }}
+                          Setor: {{ formatarTituloPt(group.setor_evento_nome) }}
                         </div>
                       </div>
                     </div>
@@ -568,7 +567,7 @@ import { AuthService } from '../../services/auth.service';
           class="bg-white w-full max-w-lg rounded-xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl max-h-[95vh] min-h-0"
         >
           <div class="p-3 sm:p-4 bg-indigo-50 border-b border-indigo-100 text-center relative shrink-0">
-            <h3 class="font-black text-indigo-900 text-base sm:text-lg uppercase tracking-tight">
+            <h3 class="font-black text-indigo-900 text-sm sm:text-base tracking-tight">
               Identificação na Portaria
             </h3>
             <p class="text-[10px] sm:text-xs text-indigo-600 mt-1 font-medium">
@@ -578,9 +577,7 @@ import { AuthService } from '../../services/auth.service';
 
           <div class="p-3 sm:p-4 flex-1 overflow-y-auto custom-scrollbar bg-gray-50 space-y-3 sm:space-y-4 min-h-0">
             <div class="space-y-3">
-              <p
-                class="text-[10px] text-gray-500 uppercase font-black tracking-widest text-center mb-1"
-              >
+              <p class="text-[10px] text-gray-500 font-bold text-center mb-1">
                 Dados de quem vai entrar
               </p>
 
@@ -594,35 +591,30 @@ import { AuthService } from '../../services/auth.service';
                   {{ i + 1 }}
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 pl-1 sm:pl-2">
-                  <div>
-                    <label
-                      class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1"
-                      >Nome Completo</label
-                    >
+                  <div class="min-w-0">
+                    <label class="block text-[9px] font-bold text-gray-400 mb-1">Nome completo</label>
                     <input
                       [(ngModel)]="ticket.recebedor_nome"
+                      (blur)="ticket.recebedor_nome = formatarTituloPt(ticket.recebedor_nome, ticket.recebedor_nome)"
+                      [title]="ticket.recebedor_nome || ''"
                       placeholder="Ex: João da Silva"
-                      class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors read-only:bg-gray-100 read-only:text-gray-700"
+                      class="w-full text-[10px] sm:text-[11px] font-semibold bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500 focus:bg-white transition-colors read-only:bg-gray-100 read-only:text-gray-700"
                     />
                   </div>
-                  <div>
-                    <label
-                      class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1"
-                      >CPF (Apenas números)</label
-                    >
+                  <div class="min-w-0">
+                    <label class="block text-[9px] font-bold text-gray-400 mb-1">CPF (apenas números)</label>
                     <input
                       [(ngModel)]="ticket.recebedor_cpf"
                       placeholder="00000000000"
                       maxlength="14"
-                      class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono read-only:bg-gray-100 read-only:text-gray-700"
+                      class="w-full text-[10px] sm:text-[11px] font-semibold bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono read-only:bg-gray-100 read-only:text-gray-700"
                     />
                   </div>
                 </div>
                 <div class="mt-2 sm:mt-3 pl-1 sm:pl-2">
-                  <label
-                    class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1"
-                    >Foto do documento (RG/CNH) da pessoa (opcional)</label
-                  >
+                  <label class="block text-[9px] font-bold text-gray-400 mb-1">
+                    Foto do documento (RG/CNH) da pessoa (opcional)
+                  </label>
                   <input
                     type="file"
                     accept="image/*"
@@ -638,7 +630,7 @@ import { AuthService } from '../../services/auth.service';
                     <button
                       type="button"
                       (click)="removerDocumento(ticket)"
-                      class="text-[9px] font-bold text-rose-500 hover:bg-rose-50 py-1 px-3 rounded border border-rose-200 transition-colors uppercase"
+                      class="text-[9px] font-bold text-rose-500 hover:bg-rose-50 py-1 px-3 rounded border border-rose-200 transition-colors"
                     >
                       Remover
                     </button>
@@ -650,10 +642,8 @@ import { AuthService } from '../../services/auth.service';
             <hr class="border-gray-200" />
 
             <div>
-              <p
-                class="text-[10px] text-gray-500 uppercase font-black tracking-widest flex items-center justify-center gap-2 mb-2"
-              >
-                <span>👇</span> Assinatura do Responsável
+              <p class="text-[10px] text-gray-500 font-bold flex items-center justify-center gap-2 mb-2">
+                <span>👇</span> Assinatura do responsável
               </p>
               <canvas
                 #signatureCanvas
@@ -670,7 +660,7 @@ import { AuthService } from '../../services/auth.service';
               <div class="text-center mt-2">
                 <button
                   (click)="limparAssinatura()"
-                  class="text-[9px] font-black text-rose-500 hover:bg-rose-50 py-1.5 px-4 rounded-full border border-rose-200 transition-colors uppercase tracking-wider"
+                  class="text-[9px] font-bold text-rose-500 hover:bg-rose-50 py-1.5 px-4 rounded-full border border-rose-200 transition-colors"
                 >
                   🧹 Limpar / Refazer
                 </button>
@@ -687,7 +677,7 @@ import { AuthService } from '../../services/auth.service';
             </button>
             <button
               (click)="confirmarCheckinLote()"
-              class="flex-[2] sm:w-2/3 py-2.5 sm:py-3 rounded-xl font-black text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-xs sm:text-sm uppercase tracking-wide"
+              class="flex-[2] sm:w-2/3 py-2.5 sm:py-3 rounded-xl font-black text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-[11px] sm:text-xs"
             >
               Liberar entrada
             </button>
@@ -706,7 +696,7 @@ import { AuthService } from '../../services/auth.service';
           (click)="$event.stopPropagation()"
         >
           <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between shrink-0">
-            <h3 class="font-black text-indigo-900 text-sm uppercase tracking-tight">
+            <h3 class="font-black text-indigo-900 text-sm tracking-tight">
               Detalhes do ingresso
             </h3>
             <button
@@ -725,24 +715,24 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <div *ngIf="selectedGroupForModal.setor_evento_nome">
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Setor do evento</p>
-              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.setor_evento_nome }}</p>
+              <p class="font-bold text-gray-800 text-sm">{{ formatarTituloPt(selectedGroupForModal.setor_evento_nome) }}</p>
             </div>
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Titular</p>
-              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.titular_nome }}</p>
+              <p class="font-bold text-gray-800 text-sm">{{ formatarTituloPt(selectedGroupForModal.titular_nome) }}</p>
             </div>
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Empresa</p>
-              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.empresa }}</p>
+              <p class="font-bold text-gray-800 text-sm">{{ formatarTituloPt(selectedGroupForModal.empresa) }}</p>
             </div>
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Convidado (Retirante)</p>
-              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.retirante_nome }}</p>
+              <p class="font-bold text-gray-800 text-sm">{{ formatarTituloPt(selectedGroupForModal.retirante_nome) }}</p>
               <p class="text-xs text-gray-500 font-mono mt-0.5">CPF: {{ cpfRetiranteOuTitular(selectedGroupForModal) }}</p>
             </div>
             <div>
               <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Evento</p>
-              <p class="font-bold text-gray-800 text-sm">{{ selectedGroupForModal.evento_titulo }}</p>
+              <p class="font-bold text-gray-800 text-sm">{{ formatarTituloPt(selectedGroupForModal.evento_titulo) }}</p>
               <p class="text-xs text-gray-500 mt-0.5">
                 📅 {{ selectedGroupForModal.data_evento | date: 'dd/MM/yyyy HH:mm' }}
               </p>
@@ -826,6 +816,8 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   tiposDisponiveis: { key: string; label: string; total: number }[] = [];
   exibirAbasTipo = false;
 
+  formatarTituloPt = formatarTituloPt;
+
   /** CPF do retirante ou do titular quando não houver indicação (usa `titular_cpf` da API). */
   cpfRetiranteOuTitular(g: any): string {
     const r = g?.retirante_cpf;
@@ -849,8 +841,8 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   inicialRetirante(g: any): string {
-    const n = String(g?.retirante_nome || g?.titular_nome || '?').trim();
-    return n ? n.charAt(0).toUpperCase() : '?';
+    const n = formatarTituloPt(g?.retirante_nome || g?.titular_nome, '?');
+    return n !== '—' && n !== '?' ? n.charAt(0).toUpperCase() : '?';
   }
 
   totalConvidados = 0;
@@ -1182,7 +1174,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
   setorLabel(key: string): string {
     if (key === ReceptionComponent.SETOR_SEM) return 'Sem setor';
-    return key;
+    return formatarTituloPt(key);
   }
 
   atualizarSetoresDisponiveis() {
@@ -1294,7 +1286,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         partida_id: guest.partida_id ?? null,
         evento_rh_id: guest.evento_rh_id ?? null,
         checkin: guest.checkin,
-        recebedor_nome: guest.retirante_nome || guest.titular_nome || '',
+        recebedor_nome: formatarTituloPt(guest.retirante_nome || guest.titular_nome || '', ''),
         recebedor_cpf: this.cpfParaCampoCheckin(guest),
         recebedor_documento: null as string | null,
       },
@@ -1409,6 +1401,8 @@ export class ReceptionComponent implements OnInit, OnDestroy {
     const base64Signature = canvas.toDataURL('image/png');
 
     const requests = this.ingressosParaAssinar.map((ticket: any) => {
+      const nomeNormalizado = formatarTituloPt(ticket.recebedor_nome, ticket.recebedor_nome);
+      ticket.recebedor_nome = nomeNormalizado;
       const body: {
         assinaturaBase64: string;
         documentoBase64: unknown;
@@ -1422,7 +1416,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       } = {
         assinaturaBase64: base64Signature,
         documentoBase64: ticket.recebedor_documento || null,
-        recebedorNome: ticket.recebedor_nome,
+        recebedorNome: nomeNormalizado,
         recebedorCpf: ticket.recebedor_cpf,
         adminId: this.currentUser.id,
       };

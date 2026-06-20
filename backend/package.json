@@ -12,6 +12,7 @@
     "validate-apostas-bids": "node scripts/validateApostasBids.js",
     "list-usuarios-apostaram": "node scripts/listUsuariosApostaram.js",
     "remove-apostas-devolver-pontos": "node scripts/removeApostasDevolverPontos.js",
+    "reverter-faltas-wt-pass": "node scripts/reverterFaltasWtPassAuto.js",
     "install-puppeteer-chrome": "PUPPETEER_CACHE_DIR=\"$(pwd)/tmp/puppeteer-cache\" npx puppeteer browsers install chrome"
   },
   "keywords": [],

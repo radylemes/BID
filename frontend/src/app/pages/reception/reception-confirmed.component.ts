@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { of, forkJoin } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { formatarTituloPt } from '../../utils/formatar-texto';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -205,10 +206,10 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <div class="flex-1 min-w-0">
               <p class="font-black text-gray-900 text-sm sm:text-base">
-                {{ group.retirante_nome }}
+                {{ formatarTituloPt(group.retirante_nome) }}
               </p>
               <p class="text-xs text-gray-500 mt-0.5">
-                Titular: {{ group.titular_nome }}
+                Titular: {{ formatarTituloPt(group.titular_nome) }}
               </p>
               <p class="text-[10px] text-gray-400 font-mono mt-0.5">
                 CPF {{ cpfRetiranteOuTitular(group) }}
@@ -220,11 +221,11 @@ import { AuthService } from '../../services/auth.service';
                     : 'BID'
                 }}</span>
                 <span *ngIf="group.setor_evento_nome" class="text-gray-500">
-                  · Setor: {{ group.setor_evento_nome }}</span
+                  · Setor: {{ formatarTituloPt(group.setor_evento_nome) }}</span
                 >
               </p>
               <p class="text-[10px] text-indigo-600 font-semibold mt-1">
-                {{ group.evento_titulo }} · {{ group.data_evento | date: 'dd/MM/yyyy HH:mm' }}
+                {{ formatarTituloPt(group.evento_titulo) }} · {{ group.data_evento | date: 'dd/MM/yyyy HH:mm' }}
               </p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -234,7 +235,7 @@ import { AuthService } from '../../services/auth.service';
                 Entrada confirmada
               </span>
               <span class="text-[10px] font-bold text-gray-400 hidden sm:inline">
-                {{ group.empresa }}
+                {{ formatarTituloPt(group.empresa) }}
               </span>
             </div>
           </div>
@@ -244,6 +245,7 @@ import { AuthService } from '../../services/auth.service';
   `,
 })
 export class ReceptionConfirmedComponent implements OnInit {
+  formatarTituloPt = formatarTituloPt;
   apiUrl = `${environment.apiUri}/reception`;
   loading = true;
   events: any[] = [];
@@ -454,7 +456,7 @@ export class ReceptionConfirmedComponent implements OnInit {
 
   setorLabel(key: string): string {
     if (key === ReceptionConfirmedComponent.SETOR_SEM) return 'Sem setor';
-    return key;
+    return formatarTituloPt(key);
   }
 
   atualizarSetoresDisponiveis() {
