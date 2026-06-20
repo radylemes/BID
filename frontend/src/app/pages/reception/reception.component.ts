@@ -15,6 +15,7 @@ import { catchError, map } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-reception',
@@ -85,6 +86,15 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
               <span class="text-sm lg:text-base leading-none">↻</span>
               <span>Sincronizar</span>
             </button>
+            <button
+              type="button"
+              (click)="logout()"
+              class="text-rose-200 hover:text-white flex items-center gap-1 lg:gap-1.5 text-[10px] lg:text-xs font-bold transition-colors bg-indigo-800 hover:bg-rose-700/60 px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg border border-rose-500/50 hover:border-rose-400 active:scale-95 shrink-0"
+              title="Sair do Sistema"
+            >
+              <span class="text-sm lg:text-base leading-none">🚪</span>
+              <span class="hidden sm:inline">Sair</span>
+            </button>
             </div>
 
             <span
@@ -123,7 +133,7 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
         </div>
 
         <div
-          *ngIf="!loading && allGuests.length > 0 && guestsDoSetorAtivo().length > 0"
+          *ngIf="!loading && allGuests.length > 0 && guestsParaEstatisticas().length > 0"
           class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch"
         >
           <div
@@ -201,7 +211,7 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
           </div>
 
           <div
-            *ngIf="!loading && guestsDoSetorAtivo().length > 0"
+            *ngIf="!loading && allGuests.length > 0"
             class="flex flex-wrap items-center justify-center lg:justify-end gap-1.5 sm:gap-2 w-full lg:w-auto"
           >
             <div
@@ -242,33 +252,110 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
         </div>
 
         <div
-          *ngIf="exibirAbasSetor && !loading && allGuests.length > 0"
-          class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar"
+          *ngIf="(exibirFiltroStatus || exibirAbasTipo || exibirAbasSetor) && !loading && allGuests.length > 0"
+          class="flex flex-col sm:flex-row gap-2 sm:gap-3"
         >
-          <div class="flex items-center gap-2 min-w-max">
-            <button
-              *ngFor="let setor of setoresDisponiveis"
-              type="button"
-              (click)="selecionarSetor(setor.key)"
-              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
-              [ngClass]="
-                selectedSetorKey === setor.key
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
-              "
-            >
-              <span>{{ setor.label }}</span>
-              <span
-                class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+          <div
+            *ngIf="exibirFiltroStatus"
+            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+          >
+            <div class="flex items-center gap-2 min-w-max">
+              <button
+                *ngFor="let st of statusDisponiveis"
+                type="button"
+                (click)="selecionarStatus(st.key)"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
                 [ngClass]="
-                  selectedSetorKey === setor.key
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-white text-indigo-600 border border-indigo-100'
+                  selectedStatusKey === st.key
+                    ? st.key === 'LIBERADOS'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                 "
               >
-                {{ setor.total }}
-              </span>
-            </button>
+                <span>{{ st.label }}</span>
+                <span
+                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                  [ngClass]="
+                    selectedStatusKey === st.key
+                      ? st.key === 'LIBERADOS'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-amber-400 text-white'
+                      : st.key === 'LIBERADOS'
+                        ? 'bg-white text-emerald-600 border border-emerald-100'
+                        : 'bg-white text-amber-600 border border-amber-100'
+                  "
+                >
+                  {{ st.total }}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            *ngIf="exibirAbasTipo"
+            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+          >
+            <div class="flex items-center gap-2 min-w-max">
+              <button
+                *ngFor="let tipo of tiposDisponiveis"
+                type="button"
+                (click)="selecionarTipo(tipo.key)"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
+                [ngClass]="
+                  selectedTipoKey === tipo.key
+                    ? tipo.key === 'WT_PASS'
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                      : 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+                "
+              >
+                <span>{{ tipo.label }}</span>
+                <span
+                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                  [ngClass]="
+                    selectedTipoKey === tipo.key
+                      ? tipo.key === 'WT_PASS'
+                        ? 'bg-violet-500 text-white'
+                        : 'bg-indigo-500 text-white'
+                      : 'bg-white text-indigo-600 border border-indigo-100'
+                  "
+                >
+                  {{ tipo.total }}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            *ngIf="exibirAbasSetor"
+            class="bg-white p-2 sm:p-3 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+          >
+            <div class="flex items-center gap-2 min-w-max">
+              <button
+                *ngFor="let setor of setoresDisponiveis"
+                type="button"
+                (click)="selecionarSetor(setor.key)"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
+                [ngClass]="
+                  selectedSetorKey === setor.key
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+                "
+              >
+                <span>{{ setor.label }}</span>
+                <span
+                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                  [ngClass]="
+                    selectedSetorKey === setor.key
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-white text-indigo-600 border border-indigo-100'
+                  "
+                >
+                  {{ setor.total }}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -279,6 +366,15 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
           <p class="text-gray-500 font-bold uppercase tracking-widest text-[10px] sm:text-xs px-2">
             Carregando lista de convidados...
           </p>
+        </div>
+
+        <div
+          *ngIf="!loading && allGuests.length > 0 && guestsDoSetorAtivo().length === 0"
+          class="bg-white p-6 sm:p-8 rounded-xl lg:rounded-2xl shadow-sm border border-gray-200 text-center"
+        >
+          <span class="text-4xl block mb-2">📋</span>
+          <h3 class="font-black text-gray-800 text-sm sm:text-base">{{ mensagemListaVaziaFiltro() }}</h3>
+          <p class="text-gray-500 text-xs mt-1">{{ mensagemListaVaziaSubtitulo() }}</p>
         </div>
 
         <!-- Lista mobile: só Titular + Convidado, ao clicar abre modal com tudo -->
@@ -505,7 +601,6 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
                     >
                     <input
                       [(ngModel)]="ticket.recebedor_nome"
-                      [readonly]="ticket.camposRetiranteReadonly"
                       placeholder="Ex: João da Silva"
                       class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors read-only:bg-gray-100 read-only:text-gray-700"
                     />
@@ -517,7 +612,6 @@ import { uploadsPublicUrl } from '../../utils/uploads-public-url';
                     >
                     <input
                       [(ngModel)]="ticket.recebedor_cpf"
-                      [readonly]="ticket.camposRetiranteReadonly"
                       placeholder="00000000000"
                       maxlength="14"
                       class="w-full text-sm font-bold bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono read-only:bg-gray-100 read-only:text-gray-700"
@@ -719,11 +813,18 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
   private static readonly SETOR_TODOS = '__todos__';
   private static readonly SETOR_SEM = '__sem_setor__';
+  private static readonly TIPO_TODOS = '__todos_tipo__';
 
   searchTerm = '';
+  selectedStatusKey: 'PENDENTES' | 'LIBERADOS' = 'PENDENTES';
+  statusDisponiveis: { key: 'PENDENTES' | 'LIBERADOS'; label: string; total: number }[] = [];
+  exibirFiltroStatus = false;
   selectedSetorKey = ReceptionComponent.SETOR_TODOS;
   setoresDisponiveis: { key: string; label: string; total: number }[] = [];
   exibirAbasSetor = false;
+  selectedTipoKey = ReceptionComponent.TIPO_TODOS;
+  tiposDisponiveis: { key: string; label: string; total: number }[] = [];
+  exibirAbasTipo = false;
 
   /** CPF do retirante ou do titular quando não houver indicação (usa `titular_cpf` da API). */
   cpfRetiranteOuTitular(g: any): string {
@@ -774,7 +875,12 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   constructor(
     private http: HttpClient,
     private cd: ChangeDetectorRef,
+    private authService: AuthService,
   ) {}
+
+  logout() {
+    this.authService.logout();
+  }
 
   ngOnInit() {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -818,21 +924,35 @@ export class ReceptionComponent implements OnInit, OnDestroy {
           return;
         }
 
-        const guestRequests = this.events.map((ev) =>
-          this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).pipe(
+        const guestRequests = this.events.map((ev) => {
+          const tipoEvento = String(ev.tipo_evento || 'BID').toUpperCase();
+          const guestsUrl = `${this.apiUrl}/events/${ev.id}/guests?tipo=${tipoEvento === 'WT_PASS' ? 'WT_PASS' : 'BID'}`;
+          return this.http.get<any[]>(guestsUrl).pipe(
             map((guestsRes) => {
               const raw = Array.isArray(guestsRes) ? guestsRes : [];
               return raw.map((g) => ({
                 ...g,
                 checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
-                partida_id: ev.id,
+                partida_id:
+                  ev.partida_id != null
+                    ? Number(ev.partida_id)
+                    : tipoEvento === 'BID'
+                      ? ev.id
+                      : null,
+                evento_rh_id:
+                  ev.evento_rh_id != null
+                    ? Number(ev.evento_rh_id)
+                    : tipoEvento === 'WT_PASS'
+                      ? ev.id
+                      : null,
+                tipo_evento: tipoEvento,
                 evento_titulo: ev.titulo,
                 data_evento: ev.data_evento || ev.data_jogo,
               }));
             }),
             catchError(() => of([])),
-          ),
-        );
+          );
+        });
 
         forkJoin(guestRequests).subscribe({
           next: (results) => {
@@ -921,8 +1041,138 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       ],
     }));
 
+    this.atualizarStatusDisponiveis();
+    this.atualizarTiposDisponiveis();
     this.atualizarSetoresDisponiveis();
-    this.recalcularEstatisticas(this.guestsDoSetorAtivo());
+    this.recalcularEstatisticas(this.guestsParaEstatisticas());
+  }
+
+  private isCheckin(guest: any): boolean {
+    return guest?.checkin === true || guest?.checkin === 1 || guest?.checkin === '1';
+  }
+
+  guestsDoStatusAtivo(): any[] {
+    if (this.selectedStatusKey === 'LIBERADOS') {
+      return this.guestsList.filter((guest) => this.isCheckin(guest));
+    }
+    return this.guestsList.filter((guest) => !this.isCheckin(guest));
+  }
+
+  /** Estatísticas do header/resumo — tipo/setor, sem filtro de status. */
+  guestsParaEstatisticas(): any[] {
+    return this.filtrarPorSetor(this.filtrarPorTipo(this.guestsList));
+  }
+
+  private filtrarPorTipo(base: any[]): any[] {
+    if (this.selectedTipoKey === ReceptionComponent.TIPO_TODOS || !this.exibirAbasTipo) {
+      return base;
+    }
+    return base.filter((guest) => this.tipoKey(guest) === this.selectedTipoKey);
+  }
+
+  private filtrarPorSetor(base: any[]): any[] {
+    if (this.selectedSetorKey === ReceptionComponent.SETOR_TODOS || !this.exibirAbasSetor) {
+      return base;
+    }
+    return base.filter(
+      (guest) => this.setorKey(guest.setor_evento_nome) === this.selectedSetorKey,
+    );
+  }
+
+  atualizarStatusDisponiveis() {
+    let pendentes = 0;
+    let liberados = 0;
+    this.guestsList.forEach((guest) => {
+      if (this.isCheckin(guest)) liberados++;
+      else pendentes++;
+    });
+    this.exibirFiltroStatus = this.guestsList.length > 0;
+    this.statusDisponiveis = [
+      { key: 'PENDENTES', label: 'Pendentes', total: pendentes },
+      { key: 'LIBERADOS', label: 'Liberados', total: liberados },
+    ];
+  }
+
+  selecionarStatus(key: 'PENDENTES' | 'LIBERADOS') {
+    if (this.selectedStatusKey === key) return;
+    this.selectedStatusKey = key;
+    this.atualizarTiposDisponiveis();
+    this.atualizarSetoresDisponiveis();
+    this.cd.detectChanges();
+  }
+
+  tipoKey(guest: any): 'BID' | 'WT_PASS' {
+    return String(guest?.tipo_convite || 'BID').toUpperCase().trim() === 'WT_PASS' ? 'WT_PASS' : 'BID';
+  }
+
+  atualizarTiposDisponiveis() {
+    const base = this.guestsDoStatusAtivo();
+    let totalBid = 0;
+    let totalWt = 0;
+    base.forEach((guest) => {
+      if (this.tipoKey(guest) === 'WT_PASS') totalWt++;
+      else totalBid++;
+    });
+
+    this.exibirAbasTipo = totalBid > 0 && totalWt > 0;
+
+    if (this.exibirAbasTipo) {
+      this.tiposDisponiveis = [
+        { key: ReceptionComponent.TIPO_TODOS, label: 'Todos', total: base.length },
+        { key: 'BID', label: 'BID', total: totalBid },
+        { key: 'WT_PASS', label: 'WT Pass', total: totalWt },
+      ];
+    } else {
+      this.tiposDisponiveis = [];
+    }
+
+    const keysValidas = new Set(this.tiposDisponiveis.map((t) => t.key));
+    if (!keysValidas.has(this.selectedTipoKey)) {
+      this.selectedTipoKey = ReceptionComponent.TIPO_TODOS;
+    }
+  }
+
+  guestsDoTipoAtivo(): any[] {
+    return this.filtrarPorTipo(this.guestsDoStatusAtivo());
+  }
+
+  selecionarTipo(key: string) {
+    if (this.selectedTipoKey === key) return;
+    this.selectedTipoKey = key;
+    this.atualizarSetoresDisponiveis();
+    this.recalcularEstatisticas(this.guestsParaEstatisticas());
+    this.cd.detectChanges();
+  }
+
+  mensagemListaVaziaFiltro(): string {
+    const statusLbl = this.selectedStatusKey === 'LIBERADOS' ? 'liberado' : 'pendente';
+    const tipo =
+      this.selectedTipoKey === 'WT_PASS'
+        ? 'WT Pass'
+        : this.selectedTipoKey === 'BID'
+          ? 'BID'
+          : null;
+    const setor =
+      this.selectedSetorKey !== ReceptionComponent.SETOR_TODOS && this.exibirAbasSetor
+        ? this.setorLabel(this.selectedSetorKey)
+        : null;
+    if (tipo && setor) return `Nenhum ingresso ${statusLbl} ${tipo} no setor ${setor}`;
+    if (tipo) return `Nenhum ingresso ${statusLbl} ${tipo} nesta data`;
+    if (setor) return `Nenhum ingresso ${statusLbl} no setor ${setor}`;
+    if (this.selectedStatusKey === 'PENDENTES') return 'Nenhum ingresso pendente';
+    return 'Nenhum ingresso liberado';
+  }
+
+  mensagemListaVaziaSubtitulo(): string {
+    const temLiberados = (this.statusDisponiveis.find((s) => s.key === 'LIBERADOS')?.total ?? 0) > 0;
+    const temPendentes = (this.statusDisponiveis.find((s) => s.key === 'PENDENTES')?.total ?? 0) > 0;
+    if (this.selectedStatusKey === 'PENDENTES' && temLiberados) {
+      return 'Use o filtro Liberados para ver os ingressos já liberados.';
+    }
+    if (this.selectedStatusKey === 'LIBERADOS' && temPendentes) {
+      return 'Use o filtro Pendentes para ver quem ainda aguarda liberação.';
+    }
+    return 'Ajuste os filtros de status, tipo ou setor para ver outros convidados.';
   }
 
   setorKey(nome: string | null | undefined): string {
@@ -936,8 +1186,9 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   atualizarSetoresDisponiveis() {
+    const base = this.guestsDoTipoAtivo();
     const mapa = new Map<string, number>();
-    this.allGuests.forEach((guest) => {
+    base.forEach((guest) => {
       const key = this.setorKey(guest.setor_evento_nome);
       mapa.set(key, (mapa.get(key) || 0) + 1);
     });
@@ -957,7 +1208,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         {
           key: ReceptionComponent.SETOR_TODOS,
           label: 'Todos',
-          total: this.allGuests.length,
+          total: base.length,
         },
         ...setoresReais,
       ];
@@ -972,18 +1223,13 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   guestsDoSetorAtivo(): any[] {
-    if (this.selectedSetorKey === ReceptionComponent.SETOR_TODOS || !this.exibirAbasSetor) {
-      return this.guestsList;
-    }
-    return this.guestsList.filter(
-      (guest) => this.setorKey(guest.setor_evento_nome) === this.selectedSetorKey,
-    );
+    return this.filtrarPorSetor(this.guestsDoTipoAtivo());
   }
 
   selecionarSetor(key: string) {
     if (this.selectedSetorKey === key) return;
     this.selectedSetorKey = key;
-    this.recalcularEstatisticas(this.guestsDoSetorAtivo());
+    this.recalcularEstatisticas(this.guestsParaEstatisticas());
     this.cd.detectChanges();
   }
 
@@ -996,7 +1242,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
     guests.forEach((guest) => {
       this.totalConvidados++;
-      if (guest.checkin) this.totalLiberados++;
+      if (this.isCheckin(guest)) this.totalLiberados++;
       else this.totalPendentes++;
 
       const nomeEmpresa = guest.empresa || 'Geral';
@@ -1005,7 +1251,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       }
       const stat = mapaEmpresas.get(nomeEmpresa);
       stat.total++;
-      if (guest.checkin) stat.liberados++;
+      if (this.isCheckin(guest)) stat.liberados++;
       else stat.pendentes++;
     });
 
@@ -1041,18 +1287,16 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
     this.selectedGroup = guest;
 
-    const ehWt = String(guest?.tipo_convite || '').toUpperCase().trim() === 'WT_PASS';
-
     this.ingressosParaAssinar = [
       {
         ingresso_id: guest.ingresso_id ?? null,
         inscricao_rh_id: guest.inscricao_rh_id ?? null,
         partida_id: guest.partida_id ?? null,
+        evento_rh_id: guest.evento_rh_id ?? null,
         checkin: guest.checkin,
         recebedor_nome: guest.retirante_nome || guest.titular_nome || '',
         recebedor_cpf: this.cpfParaCampoCheckin(guest),
         recebedor_documento: null as string | null,
-        camposRetiranteReadonly: ehWt,
       },
     ];
 
@@ -1173,6 +1417,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
         adminId: number;
         inscricaoRhId?: number;
         partidaId?: number | null;
+        eventoRhId?: number | null;
         ingressoId?: number;
       } = {
         assinaturaBase64: base64Signature,
@@ -1183,7 +1428,11 @@ export class ReceptionComponent implements OnInit, OnDestroy {
       };
       if (ticket.inscricao_rh_id != null && Number(ticket.inscricao_rh_id) > 0) {
         body.inscricaoRhId = ticket.inscricao_rh_id;
-        body.partidaId = ticket.partida_id;
+        if (ticket.partida_id != null && Number(ticket.partida_id) > 0) {
+          body.partidaId = ticket.partida_id;
+        } else if (ticket.evento_rh_id != null && Number(ticket.evento_rh_id) > 0) {
+          body.eventoRhId = ticket.evento_rh_id;
+        }
       } else {
         body.ingressoId = ticket.ingresso_id;
       }

@@ -13,6 +13,7 @@ import {
   exportUsersReportSummaryXlsx,
 } from '../../utils/export-user-report-xlsx';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
+import { formatarDataHoraWtPass, formatarDataWtPass } from '../../utils/wt-pass-datas';
 import { environment } from '../../../environments/environment';
 
 type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
@@ -208,7 +209,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                       }}</span>
                     </td>
                     <td class="w-[7.5rem] px-3 py-2 align-middle whitespace-nowrap tabular-nums text-[var(--app-text-muted)]">
-                      {{ formatarDataCurta(ev.data_evento) }}
+                      {{ formatarDataWtPass(ev.data_evento) }}
                     </td>
                   </tr>
                 </tbody>
@@ -329,7 +330,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                 <div>
                   <h3 class="text-base font-bold text-[var(--app-text)]">{{ wtDetalhe.titulo || '—' }}</h3>
                   <p class="text-xs text-[var(--app-text-muted)] mt-1">
-                    {{ wtDetalhe.local || '—' }} · {{ formatarDataCurta(wtDetalhe.data_evento) }}
+                    {{ wtDetalhe.local || '—' }} · {{ formatarDataWtPass(wtDetalhe.data_evento) }}
                   </p>
                 </div>
                 <button
@@ -343,11 +344,11 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
               <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mb-4 border-b border-[var(--app-border)] pb-4">
                 <div>
                   <dt class="text-[var(--app-text-muted)] font-semibold">Início inscrições</dt>
-                  <dd class="text-[var(--app-text)]">{{ formatarDataHora(wtDetalhe.data_inicio_inscricao) }}</dd>
+                  <dd class="text-[var(--app-text)]">{{ formatarDataHoraWtPass(wtDetalhe.data_inicio_inscricao) }}</dd>
                 </div>
                 <div>
                   <dt class="text-[var(--app-text-muted)] font-semibold">Limite inscrições</dt>
-                  <dd class="text-[var(--app-text)]">{{ formatarDataHora(wtDetalhe.data_limite_inscricao) }}</dd>
+                  <dd class="text-[var(--app-text)]">{{ formatarDataHoraWtPass(wtDetalhe.data_limite_inscricao) }}</dd>
                 </div>
                 <div>
                   <dt class="text-[var(--app-text-muted)] font-semibold">Vagas / ocupadas</dt>
@@ -611,7 +612,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                   <tbody>
                     <tr *ngFor="let w of usuarioDetalhe.wt_pass" class="border-t border-[var(--app-border)]">
                       <td class="px-2 py-1.5 truncate max-w-[10rem]" [title]="w.titulo">{{ w.titulo || '—' }}</td>
-                      <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataCurta(w.data_evento) }}</td>
+                      <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataWtPass(w.data_evento) }}</td>
                       <td class="px-2 py-1.5">{{ w.inscricao_status || '—' }}</td>
                       <td class="px-2 py-1.5 tabular-nums">{{ w.posicao ?? '—' }}</td>
                     </tr>
@@ -629,6 +630,9 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
   `,
 })
 export class RelatoriosComponent implements OnInit {
+  formatarDataWtPass = formatarDataWtPass;
+  formatarDataHoraWtPass = formatarDataHoraWtPass;
+
   aba: AbaRelatorio = 'wt_pass';
   busca = '';
   filtroUsuariosAtivos = true;

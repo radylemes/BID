@@ -7,6 +7,7 @@ import {
   rotuloSituacaoInscricaoWtPass,
   seloDestaqueWtPass,
 } from '../../utils/wt-pass-inscricao';
+import { formatarDataHoraWtPass, formatarDataWtPass } from '../../utils/wt-pass-datas';
 import Swal from 'sweetalert2';
 import { FormsModule } from '@angular/forms';
 
@@ -321,7 +322,7 @@ import { FormsModule } from '@angular/forms';
                 <span class="text-[9px] font-bold uppercase text-[var(--app-text-muted)]">Data do Evento</span>
                 <div class="flex items-center gap-1 text-[var(--app-text)]">
                   <span class="text-indigo-400">📅</span>
-                  <span class="font-bold">{{ formatarDataCurta(ev.data_evento) }}</span>
+                  <span class="font-bold">{{ formatarDataWtPass(ev.data_evento) }}</span>
                 </div>
               </div>
             </div>
@@ -331,9 +332,9 @@ import { FormsModule } from '@angular/forms';
                 <span class="text-sm">⏱️</span> Período de inscrições
               </div>
               <div class="flex items-center gap-2 font-medium flex-wrap justify-end text-xs">
-                <span class="text-emerald-700 font-semibold">{{ formatarData(ev.data_inicio_inscricao) }}</span>
+                <span class="text-emerald-700 font-semibold">{{ formatarDataHoraWtPass(ev.data_inicio_inscricao) }}</span>
                 <span class="mx-1">até</span>
-                <span class="text-rose-600 font-semibold">{{ formatarData(ev.data_limite_inscricao) }}</span>
+                <span class="text-rose-600 font-semibold">{{ formatarDataHoraWtPass(ev.data_limite_inscricao) }}</span>
               </div>
             </div>
 
@@ -717,30 +718,8 @@ export class EventoRhListComponent implements OnInit {
     return uploadsPublicUrl(ev.banner);
   }
 
-  formatarData(iso: string | null | undefined): string {
-    if (!iso) return '—';
-    try {
-      return new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      }).format(new Date(iso));
-    } catch {
-      return '—';
-    }
-  }
-
-  formatarDataCurta(iso: string | null | undefined): string {
-    if (!iso) return '—';
-    try {
-      return new Intl.DateTimeFormat('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }).format(new Date(iso));
-    } catch {
-      return '—';
-    }
-  }
+  formatarDataWtPass = formatarDataWtPass;
+  formatarDataHoraWtPass = formatarDataHoraWtPass;
 
   /**
    * Texto de contagem do bloqueio no cartão:

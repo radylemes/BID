@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/wt-pass-inscricao';
+import { formatarDataHoraWtPass, formatarDataWtPass } from '../../utils/wt-pass-datas';
 
 @Component({
   selector: 'app-history',
@@ -219,10 +220,10 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                         <span class="text-white/80">Setor:</span><span class="text-amber-300">{{ h.setor_evento_nome }}</span>
                       </p>
                       <p *ngIf="h.data_evento" class="text-[10px] sm:text-[11px] font-bold mb-0.5">
-                        <span class="text-white/80">Data Evento:</span><span class="text-sky-300">{{ formatarDataCurtaWt(h.data_evento) }}</span>
+                        <span class="text-white/80">Data Evento:</span><span class="text-sky-300">{{ formatarDataWtPass(h.data_evento) }}</span>
                       </p>
                       <p *ngIf="h.data_limite_inscricao" class="text-[10px] sm:text-[11px] font-bold">
-                        <span class="text-rose-300">Encerrado em {{ h.data_limite_inscricao | date: 'dd/MM/yyyy HH:mm' }}</span>
+                        <span class="text-rose-300">Encerrado em {{ formatarDataHoraWtPass(h.data_limite_inscricao) }}</span>
                       </p>
                     </div>
                     <div class="flex flex-col items-end gap-1.5 shrink-0">
@@ -295,7 +296,7 @@ import { rotuloSituacaoInscricaoWtPass, seloDestaqueWtPass } from '../../utils/w
                   </h4>
                   <p class="text-xs sm:text-sm font-bold text-[var(--app-text)] mt-1 break-words">
                     <ng-container *ngIf="h.data_inscricao; else semDataInscricao">
-                      Inscrito em {{ formatarDataCurtaWt(h.data_inscricao) }}
+                      Inscrito em {{ formatarDataHoraWtPass(h.data_inscricao) }}
                     </ng-container>
                     <ng-template #semDataInscricao>Sem inscrição</ng-template>
                   </p>
@@ -385,18 +386,8 @@ export class HistoryComponent implements OnInit {
     return uploadsPublicUrl(ev.banner);
   }
 
-  formatarDataCurtaWt(iso: string | null | undefined): string {
-    if (!iso) return '—';
-    try {
-      return new Intl.DateTimeFormat('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }).format(new Date(iso));
-    } catch {
-      return '—';
-    }
-  }
+  formatarDataWtPass = formatarDataWtPass;
+  formatarDataHoraWtPass = formatarDataHoraWtPass;
 
   /** Mesma lógica de `statusBadge` em `evento-rh-list` para uniformidade. */
   statusBadgeWtHistorico(h: EventoRhHistoricoItem): string {

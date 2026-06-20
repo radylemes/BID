@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { of, forkJoin } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-reception-confirmed',
@@ -45,11 +46,22 @@ import { environment } from '../../../environments/environment';
             class="flex-1 min-w-0 bg-emerald-900/70 text-white border border-emerald-700 rounded-lg px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]"
           />
         </div>
-        <div
-          class="flex items-center gap-2 bg-emerald-700/50 px-3 py-1.5 rounded-xl border border-emerald-600 shrink-0"
-        >
-          <span class="text-lg">✅</span>
-          <span class="text-sm font-black">{{ confirmedList.length }}</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <div
+            class="flex items-center gap-2 bg-emerald-700/50 px-3 py-1.5 rounded-xl border border-emerald-600"
+          >
+            <span class="text-lg">✅</span>
+            <span class="text-sm font-black">{{ confirmedList.length }}</span>
+          </div>
+          <button
+            type="button"
+            (click)="logout()"
+            class="text-rose-200 hover:text-white flex items-center gap-1 lg:gap-1.5 text-[10px] lg:text-xs font-bold transition-colors bg-emerald-900/70 hover:bg-rose-700/60 px-2 lg:px-3 py-1.5 rounded-lg border border-rose-500/50 hover:border-rose-400 active:scale-95"
+            title="Sair do Sistema"
+          >
+            <span class="text-sm lg:text-base leading-none">🚪</span>
+            <span class="hidden sm:inline">Sair</span>
+          </button>
         </div>
       </header>
 
@@ -97,7 +109,7 @@ import { environment } from '../../../environments/environment';
         >
           <span class="text-5xl block mb-3 opacity-50">📋</span>
           <h3 class="text-gray-600 font-bold text-sm sm:text-base">
-            Nenhum convidado confirmado neste setor
+            {{ mensagemListaVaziaFiltro() }}
           </h3>
           <p class="text-gray-400 text-xs sm:text-sm mt-1">
             As liberações aparecerão aqui quando forem feitas na portaria.
@@ -111,33 +123,73 @@ import { environment } from '../../../environments/environment';
         </div>
 
         <div
-          *ngIf="exibirAbasSetor && !loading && allGuests.length > 0"
-          class="bg-white p-2 sm:p-3 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar mb-4"
+          *ngIf="(exibirAbasTipo || exibirAbasSetor) && !loading && allGuests.length > 0"
+          class="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4"
         >
-          <div class="flex items-center gap-2 min-w-max">
-            <button
-              *ngFor="let setor of setoresDisponiveis"
-              type="button"
-              (click)="selecionarSetor(setor.key)"
-              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
-              [ngClass]="
-                selectedSetorKey === setor.key
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
-              "
-            >
-              <span>{{ setor.label }}</span>
-              <span
-                class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+          <div
+            *ngIf="exibirAbasTipo"
+            class="bg-white p-2 sm:p-3 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+          >
+            <div class="flex items-center gap-2 min-w-max">
+              <button
+                *ngFor="let tipo of tiposDisponiveis"
+                type="button"
+                (click)="selecionarTipo(tipo.key)"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
                 [ngClass]="
-                  selectedSetorKey === setor.key
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-white text-emerald-600 border border-emerald-100'
+                  selectedTipoKey === tipo.key
+                    ? tipo.key === 'WT_PASS'
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                      : 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
                 "
               >
-                {{ setor.total }}
-              </span>
-            </button>
+                <span>{{ tipo.label }}</span>
+                <span
+                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                  [ngClass]="
+                    selectedTipoKey === tipo.key
+                      ? tipo.key === 'WT_PASS'
+                        ? 'bg-violet-500 text-white'
+                        : 'bg-emerald-500 text-white'
+                      : 'bg-white text-emerald-600 border border-emerald-100'
+                  "
+                >
+                  {{ tipo.total }}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            *ngIf="exibirAbasSetor"
+            class="bg-white p-2 sm:p-3 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar flex-1 min-w-0"
+          >
+            <div class="flex items-center gap-2 min-w-max">
+              <button
+                *ngFor="let setor of setoresDisponiveis"
+                type="button"
+                (click)="selecionarSetor(setor.key)"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide whitespace-nowrap transition-all border shrink-0"
+                [ngClass]="
+                  selectedSetorKey === setor.key
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                "
+              >
+                <span>{{ setor.label }}</span>
+                <span
+                  class="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+                  [ngClass]="
+                    selectedSetorKey === setor.key
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white text-emerald-600 border border-emerald-100'
+                  "
+                >
+                  {{ setor.total }}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -200,12 +252,16 @@ export class ReceptionConfirmedComponent implements OnInit {
 
   private static readonly SETOR_TODOS = '__todos__';
   private static readonly SETOR_SEM = '__sem_setor__';
+  private static readonly TIPO_TODOS = '__todos_tipo__';
 
   allGuests: any[] = [];
   confirmedList: any[] = [];
   selectedSetorKey = ReceptionConfirmedComponent.SETOR_TODOS;
   setoresDisponiveis: { key: string; label: string; total: number }[] = [];
   exibirAbasSetor = false;
+  selectedTipoKey = ReceptionConfirmedComponent.TIPO_TODOS;
+  tiposDisponiveis: { key: string; label: string; total: number }[] = [];
+  exibirAbasTipo = false;
 
   cpfRetiranteOuTitular(g: any): string {
     const r = g?.retirante_cpf;
@@ -219,7 +275,12 @@ export class ReceptionConfirmedComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private cd: ChangeDetectorRef,
+    private authService: AuthService,
   ) {}
+
+  logout() {
+    this.authService.logout();
+  }
 
   ngOnInit() {
     this.carregarConfirmados();
@@ -248,21 +309,35 @@ export class ReceptionConfirmedComponent implements OnInit {
             return;
           }
 
-          const guestRequests = this.events.map((ev) =>
-            this.http.get<any[]>(`${this.apiUrl}/events/${ev.id}/guests`).pipe(
+          const guestRequests = this.events.map((ev) => {
+            const tipoEvento = String(ev.tipo_evento || 'BID').toUpperCase();
+            const guestsUrl = `${this.apiUrl}/events/${ev.id}/guests?tipo=${tipoEvento === 'WT_PASS' ? 'WT_PASS' : 'BID'}`;
+            return this.http.get<any[]>(guestsUrl).pipe(
               map((guestsRes) => {
                 const raw = Array.isArray(guestsRes) ? guestsRes : ((guestsRes as any)?.data ?? []);
                 return raw.map((g: any) => ({
                   ...g,
                   checkin: g.checkin === true || g.checkin === 1 || g.checkin === '1',
-                  partida_id: ev.id,
+                  partida_id:
+                    ev.partida_id != null
+                      ? Number(ev.partida_id)
+                      : tipoEvento === 'BID'
+                        ? ev.id
+                        : null,
+                  evento_rh_id:
+                    ev.evento_rh_id != null
+                      ? Number(ev.evento_rh_id)
+                      : tipoEvento === 'WT_PASS'
+                        ? ev.id
+                        : null,
+                  tipo_evento: tipoEvento,
                   evento_titulo: ev.titulo || g.evento_titulo,
                   data_evento: ev.data_evento || ev.data_jogo || g.data_evento,
                 }));
               }),
               catchError(() => of([])),
-            ),
-          );
+            );
+          });
 
           forkJoin(guestRequests).subscribe({
             next: (results) => {
@@ -305,8 +380,71 @@ export class ReceptionConfirmedComponent implements OnInit {
 
   private montarListaConfirmados(guests: any[]) {
     this.allGuests = guests || [];
+    this.atualizarTiposDisponiveis();
     this.atualizarSetoresDisponiveis();
     this.atualizarListaConfirmada();
+  }
+
+  tipoKey(guest: any): 'BID' | 'WT_PASS' {
+    return String(guest?.tipo_convite || 'BID').toUpperCase().trim() === 'WT_PASS' ? 'WT_PASS' : 'BID';
+  }
+
+  atualizarTiposDisponiveis() {
+    let totalBid = 0;
+    let totalWt = 0;
+    this.allGuests.forEach((guest) => {
+      if (this.tipoKey(guest) === 'WT_PASS') totalWt++;
+      else totalBid++;
+    });
+
+    this.exibirAbasTipo = totalBid > 0 && totalWt > 0;
+
+    if (this.exibirAbasTipo) {
+      this.tiposDisponiveis = [
+        { key: ReceptionConfirmedComponent.TIPO_TODOS, label: 'Todos', total: this.allGuests.length },
+        { key: 'BID', label: 'BID', total: totalBid },
+        { key: 'WT_PASS', label: 'WT Pass', total: totalWt },
+      ];
+    } else {
+      this.tiposDisponiveis = [];
+    }
+
+    const keysValidas = new Set(this.tiposDisponiveis.map((t) => t.key));
+    if (!keysValidas.has(this.selectedTipoKey)) {
+      this.selectedTipoKey = ReceptionConfirmedComponent.TIPO_TODOS;
+    }
+  }
+
+  guestsDoTipoAtivo(): any[] {
+    if (this.selectedTipoKey === ReceptionConfirmedComponent.TIPO_TODOS || !this.exibirAbasTipo) {
+      return this.allGuests;
+    }
+    return this.allGuests.filter((guest) => this.tipoKey(guest) === this.selectedTipoKey);
+  }
+
+  selecionarTipo(key: string) {
+    if (this.selectedTipoKey === key) return;
+    this.selectedTipoKey = key;
+    this.atualizarSetoresDisponiveis();
+    this.atualizarListaConfirmada();
+    this.cd.detectChanges();
+  }
+
+  mensagemListaVaziaFiltro(): string {
+    const tipo =
+      this.selectedTipoKey === 'WT_PASS'
+        ? 'WT Pass'
+        : this.selectedTipoKey === 'BID'
+          ? 'BID'
+          : null;
+    const setor =
+      this.selectedSetorKey !== ReceptionConfirmedComponent.SETOR_TODOS && this.exibirAbasSetor
+        ? this.setorLabel(this.selectedSetorKey)
+        : null;
+    if (tipo && setor) return `Nenhum convidado ${tipo} confirmado no setor ${setor}`;
+    if (tipo) return `Nenhum convidado ${tipo} confirmado nesta data`;
+    if (setor) return `Nenhum convidado confirmado no setor ${setor}`;
+    return 'Nenhum convidado confirmado com os filtros selecionados';
   }
 
   setorKey(nome: string | null | undefined): string {
@@ -320,8 +458,9 @@ export class ReceptionConfirmedComponent implements OnInit {
   }
 
   atualizarSetoresDisponiveis() {
+    const base = this.guestsDoTipoAtivo();
     const mapa = new Map<string, number>();
-    this.allGuests.forEach((guest) => {
+    base.forEach((guest) => {
       const key = this.setorKey(guest.setor_evento_nome);
       mapa.set(key, (mapa.get(key) || 0) + 1);
     });
@@ -341,7 +480,7 @@ export class ReceptionConfirmedComponent implements OnInit {
         {
           key: ReceptionConfirmedComponent.SETOR_TODOS,
           label: 'Todos',
-          total: this.allGuests.length,
+          total: base.length,
         },
         ...setoresReais,
       ];
@@ -356,13 +495,14 @@ export class ReceptionConfirmedComponent implements OnInit {
   }
 
   guestsDoSetorAtivo(): any[] {
+    const base = this.guestsDoTipoAtivo();
     if (
       this.selectedSetorKey === ReceptionConfirmedComponent.SETOR_TODOS ||
       !this.exibirAbasSetor
     ) {
-      return this.allGuests;
+      return base;
     }
-    return this.allGuests.filter(
+    return base.filter(
       (guest) => this.setorKey(guest.setor_evento_nome) === this.selectedSetorKey,
     );
   }

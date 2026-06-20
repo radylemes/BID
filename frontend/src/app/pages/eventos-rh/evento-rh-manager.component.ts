@@ -6,6 +6,11 @@ import { SettingsService } from '../../services/settings.service';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { formatarInputCpf, normalizarCpfDigits } from '../../utils/cpf';
 import { exportWtPassInscritosXlsx } from '../../utils/export-wt-pass-inscritos-xlsx';
+import {
+  formatarDataHoraCurtaWtPass,
+  formatarDataHoraWtPass,
+  formatarDataWtPass,
+} from '../../utils/wt-pass-datas';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -118,24 +123,24 @@ import Swal from 'sweetalert2';
                   <div class="flex flex-col items-start gap-1 text-[11px] font-medium leading-tight">
                     <span
                       class="inline-flex items-center gap-2 text-emerald-600"
-                      [attr.title]="'Abertura das inscrições: ' + formatarDataHoraCompleta(ev.data_inicio_inscricao)"
+                      [attr.title]="'Abertura das inscrições: ' + formatarDataHoraWtPass(ev.data_inicio_inscricao)"
                     >
                       <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true"></span>
-                      <span>{{ formatarDataHoraCurta(ev.data_inicio_inscricao) }}</span>
+                      <span>{{ formatarDataHoraCurtaWtPass(ev.data_inicio_inscricao) }}</span>
                     </span>
                     <span
                       class="inline-flex items-center gap-2 text-rose-600"
-                      [attr.title]="'Encerramento das inscrições: ' + formatarDataHoraCompleta(ev.data_limite_inscricao)"
+                      [attr.title]="'Encerramento das inscrições: ' + formatarDataHoraWtPass(ev.data_limite_inscricao)"
                     >
                       <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true"></span>
-                      <span>{{ formatarDataHoraCurta(ev.data_limite_inscricao) }}</span>
+                      <span>{{ formatarDataHoraCurtaWtPass(ev.data_limite_inscricao) }}</span>
                     </span>
                     <span
                       class="inline-flex items-center gap-2 text-violet-600"
-                      [attr.title]="'Data do evento: ' + formatarDataApenasDia(ev.data_evento)"
+                      [attr.title]="'Data do evento: ' + formatarDataWtPass(ev.data_evento)"
                     >
                       <span class="w-2 h-2 rounded-full bg-violet-500 shrink-0" aria-hidden="true"></span>
-                      <span>{{ formatarDataApenasDia(ev.data_evento) }}</span>
+                      <span>{{ formatarDataWtPass(ev.data_evento) }}</span>
                     </span>
                   </div>
                 </td>
@@ -203,15 +208,6 @@ import Swal from 'sweetalert2';
                       title="Editar"
                     >
                       ✏️
-                    </button>
-                    <button
-                      type="button"
-                      *ngIf="podeAlterarEstadoEventoRh(ev)"
-                      (click)="editarEstado(ev)"
-                      class="p-2 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100 transition shrink-0 text-sm leading-none"
-                      title="Alterar estado do evento na base de dados"
-                    >
-                      🏁
                     </button>
                     <button
                       type="button"
@@ -461,15 +457,6 @@ export class EventoRhManagerComponent implements OnInit {
     return this.estadoWtPassEfetivo(ev) !== 'Fechado';
   }
 
-  /**
-   * 🏁 Alterar estado na BD: escondido com evento ainda ABERTO e após «Fechado» na UI
-   * (inscrições encerradas por data ou ENCERRADO → rótulo Fechado).
-   */
-  podeAlterarEstadoEventoRh(ev: any): boolean {
-    if (String(ev?.status || '').toUpperCase().trim() === 'ABERTO') return false;
-    return this.estadoWtPassEfetivo(ev) !== 'Fechado';
-  }
-
   encerrarInscricoes(ev: any): void {
     if (!this.podeEncerrarInscricoes(ev)) return;
     Swal.fire({
@@ -657,12 +644,12 @@ export class EventoRhManagerComponent implements OnInit {
       totalInscritos != null && totalInscritos >= 0 ? totalInscritos : this.totalInscritosAtivos(ev);
     const vagas = Number(ev.vagas) || 0;
     const tituloContagem = this.escapeHtml(this.tituloContagemInscritos(ev, totalInscritos));
-    const ini = this.escapeHtml(this.formatarDataHoraCurta(ev.data_inicio_inscricao));
-    const lim = this.escapeHtml(this.formatarDataHoraCurta(ev.data_limite_inscricao));
-    const diaEvt = this.escapeHtml(this.formatarDataApenasDia(ev.data_evento));
-    const tIni = this.escapeHtml(this.formatarDataHoraCompleta(ev.data_inicio_inscricao));
-    const tLim = this.escapeHtml(this.formatarDataHoraCompleta(ev.data_limite_inscricao));
-    const tEvtDia = this.escapeHtml('Data do evento: ' + this.formatarDataApenasDia(ev.data_evento));
+    const ini = this.escapeHtml(formatarDataHoraCurtaWtPass(ev.data_inicio_inscricao));
+    const lim = this.escapeHtml(formatarDataHoraCurtaWtPass(ev.data_limite_inscricao));
+    const diaEvt = this.escapeHtml(formatarDataWtPass(ev.data_evento));
+    const tIni = this.escapeHtml(formatarDataHoraWtPass(ev.data_inicio_inscricao));
+    const tLim = this.escapeHtml(formatarDataHoraWtPass(ev.data_limite_inscricao));
+    const tEvtDia = this.escapeHtml('Data do evento: ' + formatarDataWtPass(ev.data_evento));
     const pillText = this.escapeHtml(this.textoPillEstado(ev));
     const pillClass = this.classesPillEstado(ev);
     const cardBase =
@@ -1032,36 +1019,9 @@ export class EventoRhManagerComponent implements OnInit {
     return uploadsPublicUrl(String(ev.banner));
   }
 
-  formatarDataApenasDia(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-      return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(iso));
-    } catch {
-      return '—';
-    }
-  }
-
-  /** Formato curto «DD/MM HH:mm» — usado na coluna «Datas» (3 bolinhas coloridas). */
-  formatarDataHoraCurta(iso: string | null | undefined): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-  /** Formato extenso para tooltip (mantém ano + segundos): «DD/MM/YYYY HH:mm». */
-  formatarDataHoraCompleta(iso: string | null | undefined): string {
-    if (!iso) return '—';
-    try {
-      return new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      }).format(new Date(iso));
-    } catch {
-      return '—';
-    }
-  }
+  formatarDataWtPass = formatarDataWtPass;
+  formatarDataHoraWtPass = formatarDataHoraWtPass;
+  formatarDataHoraCurtaWtPass = formatarDataHoraCurtaWtPass;
 
   editar(ev: any) {
     if (!this.podeEditarEventoWtPass(ev)) {
@@ -1099,7 +1059,7 @@ export class EventoRhManagerComponent implements OnInit {
     const vLimite = this.isoParaDatetimeLocal(ev.data_limite_inscricao);
     const vEvento = this.isoParaData(ev.data_evento);
     const st = String(ev.status || 'ABERTO').toUpperCase().trim();
-    const optsStatus = (['ABERTO', 'ENCERRADO', 'REALIZADO', 'CANCELADO'] as const)
+    const optsStatus = (['ABERTO', 'ENCERRADO'] as const)
       .map(
         (s) =>
           `<option value="${s}" ${st === s ? 'selected' : ''}>${this.rotuloEstadoEventoRh(s)}</option>`,
@@ -1245,61 +1205,6 @@ export class EventoRhManagerComponent implements OnInit {
         .subscribe({
           next: () => {
             Swal.fire('OK', 'Evento atualizado.', 'success');
-            this.carregar();
-          },
-          error: (err: any) => Swal.fire('Erro', err.error?.error || 'Falha.', 'error'),
-        });
-    });
-  }
-
-  editarEstado(ev: any) {
-    if (!this.podeAlterarEstadoEventoRh(ev)) return;
-    const st = String(ev?.status || '').toUpperCase().trim();
-    const opts = (['ENCERRADO', 'REALIZADO', 'CANCELADO'] as const)
-      .map(
-        (s) =>
-          `<option value="${s}" ${st === s ? 'selected' : ''}>${this.rotuloEstadoEventoRh(s)}</option>`,
-      )
-      .join('');
-    Swal.fire({
-      title: 'Alterar estado do evento',
-      html: `
-        <div class="max-w-full min-w-0 overflow-x-hidden box-border text-left">
-        <p class="text-left text-sm text-gray-600 mb-2">O estado <strong>ABERTO</strong> não está disponível após encerramento; use <strong>Clonar</strong> para um novo evento.</p>
-        <div class="text-left text-sm w-full max-w-full min-w-0">
-          <label class="block text-xs font-bold text-gray-600 mb-1" for="rh-edit-status2">Estado</label>
-          <select id="rh-edit-status2" class="swal2-input w-full max-w-full min-w-0">${opts}</select>
-        </div>
-        <div class="mt-3 text-left w-full max-w-full min-w-0">
-          <label class="block text-xs font-bold text-gray-600 mb-1" for="rh-estado-motivo">Motivo (auditoria, obrigatório)</label>
-          <textarea id="rh-estado-motivo" class="swal2-textarea block w-full max-w-full min-w-0 m-0 resize-y text-sm border border-gray-300 rounded-lg" rows="3" maxlength="255" placeholder="Mínimo 3 caracteres"></textarea>
-        </div>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      focusConfirm: false,
-      preConfirm: () => {
-        const status = (document.getElementById('rh-edit-status2') as HTMLSelectElement).value;
-        const motivo =
-          (document.getElementById('rh-estado-motivo') as HTMLTextAreaElement | null)?.value?.trim() || '';
-        if (motivo.length < 3) {
-          Swal.showValidationMessage('Indique o motivo para auditoria (mínimo 3 caracteres).');
-          return null;
-        }
-        return { status, motivo };
-      },
-    }).then((r) => {
-      if (!r.isConfirmed || !r.value) return;
-      this.eventoRhService
-        .updateEvento(Number(ev.id), {
-          status: r.value.status,
-          motivo: r.value.motivo,
-          adminId: this.currentUser.id,
-        })
-        .subscribe({
-          next: () => {
-            Swal.fire('OK', 'Estado atualizado.', 'success');
             this.carregar();
           },
           error: (err: any) => Swal.fire('Erro', err.error?.error || 'Falha.', 'error'),

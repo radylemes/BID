@@ -50,8 +50,11 @@ exports.getTodayEvents = async (req, res) => {
       filterDate = normalized;
     }
 
-    const [rows] = await db.execute(
-      `SELECT id, titulo, banner, data_jogo as data_evento
+    const dateClause = filterDate ? "?" : "CURDATE()";
+    const dateParams = filterDate ? [filterDate] : [];
+
+    const [rowsBid] = await db.execute(
+      `SELECT p.id, p.titulo, p.banner, p.data_jogo AS data_evento
        FROM partidas p
        WHERE EXISTS (
          SELECT 1
@@ -59,12 +62,65 @@ exports.getTodayEvents = async (req, res) => {
          WHERE a.partida_id = p.id
            AND a.status = 'GANHOU'
        )
-       AND DATE(p.data_jogo) = ${filterDate ? "?" : "CURDATE()"}
+       AND DATE(p.data_jogo) = ${dateClause}
        AND DATE(p.data_jogo) >= CURDATE()
-       ORDER BY data_jogo ASC`,
-      filterDate ? [filterDate] : [],
+       ORDER BY p.data_jogo ASC`,
+      dateParams,
     );
-    res.json(rows);
+
+    const bidIds = new Set(rowsBid.map((r) => Number(r.id)));
+
+    const [rowsWt] = await db.execute(
+      `SELECT ev.id AS evento_rh_id, ev.titulo, ev.banner, ev.data_evento, ev.partida_id,
+              p.titulo AS partida_titulo, p.banner AS partida_banner, p.data_jogo AS partida_data_jogo
+         FROM eventos_rh ev
+         LEFT JOIN partidas p ON p.id = ev.partida_id
+        WHERE ev.status <> 'CANCELADO'
+          AND DATE(ev.data_evento) = ${dateClause}
+          AND DATE(ev.data_evento) >= CURDATE()
+          AND EXISTS (
+            SELECT 1 FROM inscricoes_rh i
+             WHERE i.evento_id = ev.id AND i.status = 'INSCRITO'
+          )
+        ORDER BY ev.data_evento ASC, ev.id ASC`,
+      dateParams,
+    );
+
+    const eventos = rowsBid.map((r) => ({
+      id: r.id,
+      tipo_evento: "BID",
+      titulo: r.titulo,
+      banner: r.banner,
+      data_evento: r.data_evento,
+      partida_id: r.id,
+      evento_rh_id: null,
+    }));
+
+    for (const ev of rowsWt) {
+      const partidaId = ev.partida_id != null ? Number(ev.partida_id) : null;
+      if (partidaId != null && bidIds.has(partidaId)) continue;
+
+      eventos.push({
+        id: ev.evento_rh_id,
+        tipo_evento: "WT_PASS",
+        titulo: ev.titulo || ev.partida_titulo,
+        banner: ev.banner || ev.partida_banner,
+        data_evento: ev.data_evento || ev.partida_data_jogo,
+        partida_id: partidaId,
+        evento_rh_id: ev.evento_rh_id,
+      });
+    }
+
+    eventos.sort((a, b) => {
+      const ta = a.data_evento ? new Date(a.data_evento).getTime() : 0;
+      const tb = b.data_evento ? new Date(b.data_evento).getTime() : 0;
+      if (ta !== tb) return ta - tb;
+      return String(a.titulo || "").localeCompare(String(b.titulo || ""), "pt", {
+        sensitivity: "base",
+      });
+    });
+
+    res.json(eventos);
   } catch (error) {
     await logErro("RECEPTION_CONTROLLER_GET_TODAY_EVENTS", error);
     res.status(500).json({ error: "Erro ao buscar eventos." });
@@ -129,8 +185,48 @@ function mapGuestRowWt(r, setorEventoNome) {
 
 exports.getEventGuests = async (req, res) => {
   const { eventId } = req.params;
-  const partidaId = Number(eventId);
+  const tipoRaw = String(req.query.tipo || "BID").toUpperCase().trim();
+  const isWtEvento = tipoRaw === "WT_PASS";
+  const idRef = Number(eventId);
+
+  if (!Number.isFinite(idRef) || idRef <= 0) {
+    return res.status(400).json({ error: "ID de evento inválido." });
+  }
+
   try {
+    let setorEventoNome = null;
+
+    if (isWtEvento) {
+      const [setorRows] = await db.execute(
+        `SELECT se.nome AS setor_evento_nome
+           FROM eventos_rh ev
+           LEFT JOIN partidas p ON p.id = ev.partida_id
+           LEFT JOIN setores_evento se ON se.id = p.setor_evento_id
+          WHERE ev.id = ?
+          LIMIT 1`,
+        [idRef],
+      );
+      setorEventoNome = setorRows[0]?.setor_evento_nome || null;
+
+      const queryWtStandalone = `
+        SELECT i.id AS inscricao_rh_id, i.portaria_checkin, i.portaria_assinatura, i.portaria_documento,
+          i.portaria_recebedor_nome, i.portaria_recebedor_cpf,
+          u.id AS titular_id, u.nome_completo AS titular_nome, u.cpf AS titular_cpf_db,
+          (SELECT c2.cpf FROM convidados c2 WHERE c2.usuario_id = u.id AND c2.vinculo_titular = 1 LIMIT 1) AS titular_cpf_conv_padrao,
+          em.nome AS empresa
+        FROM inscricoes_rh i
+        INNER JOIN eventos_rh ev ON ev.id = i.evento_id
+        INNER JOIN usuarios u ON u.id = i.usuario_id
+        LEFT JOIN empresas em ON u.empresa_id = em.id
+        WHERE i.evento_id = ? AND i.status = 'INSCRITO'
+        ORDER BY u.nome_completo ASC
+      `;
+      const [rowsWt] = await db.execute(queryWtStandalone, [idRef]);
+      const formatedWt = rowsWt.map((r) => mapGuestRowWt(r, setorEventoNome));
+      return res.json(formatedWt);
+    }
+
+    const partidaId = idRef;
     const [setorRows] = await db.execute(
       `SELECT se.nome AS setor_evento_nome
        FROM partidas p
@@ -139,7 +235,7 @@ exports.getEventGuests = async (req, res) => {
        LIMIT 1`,
       [partidaId],
     );
-    const setorEventoNome = setorRows[0]?.setor_evento_nome || null;
+    setorEventoNome = setorRows[0]?.setor_evento_nome || null;
 
     const queryBid = `
       SELECT i.id as ingresso_id, i.aposta_id, i.checkin, i.assinatura, i.documento, i.recebedor_nome as aposta_recebedor_nome, i.recebedor_cpf as aposta_recebedor_cpf,
@@ -166,10 +262,7 @@ exports.getEventGuests = async (req, res) => {
       INNER JOIN eventos_rh ev ON ev.id = i.evento_id AND ev.partida_id = ?
       INNER JOIN usuarios u ON u.id = i.usuario_id
       LEFT JOIN empresas em ON u.empresa_id = em.id
-      WHERE (
-          (i.status = 'INSCRITO' AND IFNULL(i.portaria_checkin, 0) = 0)
-          OR (i.status = 'PRESENTE' AND IFNULL(i.portaria_checkin, 0) = 1)
-        )
+      WHERE i.status = 'INSCRITO'
       ORDER BY u.nome_completo ASC
     `;
     const [rowsWt] = await db.execute(queryWt, [partidaId]);
@@ -205,6 +298,10 @@ exports.checkin = async (req, res) => {
     req.body.partidaId != null && String(req.body.partidaId).trim() !== ""
       ? Number(req.body.partidaId)
       : null;
+  const eventoRhIdBody =
+    req.body.eventoRhId != null && String(req.body.eventoRhId).trim() !== ""
+      ? Number(req.body.eventoRhId)
+      : null;
 
   const idIngresso = req.body.ingressoId || req.body.apostaId;
   const isWtCheckin =
@@ -218,8 +315,16 @@ exports.checkin = async (req, res) => {
   if ((!idFinal && !isWtCheckin) || !assinaturaBase64 || !recebedorNome || !recebedorCpf) {
     return res.status(400).json({ error: "Dados incompletos para o check-in." });
   }
-  if (isWtCheckin && (!Number.isFinite(partidaIdBody) || partidaIdBody <= 0)) {
-    return res.status(400).json({ error: "partidaId é obrigatório para check-in WT Pass." });
+  if (isWtCheckin) {
+    const temPartida =
+      Number.isFinite(partidaIdBody) && partidaIdBody != null && partidaIdBody > 0;
+    const temEventoRh =
+      Number.isFinite(eventoRhIdBody) && eventoRhIdBody != null && eventoRhIdBody > 0;
+    if (!temPartida && !temEventoRh) {
+      return res.status(400).json({
+        error: "Informe partidaId ou eventoRhId para check-in WT Pass.",
+      });
+    }
   }
   const connection = await db.getConnection();
   try {
@@ -234,10 +339,10 @@ exports.checkin = async (req, res) => {
 
     if (isWtCheckin) {
       const [insRows] = await connection.execute(
-        `SELECT i.id, ev.partida_id, ev.titulo AS evento_wt_titulo, p.titulo AS partida_titulo, u.nome_completo AS titular
+        `SELECT i.id, ev.id AS evento_rh_id, ev.partida_id, ev.titulo AS evento_wt_titulo, p.titulo AS partida_titulo, u.nome_completo AS titular
          FROM inscricoes_rh i
          INNER JOIN eventos_rh ev ON ev.id = i.evento_id
-         INNER JOIN partidas p ON p.id = ev.partida_id
+         LEFT JOIN partidas p ON p.id = ev.partida_id
          INNER JOIN usuarios u ON u.id = i.usuario_id
          WHERE i.id = ? AND i.status = 'INSCRITO'
          FOR UPDATE`,
@@ -247,14 +352,21 @@ exports.checkin = async (req, res) => {
         await connection.rollback();
         return res.status(404).json({ error: "Inscrição WT não encontrada ou sem vaga ativa." });
       }
-      if (Number(insRows[0].partida_id) !== partidaIdBody) {
+      const evPartidaId =
+        insRows[0].partida_id != null ? Number(insRows[0].partida_id) : null;
+      const evRhId = Number(insRows[0].evento_rh_id);
+      if (evPartidaId != null) {
+        if (!Number.isFinite(partidaIdBody) || partidaIdBody !== evPartidaId) {
+          await connection.rollback();
+          return res.status(403).json({ error: "Inscrição não pertence a este evento (partida)." });
+        }
+      } else if (!Number.isFinite(eventoRhIdBody) || eventoRhIdBody !== evRhId) {
         await connection.rollback();
-        return res.status(403).json({ error: "Inscrição não pertence a este evento (partida)." });
+        return res.status(403).json({ error: "Inscrição não pertence a este evento WT Pass." });
       }
 
       const [upd] = await connection.execute(
         `UPDATE inscricoes_rh SET
-          status = 'PRESENTE',
           portaria_checkin = 1,
           portaria_assinatura = ?,
           portaria_documento = ?,
@@ -285,7 +397,7 @@ exports.checkin = async (req, res) => {
           recebedor: recebedorNome,
           cpf_recebedor: recebedorCpf,
           documento_anexado: documentoBase64 != null,
-          motivo: `O(a) funcionário(a) ${nomePorteiro} liberou a entrada de ${recebedorNome} (WT Pass inscrição #${inscricaoRhId}) titular ${titularNome} no evento: ${eventoTitulo}`,
+          motivo: `O(a) funcionário(a) ${nomePorteiro} registrou liberação na portaria de ${recebedorNome} (WT Pass inscrição #${inscricaoRhId}) titular ${titularNome} no evento: ${eventoTitulo}`,
         },
       );
     } else {

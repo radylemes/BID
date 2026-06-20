@@ -1372,78 +1372,10 @@ exports.listAllForAdmin = async (req, res) => {
 };
 
 /**
- * Job: após o instante `data_evento`, inscrições com vaga (INSCRITO) que nunca
- * fizeram check-in na portaria passam a FALTOU (não retirada) e aplica as
- * mesmas regras de bloqueio do WT Pass que uma falta manual.
+ * Job desativado: a marcação automática de FALTOU após `data_evento` foi removida.
+ * Presença/falta passa a ser apenas manual (admin / portaria). Export mantido para reativação futura.
  */
-exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {
-  try {
-    const [rows] = await db.query(
-      `SELECT i.id AS inscricao_id, i.evento_id, i.usuario_id
-         FROM inscricoes_rh i
-         INNER JOIN eventos_rh ev ON ev.id = i.evento_id
-        WHERE i.status = 'INSCRITO'
-          AND IFNULL(i.portaria_checkin, 0) = 0
-          AND ev.data_evento IS NOT NULL
-          AND ev.data_evento < UTC_TIMESTAMP()`,
-    );
-    if (!rows.length) return;
-
-    for (const row of rows) {
-      const c = await db.getConnection();
-      try {
-        await c.beginTransaction();
-        const inscricaoId = safeInt(row.inscricao_id);
-        const eventoIdRow = safeInt(row.evento_id);
-        const usuarioIdRow = safeInt(row.usuario_id);
-        if (inscricaoId == null || eventoIdRow == null || usuarioIdRow == null) continue;
-
-        const [u] = await c.execute(
-          `SELECT id, status, portaria_checkin FROM inscricoes_rh WHERE id = ? FOR UPDATE`,
-          [inscricaoId],
-        );
-        if (
-          u.length === 0 ||
-          String(u[0].status) !== "INSCRITO" ||
-          Number(u[0].portaria_checkin) === 1
-        ) {
-          await c.rollback();
-          continue;
-        }
-
-        const [upd] = await c.execute(
-          `UPDATE inscricoes_rh SET status = 'FALTOU' WHERE id = ? AND status = 'INSCRITO' AND IFNULL(portaria_checkin, 0) = 0`,
-          [inscricaoId],
-        );
-        if (upd.affectedRows === 0) {
-          await c.rollback();
-          continue;
-        }
-
-        await aplicarRegrasBloqueioAposFaltaWtPass(c, eventoIdRow, usuarioIdRow);
-
-        await gravarAuditoria(c, 1, "EVENTOS_RH", "WT_PASS_NAO_RETIRADA_AUTO", eventoIdRow, {
-          motivo: truncateMotivo(
-            `Ingresso WT Pass não retirado após a data do evento (inscrição #${inscricaoId}, utilizador #${usuarioIdRow}).`,
-          ),
-          usuario_id: usuarioIdRow,
-          inscricao_id: inscricaoId,
-        });
-
-        await c.commit();
-      } catch (err) {
-        try {
-          await c.rollback();
-        } catch (_) {}
-        await logErro("EVENTO_RH_NAO_RETIRADA_ITEM", err);
-      } finally {
-        c.release();
-      }
-    }
-  } catch (error) {
-    await logErro("EVENTO_RH_NAO_RETIRADA_CRON", error);
-  }
-};
+exports.executarMarcacaoNaoRetiradaWtPassAposEvento = async () => {};
 
 exports.liberarTodosBloqueiosWtPass = liberarTodosBloqueiosWtPass;
 exports.parseWtPassBloqueioHabilitado = parseWtPassBloqueioHabilitado;
