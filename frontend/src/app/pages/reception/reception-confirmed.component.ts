@@ -7,12 +7,14 @@ import { of, forkJoin } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { formatarTituloPt } from '../../utils/formatar-texto';
+import { isSomenteVisualizacaoPortaria } from '../../utils/portaria-prazo';
 import { AuthService } from '../../services/auth.service';
+import { ReceptionDatePickerComponent } from '../../components/reception-date-picker/reception-date-picker.component';
 
 @Component({
   selector: 'app-reception-confirmed',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, ReceptionDatePickerComponent],
   template: `
     <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
@@ -39,12 +41,11 @@ import { AuthService } from '../../services/auth.service';
           <label class="text-[9px] font-black uppercase tracking-widest text-emerald-200 shrink-0">
             Dia
           </label>
-          <input
-            type="date"
-            [ngModel]="selectedDate"
-            (ngModelChange)="onSelectDate($event)"
-            [min]="minDateIso"
-            class="flex-1 min-w-0 bg-emerald-900/70 text-white border border-emerald-700 rounded-lg px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]"
+          <app-reception-date-picker
+            [selectedDate]="selectedDate"
+            [apiUrl]="apiUrl"
+            theme="emerald"
+            (selectedDateChange)="onSelectDate($event)"
           />
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -65,6 +66,13 @@ import { AuthService } from '../../services/auth.service';
           </button>
         </div>
       </header>
+
+      <div
+        *ngIf="isSomenteVisualizacao()"
+        class="bg-amber-50 border-b border-amber-200 px-3 py-2 text-center text-[10px] sm:text-xs font-bold text-amber-900"
+      >
+        Consulta histórica — exibindo convidados confirmados nesta data
+      </div>
 
       <main class="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto">
         <div *ngIf="loading" class="text-center py-16">
@@ -250,7 +258,6 @@ export class ReceptionConfirmedComponent implements OnInit {
   loading = true;
   events: any[] = [];
   selectedDate = ReceptionConfirmedComponent.hojeLocalIso();
-  minDateIso = ReceptionConfirmedComponent.hojeLocalIso();
 
   private static readonly SETOR_TODOS = '__todos__';
   private static readonly SETOR_SEM = '__sem_setor__';
@@ -367,9 +374,12 @@ export class ReceptionConfirmedComponent implements OnInit {
 
   onSelectDate(date: string) {
     if (!date || date === this.selectedDate) return;
-    if (date < this.minDateIso) return;
     this.selectedDate = date;
     this.carregarConfirmados();
+  }
+
+  isSomenteVisualizacao(): boolean {
+    return isSomenteVisualizacaoPortaria(this.selectedDate);
   }
 
   private static hojeLocalIso(): string {

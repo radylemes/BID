@@ -16,6 +16,8 @@ if (receptionController.debugEvents) {
 
 router.get("/events/today", receptionController.getTodayEvents);
 
+router.get("/events/dates", receptionController.getEventDates);
+
 router.get("/events/:eventId/guests", receptionController.getEventGuests);
 
 router.post(

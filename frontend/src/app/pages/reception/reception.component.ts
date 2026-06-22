@@ -16,12 +16,14 @@ import Swal from 'sweetalert2';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import { formatarTituloPt } from '../../utils/formatar-texto';
+import { isSomenteVisualizacaoPortaria } from '../../utils/portaria-prazo';
 import { AuthService } from '../../services/auth.service';
+import { ReceptionDatePickerComponent } from '../../components/reception-date-picker/reception-date-picker.component';
 
 @Component({
   selector: 'app-reception',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, ReceptionDatePickerComponent],
   template: `
     <div class="min-h-screen bg-gray-100 pb-6 sm:pb-10 font-sans">
       <header
@@ -62,12 +64,11 @@ import { AuthService } from '../../services/auth.service';
               <label class="text-[9px] font-black uppercase tracking-widest text-indigo-200 shrink-0">
                 Dia
               </label>
-              <input
-                type="date"
-                [ngModel]="selectedDate"
-                (ngModelChange)="onSelectDate($event)"
-                [min]="minDateIso"
-                class="w-[132px] lg:flex-1 lg:min-w-0 bg-indigo-900/70 text-white border border-indigo-700 rounded-lg px-2 py-1.5 text-[11px] font-bold text-center lg:text-left outline-none focus:ring-2 focus:ring-indigo-400 [color-scheme:dark]"
+              <app-reception-date-picker
+                [selectedDate]="selectedDate"
+                [apiUrl]="apiUrl"
+                theme="indigo"
+                (selectedDateChange)="onSelectDate($event)"
               />
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -113,6 +114,13 @@ import { AuthService } from '../../services/auth.service';
           </div>
         </div>
       </header>
+
+      <div
+        *ngIf="isSomenteVisualizacao()"
+        class="bg-amber-50 border-b border-amber-200 px-3 py-2 text-center text-[10px] sm:text-xs font-bold text-amber-900"
+      >
+        Modo somente visualização — prazo de liberação encerrado às 23:59 deste dia
+      </div>
 
       <main class="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-4 lg:space-y-6">
         <div
@@ -530,7 +538,7 @@ import { AuthService } from '../../services/auth.service';
                   </td>
                   <td class="px-3 sm:px-4 lg:px-6 py-3 lg:py-4 text-center">
                     <button
-                      *ngIf="!group.checkin"
+                      *ngIf="!group.checkin && !isSomenteVisualizacao()"
                       (click)="abrirAssinatura(group); $event.stopPropagation()"
                       class="w-full min-w-[120px] sm:min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2"
                     >
@@ -757,7 +765,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
           <div class="p-4 border-t border-gray-100 flex gap-2 shrink-0 bg-white">
             <button
-              *ngIf="!selectedGroupForModal.checkin"
+              *ngIf="!selectedGroupForModal.checkin && !isSomenteVisualizacao()"
               (click)="abrirAssinatura(selectedGroupForModal); closeDetailModal()"
               class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
             >
@@ -796,7 +804,6 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   loading = false;
   events: any[] = [];
   selectedDate = ReceptionComponent.hojeLocalIso();
-  minDateIso = ReceptionComponent.hojeLocalIso();
   allGuests: any[] = [];
   /** Uma linha por ingresso (sem agrupar por retirante). */
   guestsList: any[] = [];
@@ -978,9 +985,12 @@ export class ReceptionComponent implements OnInit, OnDestroy {
 
   onSelectDate(date: string) {
     if (!date || date === this.selectedDate) return;
-    if (date < this.minDateIso) return;
     this.selectedDate = date;
     this.carregarTudoUnificado(false);
+  }
+
+  isSomenteVisualizacao(): boolean {
+    return isSomenteVisualizacaoPortaria(this.selectedDate);
   }
 
   resumoDiaSelecionado(): string {
@@ -1275,7 +1285,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   abrirAssinatura(guest: any) {
-    if (guest.checkin) return;
+    if (guest.checkin || this.isSomenteVisualizacao()) return;
 
     this.selectedGroup = guest;
 
@@ -1380,6 +1390,15 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   confirmarCheckinLote() {
+    if (this.isSomenteVisualizacao()) {
+      Swal.fire(
+        'Atenção',
+        'O prazo para liberar entrada encerrou às 23:59 do dia do evento.',
+        'warning',
+      );
+      return;
+    }
+
     const inputsInvalidos = this.ingressosParaAssinar.filter(
       (t) => !t.recebedor_nome || !t.recebedor_cpf,
     );

@@ -3,8 +3,21 @@ const logErro = require("../utils/errorLogger");
 const { safeAuditoriaDetalhes } = require("../utils/dbHelpers");
 const {
   fetchReceptionEventsForDate,
+  fetchReceptionEventDatesInRange,
   fetchReceptionGuestsForEvent,
 } = require("../utils/receptionQueries");
+const { portariaCheckinPermitido } = require("../utils/portariaPrazoCheckin");
+
+const MSG_PRAZO_CHECKIN =
+  "O prazo para liberar entrada encerrou às 23:59 do dia do evento.";
+
+async function obterHojeStr() {
+  const [todayRows] = await db.execute(`SELECT CURDATE() AS hoje`);
+  const hoje = todayRows[0]?.hoje;
+  return hoje instanceof Date
+    ? hoje.toISOString().slice(0, 10)
+    : String(hoje).slice(0, 10);
+}
 
 async function gravarAuditoria(
   connection,
@@ -41,27 +54,39 @@ exports.getTodayEvents = async (req, res) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
         return res.status(400).json({ error: "Formato de data inválido. Use YYYY-MM-DD." });
       }
-      const [todayRows] = await db.execute(`SELECT CURDATE() AS hoje`);
-      const hoje = todayRows[0]?.hoje;
-      const hojeStr =
-        hoje instanceof Date
-          ? hoje.toISOString().slice(0, 10)
-          : String(hoje).slice(0, 10);
-      if (normalized < hojeStr) {
-        return res.status(400).json({ error: "Não é permitido consultar datas anteriores a hoje." });
-      }
       filterDate = normalized;
     }
 
+    const hojeStr = await obterHojeStr();
+    const restrictToFutureOnly = filterDate ? filterDate >= hojeStr : true;
+
     const eventos = await fetchReceptionEventsForDate(db, {
       date: filterDate,
-      restrictToFutureOnly: true,
+      restrictToFutureOnly,
     });
 
     res.json(eventos);
   } catch (error) {
     await logErro("RECEPTION_CONTROLLER_GET_TODAY_EVENTS", error);
     res.status(500).json({ error: "Erro ao buscar eventos." });
+  }
+};
+
+exports.getEventDates = async (req, res) => {
+  try {
+    const from = String(req.query.from || "").trim();
+    const to = String(req.query.to || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      return res.status(400).json({ error: "Informe from e to no formato YYYY-MM-DD." });
+    }
+    if (from > to) {
+      return res.status(400).json({ error: "A data inicial não pode ser maior que a final." });
+    }
+    const datas = await fetchReceptionEventDatesInRange(db, from, to);
+    res.json(datas);
+  } catch (error) {
+    await logErro("RECEPTION_CONTROLLER_GET_EVENT_DATES", error);
+    res.status(500).json({ error: "Erro ao buscar datas com eventos." });
   }
 };
 
@@ -141,7 +166,8 @@ exports.checkin = async (req, res) => {
 
     if (isWtCheckin) {
       const [insRows] = await connection.execute(
-        `SELECT i.id, ev.id AS evento_rh_id, ev.partida_id, ev.titulo AS evento_wt_titulo, p.titulo AS partida_titulo, u.nome_completo AS titular
+        `SELECT i.id, ev.id AS evento_rh_id, ev.partida_id, ev.data_evento, ev.titulo AS evento_wt_titulo,
+                p.titulo AS partida_titulo, p.data_jogo AS partida_data_jogo, u.nome_completo AS titular
          FROM inscricoes_rh i
          INNER JOIN eventos_rh ev ON ev.id = i.evento_id
          LEFT JOIN partidas p ON p.id = ev.partida_id
@@ -153,6 +179,13 @@ exports.checkin = async (req, res) => {
       if (insRows.length === 0) {
         await connection.rollback();
         return res.status(404).json({ error: "Inscrição WT não encontrada ou sem vaga ativa." });
+      }
+
+      const dataEventoWt =
+        insRows[0].partida_data_jogo || insRows[0].data_evento;
+      if (!portariaCheckinPermitido(dataEventoWt)) {
+        await connection.rollback();
+        return res.status(403).json({ error: MSG_PRAZO_CHECKIN });
       }
       const evPartidaId =
         insRows[0].partida_id != null ? Number(insRows[0].partida_id) : null;
@@ -203,15 +236,31 @@ exports.checkin = async (req, res) => {
         },
       );
     } else {
+      const [dadosIngresso] = await connection.execute(
+        `SELECT p.data_jogo, p.titulo, u.nome_completo as titular
+         FROM ingressos i
+         JOIN apostas a ON i.aposta_id = a.id
+         JOIN partidas p ON a.partida_id = p.id
+         JOIN usuarios u ON i.usuario_id = u.id
+         WHERE i.id = ?
+         FOR UPDATE`,
+        [idFinal],
+      );
+      if (dadosIngresso.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Ingresso não encontrado." });
+      }
+      if (!portariaCheckinPermitido(dadosIngresso[0].data_jogo)) {
+        await connection.rollback();
+        return res.status(403).json({ error: MSG_PRAZO_CHECKIN });
+      }
+
       await connection.execute(
         `UPDATE ingressos SET checkin = 1, assinatura = ?, documento = ?, recebedor_nome = ?, recebedor_cpf = ?, data_checkin = NOW() WHERE id = ?`,
         [assinaturaBase64, documentoBase64, recebedorNome, recebedorCpf, idFinal],
       );
 
-      const [dados] = await connection.execute(
-        `SELECT p.titulo, u.nome_completo as titular FROM ingressos i JOIN apostas a ON i.aposta_id = a.id JOIN partidas p ON a.partida_id = p.id JOIN usuarios u ON i.usuario_id = u.id WHERE i.id = ?`,
-        [idFinal],
-      );
+      const dados = dadosIngresso;
       const eventoTitulo =
         dados.length > 0 ? dados[0].titulo : "Evento Desconhecido";
       const titularNome =

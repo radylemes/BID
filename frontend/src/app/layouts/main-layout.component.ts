@@ -169,6 +169,13 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
               <span class="mr-3 text-lg">📊</span> Relatórios
             </a>
             <a
+              routerLink="/portaria-supervisor"
+              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
+            >
+              <span class="mr-3 text-lg">📱</span> Supervisor Portaria
+            </a>
+            <a
               *ngIf="isAdmin"
               routerLink="/auditoria"
               routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
@@ -301,6 +308,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     '/matches/manage': 'Gestão de Bids',
     '/eventos-rh/manage': 'Gestão WT Pass',
     '/relatorios': 'Relatórios',
+    '/portaria-supervisor': 'Supervisor Portaria',
     '/eventos-rh': 'WT Pass',
     '/matches': 'Bids',
     '/auditoria': 'Logs de Auditoria',
