@@ -30,7 +30,7 @@ O **BID** permite:
 
 - **BIDs (leilões)**: usuários gastam pontos em lances; ao encerrar, ganhadores recebem ingressos; redistribuição e acréscimo de ingressos sobressalentes.
 - **WT Pass**: eventos corporativos com inscrição FIFO, lista de espera, auto-encerramento, bloqueio por falta de presença e exportação de inscritos.
-- **Portaria**: tela em tela cheia para check-in de ingressos (tablet), com assinatura e dados do recebedor.
+- **Portaria**: tela em tela cheia para check-in de ingressos (tablet), com assinatura e dados do recebedor; consulta histórica; supervisor ADMIN para relatório e cancelamento de liberações indevidas.
 - **Organograma**: empresas, setores e grupos (do AD ou Excel) vinculados a usuários e partidas.
 - **Multi-tenant**: suporte a mais de um tenant Azure AD (ex.: WTorre, Real Arenas).
 - **Auditoria e monitor**: logs de ações e erros do sistema.
@@ -43,7 +43,7 @@ O **BID** permite:
 
 | Perfil | Descrição |
 |--------|-----------|
-| **ADMIN** | Acesso total: usuários, grupos, BIDs, WT Pass, configurações, e-mail, auditoria, relatórios |
+| **ADMIN** | Acesso total: usuários, grupos, BIDs, WT Pass, configurações, e-mail, auditoria, relatórios, **Supervisor Portaria** |
 | **USER** | Dashboard, apostas, perfil, convidados, WT Pass, histórico, políticas de acesso |
 | **PORTARIA** | App de portaria (check-in) e lista de confirmados; sem menu de apostas |
 
@@ -102,18 +102,31 @@ O **BID** permite:
 | Bloqueio por falta | Penalização configurável (ausência / não retirada) |
 | Política WT Pass | Texto e PDF de aceite obrigatório |
 | Auto-encerramento | Cron fecha inscrições após `data_limite_inscricao` |
-| Marcação automática | Cron marca `NAO_RETIRADA` após o evento |
+| Presença / falta | Manual via admin ou portaria (marcação automática após o evento desativada) |
 | Exportação Excel | Inscritos por evento (relatórios e gerenciador) |
 
 ### Portaria (Concierge BID)
 
 | Função | Descrição |
 |--------|-----------|
-| Eventos do dia | BIDs e WT Pass com data de hoje |
-| Lista de convidados | Por evento selecionado |
-| Check-in | Por CPF, com assinatura digital e dados do recebedor |
-| Confirmados | Tela separada com ingressos já validados |
+| Eventos por data | BIDs (ganhadores) e WT Pass (inscritos) do dia selecionado; consulta de **datas passadas** em modo somente leitura |
+| Calendário customizado | Seletor de data com **destaque** nos dias que possuem evento (`GET /events/dates`) |
+| Lista de convidados | Por evento; filtros por tipo (BID/WT Pass), setor, status (pendentes/liberados) e busca |
+| Check-in | Assinatura digital, CPF/nome do recebedor e foto opcional do documento |
+| Prazo de liberação | Permitido **no dia do evento até 23:59** (fuso `America/Sao_Paulo`); após isso, somente visualização |
+| Confirmados | Tela separada com ingressos já validados; também consulta histórica |
+| Normalização de textos | Nomes, empresas e setores exibidos em formato título (ex.: "Ana Paula") |
 | Debug (dev) | `GET /reception/debug` para diagnóstico |
+
+### Supervisor Portaria (ADMIN)
+
+| Função | Descrição |
+|--------|-----------|
+| Relatório de acessos | Liberações BID e WT Pass com filtros por período, tipo, status e busca |
+| Detalhe do acesso | Titular, recebedor, CPF, evento, quem liberou, assinatura e documento |
+| Cancelar liberação | Reverte check-in indevido com motivo obrigatório; **somente no dia do evento até 23:59** |
+| Exportação XLSX | Relatório completo na aba Relatório |
+| Auditoria | Toda reversão gera log `CHECKIN_CANCEL_INGRESSO` ou `CHECKIN_CANCEL_WT_PASS` |
 
 ### Usuários
 
@@ -238,6 +251,7 @@ Base: `http://localhost:4201` (dev) ou URL de produção.
 | `/tenants-status` | Status Azure (também em Configurações) | ADMIN |
 | `/reception` | App Portaria | ADMIN, PORTARIA |
 | `/reception/confirmados` | Confirmados | ADMIN, PORTARIA |
+| `/portaria-supervisor` | Supervisor Portaria | ADMIN |
 | `/politica-acesso` | Política BIDs | ADMIN, USER |
 | `/politica-acesso-wt-pass` | Política WT Pass | ADMIN, USER |
 
@@ -479,9 +493,18 @@ Uploads estáticos: `http://localhost:3005/api/uploads/...` ou `http://localhost
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
 | GET | `/debug` | Diagnóstico (dev) | ADMIN, PORTARIA |
-| GET | `/events/today` | Eventos do dia | ADMIN, PORTARIA |
-| GET | `/events/:eventId/guests` | Convidados do evento | ADMIN, PORTARIA |
-| POST | `/checkin` | Check-in de ingresso | ADMIN, PORTARIA |
+| GET | `/events/today` | Eventos por data (`?date=YYYY-MM-DD`; passado permitido) | ADMIN, PORTARIA |
+| GET | `/events/dates` | Datas com eventos no intervalo (`?from=&to=`) | ADMIN, PORTARIA |
+| GET | `/events/:eventId/guests` | Convidados do evento (`?tipo=BID\|WT_PASS`) | ADMIN, PORTARIA |
+| POST | `/checkin` | Check-in (BID ou WT Pass) | ADMIN, PORTARIA |
+
+### Supervisor Portaria — `/api/reception/supervisor`
+
+| Método | Rota | Descrição | Auth |
+|--------|------|-----------|------|
+| GET | `/acessos` | Lista de acessos (`from`, `to`, `tipo`, `status`, `q`) | ADMIN |
+| GET | `/acessos/:tipo/:id` | Detalhe (`tipo`: `BID` ou `WT_PASS`) | ADMIN |
+| POST | `/acessos/:tipo/:id/cancelar` | Cancelar liberação (`motivo` obrigatório) | ADMIN |
 
 ### Configurações — `/api/settings`
 
@@ -591,8 +614,9 @@ Uploads estáticos: `http://localhost:3005/api/uploads/...` ou `http://localhost
 | Cron | Ficheiro | Função |
 |------|----------|--------|
 | Regras de pontuação | `backend/cron/automations.js` | Acumula pontos por empresa/setor conforme `regras_pontuacao` ativas. Intervalo: `POINTS_CRON_INTERVAL_MINUTES` (padrão: 1 min) |
-| Auto-encerramento WT Pass | `backend/cron/eventoRhAutoClose.js` | Encerra eventos com `auto_encerrar=1` após `data_limite_inscricao`. Expressão: `EVENTO_RH_AUTO_ENCERRAR_CRON` (padrão: `* * * * *`) |
-| Não retirada WT Pass | `backend/cron/eventoRhAutoClose.js` | Marca presença `NAO_RETIRADA` e aplica bloqueios configurados após o evento |
+| Auto-encerramento WT Pass | `backend/cron/eventoRhAutoClose.js` | Encerra inscrições com `auto_encerrar=1` após `data_limite_inscricao`. Expressão: `EVENTO_RH_AUTO_ENCERRAR_CRON` (padrão: `* * * * *`) |
+
+> A marcação automática de falta (`FALTOU` / `NAO_RETIRADA`) após o evento foi **desativada**. Presença e falta são tratadas manualmente (admin/portaria). Para reverter faltas aplicadas indevidamente, use o script `reverter-faltas-wt-pass`.
 
 ---
 
@@ -602,23 +626,25 @@ Uploads estáticos: `http://localhost:3005/api/uploads/...` ou `http://localhost
 BID/
 ├── backend/
 │   ├── config/          # setupDatabase, db, passport, azureAuth
-│   ├── controllers/     # Lógica de negócio por módulo
+│   ├── controllers/     # Lógica de negócio por módulo (reception, receptionSupervisor, integracao, etc.)
 │   ├── cron/            # automations.js, eventoRhAutoClose.js
 │   ├── middleware/      # authMiddleware, validateRequest
 │   ├── routes/          # Rotas REST da API
-│   ├── scripts/         # migrate.js
+│   ├── scripts/         # migrate.js, reverterFaltasWtPassAuto.js, etc.
+│   ├── utils/           # receptionQueries, portariaPrazoCheckin, cpf, etc.
 │   ├── uploads/         # Avatares, banners, políticas, timbrado (não versionar)
 │   ├── validations/     # Schemas Joi
 │   ├── server.js
 │   └── package.json
 ├── frontend/
 │   ├── src/app/
+│   │   ├── components/   # reception-date-picker, login-carousel, etc.
 │   │   ├── guards/       # AuthGuard
 │   │   ├── interceptors/ # JWT
 │   │   ├── layouts/      # MainLayout, AuthLayout
-│   │   ├── pages/        # Dashboard, users, matches, eventos-rh, reception, etc.
-│   │   ├── services/     # auth, match, user, evento-rh, email, etc.
-│   │   └── utils/        # CPF, export XLSX, avatar, WT Pass
+│   │   ├── pages/        # Dashboard, users, matches, eventos-rh, reception, portaria-supervisor, etc.
+│   │   ├── services/     # auth, match, user, evento-rh, reception-supervisor, email, etc.
+│   │   └── utils/        # CPF, export XLSX, formatar-texto, portaria-prazo, WT Pass
 │   └── environments/
 └── README.md
 ```
@@ -646,7 +672,7 @@ Criado e migrado automaticamente ao subir o backend. Principais entidades:
 | `templates_email`, `listas_email`, `listas_email_itens` | E-mail |
 | `setores_evento` | Catálogo de setores (Cadeira, Pista, etc.) |
 | `eventos_rh` | Eventos WT Pass |
-| `inscricoes_rh` | Inscrições e fila de espera |
+| `inscricoes_rh` | Inscrições WT Pass (incl. campos `portaria_*` para check-in) |
 | `bloqueios_eventos_rh` | Bloqueios por falta de presença |
 
 ---
@@ -661,6 +687,7 @@ Criado e migrado automaticamente ao subir o backend. Principais entidades:
 | `npm start` | Servidor em produção |
 | `npm run migrate` | Executar migrações manuais |
 | `npm run reset-db` | Reset do banco (cuidado em produção) |
+| `npm run reverter-faltas-wt-pass` | Reverter `FALTOU` → `INSCRITO` (WT Pass); ver `scripts/reverterFaltasWtPassAuto.js` |
 
 ### Frontend
 
