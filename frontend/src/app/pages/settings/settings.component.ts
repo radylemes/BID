@@ -684,14 +684,24 @@ import {
               <h4 class="text-sm font-black text-indigo-900">Como consumir</h4>
               <div class="text-xs text-indigo-900/80 space-y-2 font-mono break-all">
                 <p><strong>GET</strong> {{ integracaoApiUrl }}</p>
+                <p><strong>GET</strong> {{ integracaoApiUrl }}?date=YYYY-MM-DD</p>
                 <p><strong>Header:</strong> X-API-Key: &lt;sua-chave&gt;</p>
               </div>
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
                 A resposta inclui <code class="text-[10px]">bids</code> e
-                <code class="text-[10px]">wtpass</code>, cada um com listas
+                <code class="text-[10px]">wtpass</code> (listas
                 <code class="text-[10px]">abertos</code>,
-                <code class="text-[10px]">encerrados</code> e
-                <code class="text-[10px]">vencedores</code>.
+                <code class="text-[10px]">encerrados</code>,
+                <code class="text-[10px]">vencedores</code>) e
+                <code class="text-[10px]">portaria</code> do dia consultado
+                (parâmetro <code class="text-[10px]">date</code> opcional; padrão: hoje).
+              </p>
+              <p class="text-[11px] text-indigo-900/70 leading-relaxed">
+                Em <code class="text-[10px]">portaria.eventos</code>: título,
+                <code class="text-[10px]">imagem_url</code>, totais
+                <code class="text-[10px]">liberados</code> /
+                <code class="text-[10px]">pendentes</code> por tipo (BID / WT Pass)
+                e por empresa — sem dados pessoais.
               </p>
             </div>
           </div>

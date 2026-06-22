@@ -1,5 +1,10 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const {
+  fetchReceptionEventsForDate,
+  fetchReceptionGuestsForEvent,
+  aggregatePortariaGuests,
+} = require("../utils/receptionQueries");
 
 const dbUtcToISO = (v) => {
   if (!v) return null;
@@ -208,10 +213,75 @@ async function fetchWtPassWinners(baseUrl) {
   }));
 }
 
+function resolvePortariaImagemUrl(evento, baseUrl) {
+  const tipo = String(evento.tipo_evento || "BID").toUpperCase().trim();
+  if (tipo === "WT_PASS") {
+    return resolveWtPassImagemUrl(evento.banner, baseUrl) || null;
+  }
+  const partidaId = evento.partida_id != null ? Number(evento.partida_id) : Number(evento.id);
+  return resolveBidImagemUrl(evento.banner, partidaId, baseUrl) || null;
+}
+
+async function resolvePortariaQueryDate(dateParam) {
+  if (dateParam != null && String(dateParam).trim() !== "") {
+    const normalized = String(dateParam).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      return { error: "Formato de data inválido. Use YYYY-MM-DD." };
+    }
+    return { date: normalized };
+  }
+
+  const [todayRows] = await db.execute(`SELECT CURDATE() AS hoje`);
+  const hoje = todayRows[0]?.hoje;
+  const hojeStr =
+    hoje instanceof Date ? hoje.toISOString().slice(0, 10) : String(hoje).slice(0, 10);
+  return { date: hojeStr };
+}
+
+async function buildPortariaSummary(dateStr, baseUrl) {
+  const eventos = await fetchReceptionEventsForDate(db, {
+    date: dateStr,
+    restrictToFutureOnly: false,
+  });
+
+  const eventosComTotais = [];
+  for (const evento of eventos) {
+    const tipoEvento = String(evento.tipo_evento || "BID").toUpperCase().trim();
+    const guests = await fetchReceptionGuestsForEvent(db, evento.id, tipoEvento);
+    const totais = aggregatePortariaGuests(guests);
+
+    eventosComTotais.push({
+      id: evento.id,
+      tipo_evento: tipoEvento,
+      titulo: evento.titulo || "Evento sem título",
+      imagem_url: resolvePortariaImagemUrl(evento, baseUrl),
+      data_evento: dbUtcToISO(evento.data_evento),
+      partida_id: evento.partida_id != null ? Number(evento.partida_id) : null,
+      evento_rh_id: evento.evento_rh_id != null ? Number(evento.evento_rh_id) : null,
+      totais: {
+        liberados: totais.liberados,
+        pendentes: totais.pendentes,
+        por_tipo: totais.por_tipo,
+      },
+      por_empresa: totais.por_empresa,
+    });
+  }
+
+  return {
+    data: dateStr,
+    eventos: eventosComTotais,
+  };
+}
+
 exports.getEventos = async (req, res) => {
   try {
+    const dateResolved = await resolvePortariaQueryDate(req.query.date);
+    if (dateResolved.error) {
+      return res.status(400).json({ error: dateResolved.error });
+    }
+
     const baseUrl = await getBaseUrl();
-    const [bidsAbertos, bidsEncerrados, bidsVencedores, wtAbertos, wtEncerrados, wtVencedores] =
+    const [bidsAbertos, bidsEncerrados, bidsVencedores, wtAbertos, wtEncerrados, wtVencedores, portaria] =
       await Promise.all([
         fetchBidsByStatus("ABERTA", baseUrl),
         fetchBidsByStatus("FINALIZADA", baseUrl),
@@ -219,6 +289,7 @@ exports.getEventos = async (req, res) => {
         fetchWtPassByStatus(["ABERTO"], baseUrl),
         fetchWtPassByStatus(["ENCERRADO", "REALIZADO", "CANCELADO"], baseUrl),
         fetchWtPassWinners(baseUrl),
+        buildPortariaSummary(dateResolved.date, baseUrl),
       ]);
 
     res.json({
@@ -232,6 +303,7 @@ exports.getEventos = async (req, res) => {
         encerrados: wtEncerrados,
         vencedores: wtVencedores,
       },
+      portaria,
       gerado_em: new Date().toISOString(),
     });
   } catch (error) {
