@@ -293,9 +293,34 @@ import {
 
           <!-- Aba: Servidor SMTP -->
           <div *ngIf="abaAtual === 'email' && !loading" class="space-y-6">
-            <h3 class="text-xl font-black text-gray-800">Servidor SMTP</h3>
-            <p class="text-sm text-gray-500">Configure o envio de e-mails (disparos e testes).</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+            <h3 class="text-xl font-black text-gray-800">Provedor de E-mail</h3>
+            <p class="text-sm text-gray-500">Escolha entre SMTP próprio ou Azure Communication Services (ACS).</p>
+
+            <!-- Toggle de provedor -->
+            <div class="flex gap-2 mb-2">
+              <button
+                type="button"
+                (click)="emailProvider = 'smtp'"
+                [ngClass]="emailProvider !== 'acs'
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+              >
+                📨 SMTP
+              </button>
+              <button
+                type="button"
+                (click)="emailProvider = 'acs'"
+                [ngClass]="emailProvider === 'acs'
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+              >
+                ☁️ Azure ACS
+              </button>
+            </div>
+
+            <div *ngIf="emailProvider !== 'acs'" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Host SMTP (servidor, ex: smtp.office365.com)</label>
                 <input [(ngModel)]="smtpHost" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="smtp.office365.com" />
@@ -325,13 +350,69 @@ import {
                 <input [(ngModel)]="appBaseUrl" type="url" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="https://app.seudominio.com" />
               </div>
             </div>
-            <div class="flex flex-wrap gap-3">
+            <div *ngIf="emailProvider !== 'acs'" class="flex flex-wrap gap-3">
               <button (click)="salvarSmtp()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow">
                 Guardar configurações SMTP
               </button>
               <button (click)="testarEnvioSmtp()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl shadow" title="Enviar e-mail de teste para validar a configuração">
                 ✉ Testar envio de e-mail
               </button>
+            </div>
+
+            <!-- Bloco ACS — visível apenas quando emailProvider === 'acs' -->
+            <div *ngIf="emailProvider === 'acs'" class="space-y-4 max-w-3xl">
+              <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+                <strong>Azure Communication Services</strong> — os e-mails são enviados via API da Microsoft.
+                Configure a Connection String e o endereço remetente do domínio verificado no ACS.
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Connection String
+                </label>
+                <textarea
+                  [(ngModel)]="acsConnectionString"
+                  rows="3"
+                  placeholder="endpoint=https://....communication.azure.com/;accessKey=..."
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                ></textarea>
+                <p class="mt-1 text-xs text-gray-400">
+                  Portal Azure → Communication Services → Settings → Keys → Connection string (Primary)
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Endereço Remetente (From)
+                </label>
+                <input
+                  type="email"
+                  [(ngModel)]="acsSender"
+                  placeholder="no-reply@nubankparque.com"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  Deve pertencer ao domínio verificado no recurso ACS.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  (click)="salvarAcs()"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow"
+                >
+                  Guardar configurações ACS
+                </button>
+                <button
+                  type="button"
+                  (click)="testarEnvioSmtp()"
+                  class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl shadow"
+                  title="Envia um e-mail de teste via ACS"
+                >
+                  ✉ Testar envio ACS
+                </button>
+              </div>
             </div>
           </div>
 
@@ -734,6 +815,10 @@ export class SettingsComponent implements OnInit {
   smtpPass = '';
   smtpFrom = '';
   appBaseUrl = '';
+  // Azure ACS
+  emailProvider = 'smtp';
+  acsConnectionString = '';
+  acsSender = '';
   bidPolicyHtml = '';
   bidPolicyPdfFile: File | null = null;
   wtPassPolicyHtml = '';
@@ -835,6 +920,9 @@ export class SettingsComponent implements OnInit {
         this.smtpPass = settings['smtp_pass'] ?? '';
         this.smtpFrom = settings['smtp_from'] ?? '';
         this.appBaseUrl = settings['app_base_url'] ?? '';
+        this.emailProvider = settings['email_provider'] ?? 'smtp';
+        this.acsConnectionString = settings['acs_connection_string'] ?? '';
+        this.acsSender = settings['acs_sender'] ?? '';
         this.bidPolicyHtml = settings['bid_policy_html'] ?? '';
         this.cd.detectChanges();
       },
@@ -1072,6 +1160,7 @@ export class SettingsComponent implements OnInit {
       return;
     }
     const payload: Record<string, string> = {
+      email_provider: 'smtp',
       smtp_host: this.smtpHost,
       smtp_port: String(this.smtpPort),
       smtp_secure: this.smtpSecure ? '1' : '0',
@@ -1083,6 +1172,30 @@ export class SettingsComponent implements OnInit {
     this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
       next: () => Swal.fire({ icon: 'success', title: 'Configurações SMTP guardadas.', timer: 1500, showConfirmButton: false }),
       error: (err) => Swal.fire('Erro', err.error?.error || 'Falha ao guardar.', 'error'),
+    });
+  }
+
+  salvarAcs() {
+    const payload: Record<string, string> = {
+      email_provider: 'acs',
+      acs_connection_string: this.acsConnectionString.trim(),
+      acs_sender: this.acsSender.trim(),
+    };
+    this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
+      next: () =>
+        Swal.fire({
+          icon: 'success',
+          title: 'ACS salvo!',
+          text: 'Configurações do Azure ACS guardadas com sucesso.',
+          timer: 2000,
+          showConfirmButton: false,
+        }),
+      error: (err) =>
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro',
+          text: err?.error?.error || 'Erro ao salvar configurações ACS.',
+        }),
     });
   }
 

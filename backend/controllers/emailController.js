@@ -2,8 +2,14 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const db = require("../config/db");
-const nodemailer = require("nodemailer");
 const logErro = require("../utils/errorLogger");
+const {
+  getMailSender,
+  refreshSmtpMailSender,
+  sendEmail,
+  isSmtpConnectionError,
+  NOT_CONFIGURED_MSG,
+} = require("../utils/emailSender");
 
 /** Diretório gravável pelo utilizador do processo (www) para cache/profile do Chromium. */
 const PUPPETEER_BASE_TMP = path.join(__dirname, "..", "tmp");
@@ -235,40 +241,6 @@ function buildPdfGanhadoresHtml(data) {
 }
 
 /**
- * Obtém transporter Nodemailer a partir das configurações em configuracoes.
- * Retorna null se SMTP não configurado.
- * Compatível com Office 365 / Microsoft 365: host smtp.office365.com, porta 587, secure=false (STARTTLS).
- */
-async function getSmtpTransporter() {
-  const [rows] = await db.query(
-    "SELECT chave, valor FROM configuracoes WHERE chave IN ('smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from')"
-  );
-  const cfg = rows.reduce((acc, r) => {
-    acc[r.chave] = r.valor;
-    return acc;
-  }, {});
-  const host = cfg.smtp_host && String(cfg.smtp_host).trim();
-  if (!host) return null;
-  // Host deve ser um hostname (ex: smtp.dominio.com), não um e-mail
-  if (host.includes("@")) {
-    throw new Error(
-      "Host SMTP não pode ser um e-mail. Use o endereço do servidor (ex: smtp.office365.com ou smtp.dominio.com)."
-    );
-  }
-  const port = parseInt(cfg.smtp_port, 10) || 587;
-  const secure = cfg.smtp_secure === "1" || cfg.smtp_secure === "true";
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure, // false = usa STARTTLS na porta 587 (Office 365); true = SSL na porta 465
-    auth:
-      cfg.smtp_user && cfg.smtp_pass
-        ? { user: cfg.smtp_user, pass: cfg.smtp_pass }
-        : undefined,
-  });
-}
-
-/**
  * Retorna a URL base pública da API (para montar URLs de imagens em e-mails).
  * Ordem: configuração app_base_url, variável API_PUBLIC_URL.
  */
@@ -452,19 +424,6 @@ function sseWrite(res, event, data) {
   }
 }
 
-function isSmtpConnectionError(err) {
-  const code = String(err?.code || "").toUpperCase();
-  const msg = String(err?.message || "").toLowerCase();
-  const connectionCodes = ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ESOCKET", "EPROTO", "EPIPE", "ENOTFOUND"];
-  if (connectionCodes.includes(code)) return true;
-  return (
-    msg.includes("connection") ||
-    msg.includes("socket") ||
-    msg.includes("timeout") ||
-    msg.includes("closed")
-  );
-}
-
 async function prepareDisparo(body, req) {
   const { partidaId, listaId, templateId, usarGrupo: usarGrupoRaw, tipoDisparo, emailsPersonalizados } = body;
   const usarGrupo = usarGrupoRaw === true || usarGrupoRaw === "true";
@@ -486,15 +445,9 @@ async function prepareDisparo(body, req) {
     };
   }
 
-  const transporter = await getSmtpTransporter();
-  if (!transporter) {
-    return { error: "SMTP não configurado. Configure em Configurações > Servidor SMTP.", status: 400 };
-  }
-
-  const [cfgRows] = await db.query("SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'");
-  const smtpFrom = cfgRows[0]?.valor?.trim();
-  if (!smtpFrom) {
-    return { error: "E-mail remetente (smtp_from) não configurado.", status: 400 };
+  const mailSender = await getMailSender();
+  if (!mailSender) {
+    return { error: NOT_CONFIGURED_MSG, status: 400 };
   }
 
   const [partidas] = await db.query(
@@ -630,8 +583,8 @@ async function prepareDisparo(body, req) {
     templateId,
     usarGrupo,
     tipoDisparo,
-    transporter,
-    smtpFrom,
+    mailSender,
+    emailFrom: mailSender.from,
     evento,
     template,
     itensValidos,
@@ -642,17 +595,17 @@ async function prepareDisparo(body, req) {
 }
 
 function createSendFn(prepared) {
-  const { partidaId, smtpFrom, evento, template, pdfAttachment, pdfFilename } = prepared;
+  const { partidaId, emailFrom, evento, template, pdfAttachment, pdfFilename } = prepared;
   const sendOne = async (mailOptions) => {
     try {
-      await prepared.transporter.sendMail(mailOptions);
+      await prepared.mailSender.sendMail(mailOptions);
       return { ok: true };
     } catch (err) {
-      if (isSmtpConnectionError(err)) {
+      if (prepared.mailSender.provider === "smtp" && isSmtpConnectionError(err)) {
         try {
-          const fresh = await getSmtpTransporter();
+          const fresh = await refreshSmtpMailSender();
           if (fresh) {
-            prepared.transporter = fresh;
+            prepared.mailSender = fresh;
             await fresh.sendMail(mailOptions);
             return { ok: true };
           }
@@ -695,7 +648,7 @@ function createSendFn(prepared) {
       const html = replaceTemplateTags(template.corpo_html, context);
 
       const mailOptions = {
-        from: smtpFrom,
+        from: emailFrom,
         to: email,
         subject: assunto,
         html,
@@ -752,31 +705,18 @@ exports.testSmtp = async (req, res) => {
     if (!to || !String(to).trim()) {
       return res.status(400).json({ error: "Informe o e-mail de destino para o teste." });
     }
-    const transporter = await getSmtpTransporter();
-    if (!transporter) {
-      return res.status(400).json({
-        error: "SMTP não configurado. Preencha Host e salve antes de testar.",
-      });
-    }
-    const [cfgRows] = await db.query(
-      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'"
-    );
-    const smtpFrom = cfgRows[0]?.valor?.trim();
-    if (!smtpFrom) {
-      return res.status(400).json({
-        error: "E-mail remetente (smtp_from) não configurado. Salve as configurações.",
-      });
-    }
-    await transporter.sendMail({
-      from: smtpFrom,
+    await sendEmail({
       to: String(to).trim(),
-      subject: "Teste SMTP - BID",
-      text: "Este é um e-mail de teste do sistema. Se você recebeu, a configuração SMTP está correta.",
-      html: "<p>Este é um e-mail de <strong>teste</strong> do sistema.</p><p>Se você recebeu, a configuração SMTP está correta.</p>",
+      subject: "Teste de e-mail - BID",
+      text: "Este é um e-mail de teste do sistema. Se você recebeu, a configuração de e-mail está correta.",
+      html: "<p>Este é um e-mail de <strong>teste</strong> do sistema.</p><p>Se você recebeu, a configuração de e-mail está correta.</p>",
     });
     res.json({ message: "E-mail de teste enviado com sucesso." });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_TEST_SMTP", error);
+    if (error.message === NOT_CONFIGURED_MSG) {
+      return res.status(400).json({ error: error.message });
+    }
     const msg = error.message || "Erro ao enviar e-mail de teste.";
     res.status(500).json({ error: msg });
   }
@@ -1262,20 +1202,6 @@ exports.sendNovoUsuarioEmail = async ({ email, nomeCompleto, username, senhaPlan
     }
     const template = templates[0];
 
-    const transporter = await getSmtpTransporter();
-    if (!transporter) {
-      await logErro("EMAIL_SEND_NOVO_USUARIO", new Error("SMTP não configurado."));
-      return;
-    }
-    const [cfgRows] = await db.query(
-      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'"
-    );
-    const smtpFrom = cfgRows[0]?.valor?.trim();
-    if (!smtpFrom) {
-      await logErro("EMAIL_SEND_NOVO_USUARIO", new Error("smtp_from não configurado."));
-      return;
-    }
-
     const usuario = {
       nome: nomeCompleto || to,
       email: to,
@@ -1290,8 +1216,7 @@ exports.sendNovoUsuarioEmail = async ({ email, nomeCompleto, username, senhaPlan
     };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
-    await transporter.sendMail({
-      from: smtpFrom,
+    await sendEmail({
       to,
       subject: assunto,
       html,
@@ -1383,20 +1308,6 @@ exports.sendWtPassPromovidoFilaEmail = async ({ eventoRhId, usuarioId }) => {
     );
     if (eventos.length === 0) return;
 
-    const transporter = await getSmtpTransporter();
-    if (!transporter) {
-      await logErro("EMAIL_SEND_WT_PASS_PROMOVIDO_FILA", new Error("SMTP não configurado."));
-      return;
-    }
-    const [cfgRows] = await db.query(
-      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'",
-    );
-    const smtpFrom = cfgRows[0]?.valor?.trim();
-    if (!smtpFrom) {
-      await logErro("EMAIL_SEND_WT_PASS_PROMOVIDO_FILA", new Error("smtp_from não configurado."));
-      return;
-    }
-
     const evento = await buildEventoRhEmailContext(eventos[0]);
     const usuario = {
       nome: u.nome_completo || to,
@@ -1407,8 +1318,7 @@ exports.sendWtPassPromovidoFilaEmail = async ({ eventoRhId, usuarioId }) => {
     const context = { evento, usuario };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
-    await transporter.sendMail({
-      from: smtpFrom,
+    await sendEmail({
       to,
       subject: assunto,
       html,
@@ -1576,21 +1486,6 @@ exports.testTemplate = async (req, res) => {
     if (!to || !String(to).trim()) {
       return res.status(400).json({ error: "Informe o e-mail de destino para o teste." });
     }
-    const transporter = await getSmtpTransporter();
-    if (!transporter) {
-      return res.status(400).json({
-        error: "SMTP não configurado. Configure em Configurações > Servidor SMTP.",
-      });
-    }
-    const [cfgRows] = await db.query(
-      "SELECT chave, valor FROM configuracoes WHERE chave = 'smtp_from'"
-    );
-    const smtpFrom = cfgRows[0]?.valor?.trim();
-    if (!smtpFrom) {
-      return res.status(400).json({
-        error: "E-mail remetente (smtp_from) não configurado.",
-      });
-    }
     const [templates] = await db.query(
       "SELECT id, nome, assunto, corpo_html FROM templates_email WHERE id = ?",
       [templateId]
@@ -1662,8 +1557,7 @@ exports.testTemplate = async (req, res) => {
     const context = { evento, usuario, senha: usuario.senha };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
-    await transporter.sendMail({
-      from: smtpFrom,
+    await sendEmail({
       to: String(to).trim(),
       subject: assunto,
       html,
@@ -1672,6 +1566,9 @@ exports.testTemplate = async (req, res) => {
     res.json({ message: "E-mail de teste enviado com sucesso." });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_TEST_TEMPLATE", error);
+    if (error.message === NOT_CONFIGURED_MSG) {
+      return res.status(400).json({ error: error.message });
+    }
     const msg = error.message || "Erro ao enviar e-mail de teste.";
     res.status(500).json({ error: msg });
   }
