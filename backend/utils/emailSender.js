@@ -131,6 +131,7 @@ async function sendViaAcs(cfg, { to, subject, html, text, attachments }) {
     message.attachments = acsAttachments;
   }
 
+  await acsRateLimit();
   const poller = await client.beginSend(message);
   const result = await poller.pollUntilDone();
   if (result?.status !== "Succeeded") {
@@ -229,6 +230,66 @@ function isSmtpConnectionError(err) {
   );
 }
 
+// ── Rate limiter para ACS ─────────────────────────────────────
+// Garante respeito aos limites padrão do Azure Communication Services:
+//   30/min · 100/hora · 2.400/dia
+// Usado apenas quando email_provider === 'acs'.
+
+const ACS_LIMITS = {
+  perMinute: 30,
+  perHour:   100,
+  perDay:    2400,
+};
+
+// Janelas deslizantes simples (timestamps dos envios recentes)
+const _acsTimestamps = [];
+
+/**
+ * Verifica se o próximo envio ACS está dentro dos limites.
+ * Se não estiver, aguarda o tempo necessário antes de prosseguir.
+ * Deve ser chamado imediatamente antes de cada beginSend().
+ */
+async function acsRateLimit() {
+  const now = Date.now();
+
+  // Limpar timestamps expirados (mais de 24h)
+  const cutoff24h = now - 24 * 60 * 60 * 1000;
+  while (_acsTimestamps.length > 0 && _acsTimestamps[0] < cutoff24h) {
+    _acsTimestamps.shift();
+  }
+
+  // Verificar limite diário
+  if (_acsTimestamps.length >= ACS_LIMITS.perDay) {
+    const oldest = _acsTimestamps[0];
+    const waitMs = (oldest + 24 * 60 * 60 * 1000) - now + 100;
+    console.warn(`[ACS Rate Limit] Limite diário (${ACS_LIMITS.perDay}) atingido. Aguardando ${Math.ceil(waitMs / 1000)}s...`);
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+
+  // Verificar limite por hora
+  const cutoff1h = now - 60 * 60 * 1000;
+  const lastHour = _acsTimestamps.filter(t => t > cutoff1h);
+  if (lastHour.length >= ACS_LIMITS.perHour) {
+    const oldest = lastHour[0];
+    const waitMs = (oldest + 60 * 60 * 1000) - now + 100;
+    console.warn(`[ACS Rate Limit] Limite horário (${ACS_LIMITS.perHour}) atingido. Aguardando ${Math.ceil(waitMs / 1000)}s...`);
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+
+  // Verificar limite por minuto
+  const cutoff1m = now - 60 * 1000;
+  const lastMinute = _acsTimestamps.filter(t => t > cutoff1m);
+  if (lastMinute.length >= ACS_LIMITS.perMinute) {
+    const oldest = lastMinute[0];
+    const waitMs = (oldest + 60 * 1000) - now + 100;
+    console.log(`[ACS Rate Limit] Limite por minuto (${ACS_LIMITS.perMinute}) atingido. Aguardando ${Math.ceil(waitMs / 1000)}s...`);
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+
+  // Registrar este envio
+  _acsTimestamps.push(Date.now());
+}
+
 module.exports = {
   getEmailProviderConfig,
   getMailSender,
@@ -236,4 +297,5 @@ module.exports = {
   sendEmail,
   isSmtpConnectionError,
   NOT_CONFIGURED_MSG,
+  acsRateLimit,
 };

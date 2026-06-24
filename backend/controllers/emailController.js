@@ -695,7 +695,18 @@ async function finalizarDisparo(prepared, resultados, adminId) {
   }
 }
 
-const DISPARO_BLOCO_OPTS = { batchSize: 10, delayBatch: 5000, delayItem: 1000 };
+// Opções de disparo por provider
+// SMTP: 10 itens/bloco, 1s entre itens, 5s entre blocos
+// ACS:  10 itens/bloco, 2s entre itens, 40s entre blocos
+//       → ~10 emails/40s = ~15/min (bem abaixo do limite de 30/min do ACS)
+//       → ~90 emails/hora (abaixo do limite de 100/hora do ACS)
+//       O rate limiter em emailSender.js garante a segurança mesmo em disparos maiores.
+async function getDisparoOpts(mailSender) {
+  if (mailSender?.provider === 'acs') {
+    return { batchSize: 10, delayBatch: 40000, delayItem: 2000 };
+  }
+  return { batchSize: 10, delayBatch: 5000, delayItem: 1000 };
+}
 
 // ==================== TESTE SMTP ====================
 
@@ -1859,7 +1870,8 @@ exports.sendEmails = async (req, res) => {
       return res.status(prep.status || 400).json({ error: prep.error });
     }
     prepared = prep;
-    resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), DISPARO_BLOCO_OPTS);
+    const disparoOpts = await getDisparoOpts(prepared.mailSender);
+    resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), disparoOpts);
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_SEND", error);
     fatalError = error;
@@ -1917,8 +1929,9 @@ exports.sendEmailsStream = async (req, res) => {
 
     sseWrite(res, "init", { total: prepared.itensValidos.length });
 
+    const disparoOptsStream = await getDisparoOpts(prepared.mailSender);
     resultados = await enviarEmBlocos(prepared.itensValidos, createSendFn(prepared), {
-      ...DISPARO_BLOCO_OPTS,
+      ...disparoOptsStream,
       onProgress: (progress) => {
         sseWrite(res, "progress", progress);
       },
