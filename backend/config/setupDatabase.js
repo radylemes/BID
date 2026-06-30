@@ -1019,16 +1019,16 @@ async function initializeDatabase() {
 <tr>
 <td style="background-color: #1a2e4a; padding: 28px 25px;" align="center">
 <h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; color: #ffffff; font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">Área de Ingressos</h1>
-<p style="margin: 10px 0 0; color: #e2e8f0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">Resumo de ingressos sorteados por setor</p>
+<p style="margin: 10px 0 0; color: #e2e8f0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">Resumo de ingressos (BID e WT Pass) por setor</p>
 </td>
 </tr>
 <tr>
 <td style="background-color: #ffffff; padding: 30px 28px; font-family: Arial, Helvetica, sans-serif;">
 <p style="margin: 0 0 12px; color: #333333; font-size: 15px; line-height: 1.6;">Olá, <strong>{{usuario.nome}}</strong>,</p>
-<p style="margin: 0 0 16px; color: #333333; font-size: 14px; line-height: 1.6;">Segue o consolidado de <strong>{{resumo.qtd_eventos}}</strong> evento(s) com total de <strong>{{resumo.total_ingressos}}</strong> ingresso(s) sorteado(s):</p>
-<p style="margin: 0 0 8px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Eventos</p>
-<p style="margin: 0 0 20px; color: #333333; font-size: 13px; line-height: 1.5;">{{resumo.eventos_titulos}}</p>
-<p style="margin: 0 0 8px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Ingressos por setor</p>
+<p style="margin: 0 0 16px; color: #333333; font-size: 14px; line-height: 1.6;">Segue o consolidado de <strong>{{resumo.qtd_eventos}}</strong> evento(s) — <strong>{{resumo.qtd_eventos_bid}}</strong> BID(s) e <strong>{{resumo.qtd_eventos_wt}}</strong> WT Pass — com total de <strong>{{resumo.total_ingressos}}</strong> ingresso(s):</p>
+<p style="margin: 0 0 8px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Eventos selecionados</p>
+{{resumo.eventos_tabela}}
+<p style="margin: 20px 0 8px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Ingressos por setor</p>
 {{resumo.setores_tabela}}
 <p style="margin: 20px 0 0; color: #64748b; font-size: 12px; line-height: 1.5;">Este e-mail foi gerado automaticamente pelo sistema BID.</p>
 </td>
@@ -1044,7 +1044,7 @@ async function initializeDatabase() {
       const nomeTplArea = "Área de Ingressos — resumo por setor";
       const assuntoTplArea = "Ingressos por setor — {{resumo.qtd_eventos}} evento(s)";
       const [tplArea] = await connection.query(
-        "SELECT id FROM templates_email WHERE tipo_disparo = 'AREA_INGRESSOS' LIMIT 1"
+        "SELECT id, corpo_html FROM templates_email WHERE tipo_disparo = 'AREA_INGRESSOS' LIMIT 1"
       );
       if (tplArea.length === 0) {
         await connection.execute(
@@ -1052,6 +1052,18 @@ async function initializeDatabase() {
           [nomeTplArea, assuntoTplArea, AREA_INGRESSOS_CORPO_HTML]
         );
         console.log("✨ Template de e-mail AREA_INGRESSOS inserido.");
+      } else {
+        const corpoAtual = String(tplArea[0].corpo_html || "");
+        const corpoAntigo =
+          corpoAtual.includes("{{resumo.eventos_titulos}}") &&
+          !corpoAtual.includes("{{resumo.eventos_tabela}}");
+        if (corpoAntigo) {
+          await connection.execute(
+            "UPDATE templates_email SET nome = ?, assunto = ?, corpo_html = ? WHERE id = ?",
+            [nomeTplArea, assuntoTplArea, AREA_INGRESSOS_CORPO_HTML, tplArea[0].id]
+          );
+          console.log("✨ Template de e-mail AREA_INGRESSOS atualizado para tabela de eventos (BID + WT Pass).");
+        }
       }
     } catch (e) {
       console.error("Migration template AREA_INGRESSOS:", e);
@@ -1068,6 +1080,39 @@ async function initializeDatabase() {
       }
     } catch (e) {
       console.error("Migration templates EVENTO -> NULL:", e);
+    }
+
+    // Templates BID ABERTO: URL dinâmica + fallback textual para links em e-mail
+    try {
+      const [tplBidLinks] = await connection.query(
+        "SELECT id, corpo_html FROM templates_email WHERE corpo_html LIKE '%bid.allianzparque.intra%'"
+      );
+      const fallbackLinkHtml =
+        '<p style="margin: 8px 0 18px; color: #64748b; font-size: 12px; text-align: center; font-family: Arial, Helvetica, sans-serif;">Se o bot&atilde;o n&atilde;o aparecer, acesse: <a href="{{app.base_url}}/" style="color: #2563eb;">{{app.base_url}}/</a></p>';
+      for (const tpl of tplBidLinks) {
+        let corpo = String(tpl.corpo_html || "");
+        corpo = corpo.replace(
+          /href="https:\/\/bid\.allianzparque\.intra\/?"/gi,
+          'href="{{app.base_url}}/"'
+        );
+        if (!corpo.includes("Se o bot&atilde;o n&atilde;o aparecer")) {
+          corpo = corpo.replace(
+            /(<\/a><\/p>\s*<!-- CTA -->)/i,
+            `</a></p>\n${fallbackLinkHtml}\n<!-- CTA -->`
+          );
+        }
+        await connection.execute(
+          "UPDATE templates_email SET corpo_html = ? WHERE id = ?",
+          [corpo, tpl.id]
+        );
+      }
+      if (tplBidLinks.length > 0) {
+        console.log(
+          `✨ Migration: ${tplBidLinks.length} template(s) BID ABERTO atualizado(s) com {{app.base_url}} e fallback textual.`
+        );
+      }
+    } catch (e) {
+      console.error("Migration templates BID ABERTO links:", e);
     }
 
     // População Básica se estiver vazio

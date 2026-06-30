@@ -37,7 +37,10 @@ export interface PreviewAreaIngressosResponse extends PreviewTemplateResponse {
   resumo?: {
     total_ingressos: string;
     qtd_eventos: string;
+    qtd_eventos_bid?: string;
+    qtd_eventos_wt?: string;
     eventos_titulos: string;
+    eventos_tabela?: string;
     setores_tabela: string;
     setores_lista: string;
   };
@@ -462,10 +465,12 @@ export class EmailService {
 
   previewAreaIngressos(
     partidaIds: number[],
+    eventoRhIds: number[],
     templateId: number
   ): Observable<PreviewAreaIngressosResponse> {
     return this.http.post<PreviewAreaIngressosResponse>(`${this.apiUrl}/area-ingressos/preview`, {
       partidaIds,
+      eventoRhIds,
       templateId,
     });
   }
@@ -473,6 +478,7 @@ export class EmailService {
   /** Disparo consolidado para Área de Ingressos com SSE. */
   async sendAreaIngressosStream(
     partidaIds: number[],
+    eventoRhIds: number[],
     templateId: number,
     adminId?: number,
     options?: {
@@ -492,6 +498,7 @@ export class EmailService {
 
     const body: Record<string, unknown> = {
       partidaIds,
+      eventoRhIds,
       templateId,
       adminId,
     };

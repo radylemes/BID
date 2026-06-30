@@ -98,12 +98,63 @@ function createSmtpTransporter(cfg) {
   });
 }
 
-function stripHtml(html) {
+function decodeHtmlEntities(str) {
+  return String(str)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+/**
+ * Converte HTML de e-mail em texto simples, preservando URLs de links (incl. botões só com imagem).
+ */
+function htmlToPlainText(html) {
   if (!html) return "";
-  return String(html)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
+  let s = String(html);
+  s = s.replace(/<\s*br\s*\/?>/gi, "\n");
+  s = s.replace(/<\s*\/\s*(p|div|tr|li|h[1-6])\s*>/gi, "\n");
+  s = s.replace(/<\s*(p|div|tr|li|h[1-6])\b[^>]*>/gi, "\n");
+  s = s.replace(
+    /<\s*a\b[^>]*href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\s*\/\s*a\s*>/gi,
+    (_match, _q, hrefDq, hrefSq, hrefBare, inner) => {
+      const url = (hrefDq || hrefSq || hrefBare || "").trim();
+      let text = String(inner || "");
+      text = text.replace(
+        /<\s*img\b[^>]*\balt\s*=\s*("([^"]*)"|'([^']*)')[^>]*\/?>/gi,
+        (_m, _q2, altDq, altSq) => {
+          const alt = (altDq || altSq || "").trim();
+          return alt ? `[${alt}]` : "";
+        },
+      );
+      text = text.replace(/<[^>]+>/g, " ");
+      text = decodeHtmlEntities(text).replace(/\s+/g, " ").trim();
+      if (text && url) return `${text} (${url})`;
+      if (url) return url;
+      return text;
+    },
+  );
+  s = s.replace(
+    /<\s*img\b[^>]*\balt\s*=\s*("([^"]*)"|'([^']*)')[^>]*\/?>/gi,
+    (_m, _q, altDq, altSq) => {
+      const alt = (altDq || altSq || "").trim();
+      return alt ? `[${alt}]` : "";
+    },
+  );
+  s = s.replace(/<[^>]+>/g, " ");
+  s = decodeHtmlEntities(s);
+  return s
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
     .trim();
+}
+
+function stripHtml(html) {
+  return htmlToPlainText(html);
 }
 
 function toBase64(content) {
@@ -150,7 +201,7 @@ async function sendViaAcs(cfg, { to, bcc, subject, html, text, attachments }) {
     content: {
       subject: subject || "",
       html: html || undefined,
-      plainText: text || stripHtml(html) || subject || "",
+      plainText: text || htmlToPlainText(html) || subject || "",
     },
     recipients,
   };
@@ -331,4 +382,5 @@ module.exports = {
   NOT_CONFIGURED_MSG,
   acsRateLimit,
   applyHiddenToRecipients,
+  htmlToPlainText,
 };

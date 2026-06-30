@@ -257,6 +257,11 @@ async function getBaseUrl() {
   return (process.env.API_PUBLIC_URL || "").replace(/\/$/, "");
 }
 
+/** Contexto {{app.base_url}} para links dinâmicos nos templates. */
+async function buildAppContext() {
+  return { base_url: await getBaseUrl() };
+}
+
 function resolvePublicAssetUrl(stored, baseUrl) {
   if (!stored || !String(stored).trim()) return "";
   const s = String(stored).trim();
@@ -590,6 +595,7 @@ async function prepareDisparo(body, req) {
     mailSender,
     emailFrom: mailSender.from,
     evento,
+    app: { base_url: baseUrl },
     template,
     itensValidos,
     pdfAttachment,
@@ -599,7 +605,7 @@ async function prepareDisparo(body, req) {
 }
 
 function createSendFn(prepared) {
-  const { partidaId, emailFrom, evento, template, pdfAttachment, pdfFilename } = prepared;
+  const { partidaId, emailFrom, evento, app, template, pdfAttachment, pdfFilename } = prepared;
   const sendOne = async (mailOptions) => {
     try {
       await prepared.mailSender.sendMail(mailOptions);
@@ -647,7 +653,7 @@ function createSendFn(prepared) {
       }
       const usuario = { nome, email, ingressos_ganhos: ingressosGanhos };
 
-      const context = { evento, usuario };
+      const context = { evento, usuario, app };
       const assunto = replaceTemplateTags(template.assunto, context);
       const html = replaceTemplateTags(template.corpo_html, context);
 
@@ -1188,12 +1194,14 @@ const DEFAULT_USUARIO = {
 };
 
 /** Contexto de pré-visualização: tags {{usuario.*}} e {{senha}}. */
-function buildPreviewEmailContext(evento) {
+async function buildPreviewEmailContext(evento) {
   const usuario = { ...DEFAULT_USUARIO };
+  const app = await buildAppContext();
   return {
     evento,
     usuario,
     senha: usuario.senha,
+    app,
   };
 }
 
@@ -1225,10 +1233,12 @@ exports.sendNovoUsuarioEmail = async ({ email, nomeCompleto, username, senhaPlan
       senha: String(senhaPlano),
       ingressos_ganhos: "0",
     };
+    const app = await buildAppContext();
     const context = {
       evento: { ...DEFAULT_EVENTO },
       usuario,
       senha: String(senhaPlano),
+      app,
     };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
@@ -1331,7 +1341,8 @@ exports.sendWtPassPromovidoFilaEmail = async ({ eventoRhId, usuarioId }) => {
       username: u.username || "",
       ingressos_ganhos: "0",
     };
-    const context = { evento, usuario };
+    const app = await buildAppContext();
+    const context = { evento, usuario, app };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
     await sendEmail({
@@ -1413,7 +1424,7 @@ exports.previewTemplate = async (req, res) => {
       }
     }
 
-    const context = buildPreviewEmailContext(evento);
+    const context = await buildPreviewEmailContext(evento);
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
 
@@ -1484,7 +1495,7 @@ exports.previewDraft = async (req, res) => {
         evento.imagem = imagemUrl;
       }
     }
-    const context = buildPreviewEmailContext(evento);
+    const context = await buildPreviewEmailContext(evento);
     const assuntoOut = replaceTemplateTags(String(assunto), context);
     const html = replaceTemplateTags(String(corpo_html), context);
     res.json({ assunto: assuntoOut, html });
@@ -1570,7 +1581,8 @@ exports.testTemplate = async (req, res) => {
       senha: DEFAULT_USUARIO.senha,
       ingressos_ganhos: "0",
     };
-    const context = { evento, usuario, senha: usuario.senha };
+    const app = await buildAppContext();
+    const context = { evento, usuario, senha: usuario.senha, app };
     const assunto = replaceTemplateTags(template.assunto, context);
     const html = replaceTemplateTags(template.corpo_html, context);
     await sendEmail({
@@ -1867,6 +1879,8 @@ exports.getPdfGanhadores = async (req, res) => {
 
 // ==================== ÁREA DE INGRESSOS ====================
 
+const SETOR_EVENTO_WT_PASS = "Pista Premium";
+
 function normalizePartidaIds(raw) {
   if (!Array.isArray(raw)) return [];
   return [
@@ -1876,59 +1890,32 @@ function normalizePartidaIds(raw) {
   ];
 }
 
-async function buildResumoAreaIngressos(partidaIds) {
-  if (!partidaIds.length) {
-    return { error: "Informe ao menos um evento (partidaIds).", status: 400 };
+function normalizeEventoRhIds(raw) {
+  if (!Array.isArray(raw)) return [];
+  return [
+    ...new Set(
+      raw.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+    ),
+  ];
+}
+
+function mergeSetoresAgg(mapa, rows) {
+  for (const r of rows) {
+    const setorNome = r.setor_nome || "Sem setor";
+    const key = `${r.setor_evento_id}|${setorNome}`;
+    const prev = mapa.get(key) || {
+      setor_evento_id: r.setor_evento_id,
+      setor_nome: setorNome,
+      qtd_ingressos: 0,
+    };
+    prev.qtd_ingressos += Number(r.qtd_ingressos || 0);
+    mapa.set(key, prev);
   }
+}
 
-  const placeholders = partidaIds.map(() => "?").join(",");
-
-  const [partidas] = await db.query(
-    `SELECT p.id, p.titulo, p.data_jogo, p.local, p.status,
-            se.nome AS setor_evento_nome
-     FROM partidas p
-     LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
-     WHERE p.id IN (${placeholders})
-     ORDER BY p.data_jogo ASC, p.titulo ASC`,
-    partidaIds
-  );
-
-  if (partidas.length === 0) {
-    return { error: "Nenhuma partida encontrada.", status: 404 };
-  }
-
-  const foundIds = new Set(partidas.map((p) => p.id));
-  const missing = partidaIds.filter((id) => !foundIds.has(id));
-  if (missing.length > 0) {
-    return { error: `Partida(s) não encontrada(s): ${missing.join(", ")}.`, status: 404 };
-  }
-
-  const [setoresRows] = await db.query(
-    `SELECT
-       COALESCE(se.id, 0) AS setor_evento_id,
-       COALESCE(se.nome, 'Sem setor') AS setor_nome,
-       COUNT(i.id) AS qtd_ingressos
-     FROM partidas p
-     LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
-     LEFT JOIN apostas a ON a.partida_id = p.id
-     LEFT JOIN ingressos i ON i.aposta_id = a.id
-     WHERE p.id IN (${placeholders})
-     GROUP BY se.id, se.nome
-     ORDER BY se.nome`,
-    partidaIds
-  );
-
-  const setores = setoresRows.map((r) => ({
-    setor_evento_id: r.setor_evento_id,
-    setor_nome: r.setor_nome,
-    qtd_ingressos: Number(r.qtd_ingressos || 0),
-  }));
-
+function buildSetoresTabelaHtml(setores) {
   const totalIngressos = setores.reduce((sum, s) => sum + s.qtd_ingressos, 0);
-  const eventosTitulos = partidas.map((p) => (p.titulo || `BID #${p.id}`).trim()).join(", ");
-
   const setoresLista = setores.map((s) => `${s.setor_nome}: ${s.qtd_ingressos}`).join("\n");
-
   const rowsHtml = setores
     .map(
       (s) =>
@@ -1947,23 +1934,197 @@ async function buildResumoAreaIngressos(partidaIds) {
 <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;">${totalIngressos}</td>
 </tr></tbody></table>`;
 
+  return { setoresTabela, setoresLista, totalIngressos };
+}
+
+function buildEventosTabelaHtml(eventosItens) {
+  const rowsHtml = eventosItens
+    .map(
+      (e) =>
+        `<tr>
+<td style="padding:8px 12px;border:1px solid #e2e8f0;">${escapeHtmlPdf(e.tipo)}</td>
+<td style="padding:8px 12px;border:1px solid #e2e8f0;">${escapeHtmlPdf(e.titulo)}</td>
+<td style="padding:8px 12px;border:1px solid #e2e8f0;">${escapeHtmlPdf(e.nome_grupo)}</td>
+<td style="padding:8px 12px;border:1px solid #e2e8f0;">${escapeHtmlPdf(e.setor_evento_nome)}</td>
+<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;">${e.qtd_ingressos}</td>
+</tr>`
+    )
+    .join("");
+
+  return `<table style="border-collapse:collapse;width:100%;max-width:640px;font-family:Arial,Helvetica,sans-serif;font-size:13px;">
+<thead><tr style="background-color:#f1f5f9;">
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Tipo</th>
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Evento</th>
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Grupo</th>
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Setor</th>
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;">Ingressos</th>
+</tr></thead>
+<tbody>${rowsHtml}</tbody></table>`;
+}
+
+async function buildResumoAreaIngressos(partidaIds = [], eventoRhIds = []) {
+  const pIds = normalizePartidaIds(partidaIds);
+  const eIds = normalizeEventoRhIds(eventoRhIds);
+
+  if (!pIds.length && !eIds.length) {
+    return { error: "Informe ao menos um evento (partidaIds ou eventoRhIds).", status: 400 };
+  }
+
+  const eventosItens = [];
+  const setorMap = new Map();
+  let partidas = [];
+
+  if (pIds.length) {
+    const placeholders = pIds.map(() => "?").join(",");
+
+    const [partidasRows] = await db.query(
+      `SELECT p.id, p.titulo, p.data_jogo, p.local, p.status,
+              COALESCE(g.nome, 'Público') AS nome_grupo,
+              COALESCE(se.nome, 'Sem setor') AS setor_evento_nome
+       FROM partidas p
+       LEFT JOIN grupos g ON g.id = p.grupo_id
+       LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+       WHERE p.id IN (${placeholders})
+       ORDER BY p.data_jogo ASC, g.nome ASC, p.titulo ASC`,
+      pIds
+    );
+
+    if (partidasRows.length === 0) {
+      return { error: "Nenhuma partida encontrada.", status: 404 };
+    }
+
+    const foundIds = new Set(partidasRows.map((p) => p.id));
+    const missing = pIds.filter((id) => !foundIds.has(id));
+    if (missing.length > 0) {
+      return { error: `Partida(s) não encontrada(s): ${missing.join(", ")}.`, status: 404 };
+    }
+
+    partidas = partidasRows;
+
+    const [bidLinhas] = await db.query(
+      `SELECT p.id, p.titulo,
+              COALESCE(g.nome, 'Público') AS nome_grupo,
+              COALESCE(se.nome, 'Sem setor') AS setor_evento_nome,
+              COALESCE(se.id, 0) AS setor_evento_id,
+              (SELECT COUNT(*) FROM ingressos i
+               INNER JOIN apostas a ON a.id = i.aposta_id
+               WHERE a.partida_id = p.id) AS qtd_ingressos
+       FROM partidas p
+       LEFT JOIN grupos g ON g.id = p.grupo_id
+       LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+       WHERE p.id IN (${placeholders})
+       ORDER BY p.data_jogo ASC, g.nome ASC, p.titulo ASC`,
+      pIds
+    );
+
+    for (const r of bidLinhas) {
+      const qtd = Number(r.qtd_ingressos || 0);
+      eventosItens.push({
+        tipo: "BID",
+        titulo: (r.titulo || `BID #${r.id}`).trim(),
+        nome_grupo: r.nome_grupo || "Público",
+        setor_evento_nome: r.setor_evento_nome || "Sem setor",
+        qtd_ingressos: qtd,
+      });
+      mergeSetoresAgg(setorMap, [
+        {
+          setor_evento_id: r.setor_evento_id,
+          setor_nome: r.setor_evento_nome || "Sem setor",
+          qtd_ingressos: qtd,
+        },
+      ]);
+    }
+  }
+
+  let eventosRh = [];
+
+  if (eIds.length) {
+    const placeholders = eIds.map(() => "?").join(",");
+
+    const [wtRows] = await db.query(
+      `SELECT e.id, e.titulo, e.data_evento, e.status, e.vagas, e.partida_id,
+              COALESCE(g.nome, 'WT Pass') AS nome_grupo,
+              COALESCE(se.nome, ?) AS setor_evento_nome,
+              COALESCE(se.id, 0) AS setor_evento_id,
+              LEAST(
+                COUNT(i.id),
+                GREATEST(e.vagas, 1)
+              ) AS qtd_ingressos
+       FROM eventos_rh e
+       LEFT JOIN partidas p ON p.id = e.partida_id
+       LEFT JOIN grupos g ON g.id = p.grupo_id
+       LEFT JOIN setores_evento se ON se.id = p.setor_evento_id
+       LEFT JOIN inscricoes_rh i ON i.evento_id = e.id
+         AND i.status IN ('INSCRITO','PRESENTE','FALTOU')
+       WHERE e.id IN (${placeholders})
+       GROUP BY e.id, e.titulo, e.data_evento, e.status, e.vagas, e.partida_id, g.nome, se.nome, se.id
+       ORDER BY e.data_evento ASC, g.nome ASC, e.titulo ASC`,
+      [SETOR_EVENTO_WT_PASS, ...eIds]
+    );
+
+    if (wtRows.length === 0) {
+      return { error: "Nenhum evento WT Pass encontrado.", status: 404 };
+    }
+
+    const foundWt = new Set(wtRows.map((e) => e.id));
+    const missingWt = eIds.filter((id) => !foundWt.has(id));
+    if (missingWt.length > 0) {
+      return { error: `Evento(s) WT Pass não encontrado(s): ${missingWt.join(", ")}.`, status: 404 };
+    }
+
+    eventosRh = wtRows;
+
+    for (const r of wtRows) {
+      const qtd = Number(r.qtd_ingressos || 0);
+      const setorNome = r.setor_evento_nome || SETOR_EVENTO_WT_PASS;
+      eventosItens.push({
+        tipo: "WT Pass",
+        titulo: (r.titulo || `WT Pass #${r.id}`).trim(),
+        nome_grupo: r.nome_grupo || "WT Pass",
+        setor_evento_nome: setorNome,
+        qtd_ingressos: qtd,
+      });
+      mergeSetoresAgg(setorMap, [
+        {
+          setor_evento_id: r.setor_evento_id,
+          setor_nome: setorNome,
+          qtd_ingressos: qtd,
+        },
+      ]);
+    }
+  }
+
+  const setores = Array.from(setorMap.values()).sort((a, b) =>
+    String(a.setor_nome).localeCompare(String(b.setor_nome), "pt-BR")
+  );
+
+  const { setoresTabela, setoresLista, totalIngressos } = buildSetoresTabelaHtml(setores);
+  const eventosTitulos = eventosItens
+    .map((e) => `${e.titulo} (Grupo: ${e.nome_grupo})`)
+    .join("\n");
+  const eventosTabela = buildEventosTabelaHtml(eventosItens);
+
   const resumo = {
     total_ingressos: String(totalIngressos),
-    qtd_eventos: String(partidas.length),
+    qtd_eventos: String(eventosItens.length),
+    qtd_eventos_bid: String(pIds.length),
+    qtd_eventos_wt: String(eIds.length),
     eventos_titulos: eventosTitulos,
+    eventos_tabela: eventosTabela,
     setores_tabela: setoresTabela,
     setores_lista: setoresLista,
   };
 
-  return { resumo, partidas, setores, partidaIds };
+  return { resumo, partidas, eventosRh, setores, eventosItens, partidaIds: pIds, eventoRhIds: eIds };
 }
 
 async function prepareAreaIngressosDisparo(body, req) {
-  const { partidaIds: rawIds, listaId, templateId, emailsPersonalizados } = body;
+  const { partidaIds: rawIds, eventoRhIds: rawWtIds, listaId, templateId, emailsPersonalizados } = body;
   const partidaIds = normalizePartidaIds(rawIds);
+  const eventoRhIds = normalizeEventoRhIds(rawWtIds);
 
-  if (!partidaIds.length) {
-    return { error: "Informe ao menos um evento (partidaIds).", status: 400 };
+  if (!partidaIds.length && !eventoRhIds.length) {
+    return { error: "Informe ao menos um evento (partidaIds ou eventoRhIds).", status: 400 };
   }
   if (!templateId) {
     return { error: "templateId é obrigatório.", status: 400 };
@@ -1988,7 +2149,7 @@ async function prepareAreaIngressosDisparo(body, req) {
     return { error: NOT_CONFIGURED_MSG, status: 400 };
   }
 
-  const built = await buildResumoAreaIngressos(partidaIds);
+  const built = await buildResumoAreaIngressos(partidaIds, eventoRhIds);
   if (built.error) return built;
 
   const [templates] = await db.query(
@@ -2020,8 +2181,11 @@ async function prepareAreaIngressosDisparo(body, req) {
 
   const itensValidos = itens.filter((item) => String(item.email || "").trim());
 
+  const baseUrl = await getBaseUrl();
+
   return {
     partidaIds,
+    eventoRhIds,
     listaId,
     templateId,
     mailSender,
@@ -2029,15 +2193,18 @@ async function prepareAreaIngressosDisparo(body, req) {
     resumo: built.resumo,
     setores: built.setores,
     partidas: built.partidas,
+    eventosRh: built.eventosRh,
+    eventosItens: built.eventosItens,
     template,
     itensValidos,
     adminId: body.adminId || req.user?.id,
     evento: { ...DEFAULT_EVENTO, titulo: built.resumo.eventos_titulos },
+    app: { base_url: baseUrl },
   };
 }
 
 function createAreaIngressosSendFn(prepared) {
-  const { emailFrom, resumo, template, evento } = prepared;
+  const { emailFrom, resumo, template, evento, app } = prepared;
 
   const sendOne = async (mailOptions) => {
     try {
@@ -2073,7 +2240,7 @@ function createAreaIngressosSendFn(prepared) {
       if (!nome) nome = email;
 
       const usuario = { nome, email, ingressos_ganhos: "0" };
-      const context = { evento, usuario, resumo };
+      const context = { evento, usuario, resumo, app };
       const assunto = replaceTemplateTags(template.assunto, context);
       const html = replaceTemplateTags(template.corpo_html, context);
 
@@ -2092,11 +2259,12 @@ function createAreaIngressosSendFn(prepared) {
 }
 
 async function finalizarAreaIngressosDisparo(prepared, resultados, adminId) {
-  const { partidaIds, listaId, templateId, itensValidos, resumo, setores } = prepared;
+  const { partidaIds, eventoRhIds, listaId, templateId, itensValidos, resumo, setores } = prepared;
   const { enviados, erros, destinatarios } = resultados;
 
-  await gravarAuditoria(db, adminId, "EMAIL", "DISPARO", partidaIds[0] || null, {
+  await gravarAuditoria(db, adminId, "EMAIL", "DISPARO", partidaIds[0] || eventoRhIds[0] || null, {
     partidaIds,
+    eventoRhIds,
     listaId: listaId || null,
     templateId,
     tipoDisparo: "AREA_INGRESSOS",
@@ -2112,16 +2280,17 @@ async function finalizarAreaIngressosDisparo(prepared, resultados, adminId) {
 
 exports.previewAreaIngressos = async (req, res) => {
   try {
-    const { partidaIds: rawIds, templateId } = req.body || {};
+    const { partidaIds: rawIds, eventoRhIds: rawWtIds, templateId } = req.body || {};
     const partidaIds = normalizePartidaIds(rawIds);
-    if (!partidaIds.length) {
-      return res.status(400).json({ error: "Informe ao menos um evento (partidaIds)." });
+    const eventoRhIds = normalizeEventoRhIds(rawWtIds);
+    if (!partidaIds.length && !eventoRhIds.length) {
+      return res.status(400).json({ error: "Informe ao menos um evento (partidaIds ou eventoRhIds)." });
     }
     if (!templateId) {
       return res.status(400).json({ error: "templateId é obrigatório." });
     }
 
-    const built = await buildResumoAreaIngressos(partidaIds);
+    const built = await buildResumoAreaIngressos(partidaIds, eventoRhIds);
     if (built.error) {
       return res.status(built.status || 400).json({ error: built.error });
     }
@@ -2137,7 +2306,8 @@ exports.previewAreaIngressos = async (req, res) => {
 
     const evento = { ...DEFAULT_EVENTO, titulo: built.resumo.eventos_titulos };
     const usuario = { ...DEFAULT_USUARIO };
-    const context = { evento, usuario, resumo: built.resumo };
+    const app = await buildAppContext();
+    const context = { evento, usuario, resumo: built.resumo, app };
 
     res.json({
       assunto: replaceTemplateTags(template.assunto, context),

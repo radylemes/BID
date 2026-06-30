@@ -38,15 +38,19 @@ const TAGS_TEMPLATE_EMAIL = [
   { tag: '{{evento.imagem}}', desc: 'URL da imagem do evento' },
   { tag: '{{evento.informacoes_extras}}', desc: 'Informações extras do evento' },
   { tag: '{{evento.link_extra}}', desc: 'Link extra do evento' },
+  { tag: '{{app.base_url}}', desc: 'URL base da aplicação (Configurações)' },
   { tag: '{{usuario.nome}}', desc: 'Nome do destinatário' },
   { tag: '{{usuario.email}}', desc: 'E-mail do destinatário' },
   { tag: '{{usuario.username}}', desc: 'Nome de utilizador (login)' },
   { tag: '{{usuario.senha}}', desc: 'Senha inicial (só no e-mail de criação de utilizador)' },
   { tag: '{{senha}}', desc: 'Senha inicial — atalho (só no e-mail de criação de utilizador)' },
   { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
-  { tag: '{{resumo.total_ingressos}}', desc: 'Total de ingressos sorteados (Área de Ingressos)' },
-  { tag: '{{resumo.qtd_eventos}}', desc: 'Quantidade de eventos selecionados' },
-  { tag: '{{resumo.eventos_titulos}}', desc: 'Títulos dos eventos selecionados' },
+  { tag: '{{resumo.total_ingressos}}', desc: 'Total de ingressos (BID + WT Pass)' },
+  { tag: '{{resumo.qtd_eventos}}', desc: 'Quantidade total de eventos selecionados' },
+  { tag: '{{resumo.qtd_eventos_bid}}', desc: 'Quantidade de BIDs selecionados' },
+  { tag: '{{resumo.qtd_eventos_wt}}', desc: 'Quantidade de eventos WT Pass selecionados' },
+  { tag: '{{resumo.eventos_tabela}}', desc: 'Tabela HTML: Tipo, Evento, Grupo, Setor, Ingressos' },
+  { tag: '{{resumo.eventos_titulos}}', desc: 'Títulos com grupo (texto, uma linha por evento)' },
   { tag: '{{resumo.setores_tabela}}', desc: 'Tabela HTML com ingressos por setor' },
   { tag: '{{resumo.setores_lista}}', desc: 'Lista texto com ingressos por setor' },
 ];
@@ -93,6 +97,11 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
       base_url: '/tinymce',
       suffix: '.min',
       automatic_uploads: false,
+      convert_urls: false,
+      relative_urls: false,
+      remove_script_host: false,
+      allow_unsafe_link_target: true,
+      urlconverter_callback: (url: string) => (/\{\{[^}]+\}\}/.test(url) ? url : url),
       plugins:
         'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
       toolbar:
@@ -221,6 +230,16 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Garante que corpoHtml reflete o conteúdo atual do TinyMCE antes de salvar ou pré-visualizar. */
+  private syncEditorContent(): string {
+    const tinymce = (window as unknown as { tinymce?: { get: (id: string) => { getContent: () => string } | null } }).tinymce;
+    const ed = tinymce?.get(this.editorId);
+    if (ed) {
+      this.corpoHtml = ed.getContent();
+    }
+    return this.corpoHtml ?? '';
+  }
+
   abrirEditorHtml() {
     const textareaId = 'email-template-html-source';
     Swal.fire({
@@ -257,7 +276,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
     this.saving = true;
     this.showPreviewModal = false;
     this.cdr.markForCheck();
-    const corpo = this.corpoHtml ?? '';
+    const corpo = this.syncEditorContent();
     this.emailService.previewDraft(this.assunto, corpo, this.partidaIdPreview ?? undefined).subscribe({
       next: (res) => {
         this.previewAssunto = res?.assunto ?? '';
@@ -281,6 +300,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
       Swal.fire('Atenção', 'Nome e assunto são obrigatórios.', 'warning');
       return;
     }
+    this.syncEditorContent();
     this.saving = true;
     const onError = (err: any) => {
       const msg =

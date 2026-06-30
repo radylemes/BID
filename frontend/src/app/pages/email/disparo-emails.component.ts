@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
+import { EventoRhService } from '../../services/evento-rh.service';
 import { EmailService, SendEmailsResponse, DisparoLogEntry, TemplateEmail, ListaEmail, ListaEmailItem } from '../../services/email.service';
 import { UserService } from '../../services/user.service';
 import {
@@ -23,6 +24,21 @@ type TipoDisparoIndividual = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
 type TipoDisparo = TipoDisparoIndividual | 'AREA_INGRESSOS';
 type FiltroGrupoMatch = number | 'PUBLICO' | null;
 type FiltroSetorMatch = number | 'SEM_SETOR' | null;
+
+type AreaIngressosLinha = {
+  kind: 'BID' | 'WT_PASS';
+  id: number;
+  titulo: string;
+  nome_grupo: string;
+  grupo_id: number | null;
+  setor_evento_nome: string;
+  setor_evento_id: number | null;
+  data_evento: string | null;
+  status: string;
+  qtd_ingressos: number;
+};
+
+const SETOR_WT_PASS_DEFAULT = 'Pista Premium';
 
 @Component({
   selector: 'app-disparo-emails',
@@ -317,14 +333,161 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
           </div>
 
           <div *ngIf="loading" class="py-8 text-center text-[var(--app-text-muted)]">
-            <span class="animate-pulse">Carregando BIDs...</span>
+            <span class="animate-pulse">{{ tipoAtivo === 'AREA_INGRESSOS' ? 'Carregando eventos...' : 'Carregando BIDs...' }}</span>
           </div>
 
-          <div *ngIf="!loading && matches.length === 0" class="py-8 text-center text-[var(--app-text-muted)]">
+          <div *ngIf="!loading && tipoAtivo === 'AREA_INGRESSOS' && areaIngressosLinhas.length === 0" class="py-8 text-center text-[var(--app-text-muted)]">
+            Nenhum evento BID ou WT Pass encontrado.
+          </div>
+
+          <div *ngIf="!loading && tipoAtivo !== 'AREA_INGRESSOS' && matches.length === 0" class="py-8 text-center text-[var(--app-text-muted)]">
             Nenhum BID encontrado.
           </div>
 
-          <div *ngIf="!loading && matches.length > 0" class="overflow-x-auto rounded-xl border border-[var(--app-border)]">
+          <div *ngIf="!loading && tipoAtivo === 'AREA_INGRESSOS' && areaIngressosLinhas.length > 0" class="overflow-x-auto rounded-xl border border-[var(--app-border)]">
+            <table class="min-w-[980px] w-full text-sm">
+              <thead>
+                <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
+                  <th class="w-10 px-2 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+                      [checked]="todosDisparaveisSelecionados"
+                      [indeterminate]="selecaoParcial"
+                      (change)="toggleSelecionarTodos($event)"
+                      aria-label="Selecionar todos os eventos visíveis"
+                    />
+                  </th>
+                  <th class="px-3 py-3 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase">Tipo</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase">Evento</th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #dataFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Data do evento</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroDataAtivo }"
+                        [attr.aria-expanded]="menuFiltroDataAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por data do evento"
+                        (click)="toggleFiltroDataMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #setorFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Setor</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroSetorAtivo }"
+                        [attr.aria-expanded]="menuFiltroSetorAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por setor"
+                        (click)="toggleFiltroSetorMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #grupoFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Grupo</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroGrupoAtivo }"
+                        [attr.aria-expanded]="menuFiltroGrupoAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por grupo"
+                        (click)="toggleFiltroGrupoMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #statusFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Status</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': !!filtroStatus }"
+                        [attr.aria-expanded]="menuFiltroStatusAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por status"
+                        (click)="toggleFiltroStatusMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase">Ingressos</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--app-border)]">
+                <tr *ngIf="areaIngressosFiltrados.length === 0">
+                  <td colspan="8" class="px-6 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                    Nenhum evento corresponde aos filtros.
+                  </td>
+                </tr>
+                <tr *ngFor="let l of areaIngressosFiltrados" class="hover:bg-[var(--app-nav-hover-bg)]">
+                  <td class="w-10 px-2 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500 disabled:opacity-40"
+                      [checked]="isAreaIngressosSelecionado(l)"
+                      [disabled]="!podeDispararAreaIngressos(l)"
+                      (change)="toggleAreaIngressosSelecionado(l, $event)"
+                      [attr.aria-label]="'Selecionar ' + l.titulo"
+                    />
+                  </td>
+                  <td class="px-3 py-3 text-center">
+                    <span
+                      class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                      [ngClass]="l.kind === 'BID' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-violet-50 text-violet-700 border border-violet-200'"
+                    >
+                      {{ l.kind === 'BID' ? 'BID' : 'WT Pass' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="font-semibold text-[var(--app-text)] truncate" [title]="l.titulo">{{ l.titulo }}</div>
+                  </td>
+                  <td class="px-3 py-3 text-center text-[var(--app-text-muted)] whitespace-nowrap tabular-nums">
+                    {{ l.data_evento ? (l.data_evento | date:'dd/MM/yyyy HH:mm') : '—' }}
+                  </td>
+                  <td class="px-3 py-3 text-center text-[var(--app-text-muted)]">
+                    {{ l.setor_evento_nome || '—' }}
+                  </td>
+                  <td class="px-3 py-3 text-center">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      {{ l.nome_grupo || '—' }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-3 text-center">
+                    <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)]">
+                      {{ l.status }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-3 text-center font-semibold tabular-nums text-[var(--app-text)]">
+                    {{ l.qtd_ingressos }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div *ngIf="!loading && tipoAtivo !== 'AREA_INGRESSOS' && matches.length > 0" class="overflow-x-auto rounded-xl border border-[var(--app-border)]">
             <table class="min-w-[980px] w-full text-sm">
               <thead>
                 <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
@@ -700,20 +863,29 @@ export class DisparoEmailsComponent implements OnInit {
 
   abaAtual: 'disparo' | 'templates' | 'listas' = 'disparo';
   matches: any[] = [];
+  eventosWt: any[] = [];
   groups: any[] = [];
   setoresEvento: any[] = [];
   loading = false;
   tipoAtivo: TipoDisparo = 'BID_ABERTO';
   abaPeriodoBids: 'atuais' | 'anteriores' = 'atuais';
   bidsSelecionados = new Set<number>();
+  eventosRhSelecionados = new Set<number>();
 
   setTipoAtivo(value: string): void {
+    const prev = this.tipoAtivo;
     if (value === 'BID_ENCERRADO') this.tipoAtivo = 'BID_ENCERRADO';
     else if (value === 'GANHADORES') this.tipoAtivo = 'GANHADORES';
     else if (value === 'AREA_INGRESSOS') this.tipoAtivo = 'AREA_INGRESSOS';
     else this.tipoAtivo = 'BID_ABERTO';
     if (this.tipoAtivo !== 'AREA_INGRESSOS') {
       this.limparSelecaoBids();
+    }
+    if (this.tipoAtivo === 'AREA_INGRESSOS' && prev !== 'AREA_INGRESSOS') {
+      this.limparSelecaoBids();
+      this.carregarAreaIngressos();
+    } else if (this.tipoAtivo !== 'AREA_INGRESSOS' && prev === 'AREA_INGRESSOS') {
+      this.carregarMatches();
     }
   }
 
@@ -774,7 +946,7 @@ export class DisparoEmailsComponent implements OnInit {
       case 'GANHADORES':
         return 'Enviar e-mail apenas para os usuários vencedores do BID. Apenas para BIDs já finalizados com sorteio.';
       case 'AREA_INGRESSOS':
-        return 'Informar a área de ingressos sobre a quantidade de ingressos sorteados, somados por setor do evento. Selecione BIDs finalizados com ingressos e envie um único e-mail consolidado para lista ou destinatários personalizados.';
+        return 'Informar a área de ingressos sobre ingressos sorteados (BID) e inscrições confirmadas (WT Pass), somados por setor. Selecione eventos finalizados com ingressos e envie um único e-mail consolidado.';
       default:
         return '';
     }
@@ -844,6 +1016,7 @@ export class DisparoEmailsComponent implements OnInit {
 
   constructor(
     private matchService: MatchService,
+    private eventoRhService: EventoRhService,
     private emailService: EmailService,
     private userService: UserService,
     private cdr: ChangeDetectorRef,
@@ -1475,6 +1648,154 @@ export class DisparoEmailsComponent implements OnInit {
       });
   }
 
+  carregarAreaIngressos(): void {
+    const userId = this.currentUser?.id;
+    if (!userId) {
+      this.loading = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.loading = true;
+    this.cdr.markForCheck();
+    forkJoin({
+      bids: this.matchService.getMatches(userId, false),
+      wt: this.eventoRhService.listAdminTodos(),
+    })
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: ({ bids, wt }) => {
+          this.matches = bids || [];
+          this.eventosWt = (wt || []).map((w) => this.mapWtParaAreaIngressos(w, this.matches));
+        },
+        error: () => {},
+      });
+  }
+
+  private mapWtParaAreaIngressos(w: any, partidas: any[]): any {
+    const partida = w.partida_id ? partidas.find((p) => p.id === w.partida_id) : null;
+    return {
+      ...w,
+      nome_grupo: partida?.nome_grupo || 'WT Pass',
+      grupo_id: partida?.grupo_id ?? null,
+      setor_evento_id: partida?.setor_evento_id ?? null,
+      setor_evento_nome: partida?.setor_evento_nome || SETOR_WT_PASS_DEFAULT,
+      qtd_ingressos: Number(w.ocupadas ?? 0),
+    };
+  }
+
+  private isWtAtual(w: any): boolean {
+    if (!w.data_evento) return true;
+    const d = new Date(w.data_evento);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() >= this.hojeInicio.getTime();
+  }
+
+  private isWtAnterior(w: any): boolean {
+    if (!w.data_evento) return false;
+    const d = new Date(w.data_evento);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() < this.hojeInicio.getTime();
+  }
+
+  get areaIngressosLinhas(): AreaIngressosLinha[] {
+    const bids: AreaIngressosLinha[] = this.matchesNaAba.map((m) => ({
+      kind: 'BID',
+      id: m.id,
+      titulo: m.titulo || `BID #${m.id}`,
+      nome_grupo: m.nome_grupo || 'Público',
+      grupo_id: m.grupo_id ?? null,
+      setor_evento_nome: m.setor_evento_nome || 'Sem setor',
+      setor_evento_id: m.setor_evento_id ?? null,
+      data_evento: m.data_jogo ?? null,
+      status: m.status || '',
+      qtd_ingressos: Number(m.ingressos_sorteados ?? 0),
+    }));
+    const wt: AreaIngressosLinha[] = this.eventosWt
+      .filter((w) => (this.abaPeriodoBids === 'anteriores' ? this.isWtAnterior(w) : this.isWtAtual(w)))
+      .map((w) => ({
+        kind: 'WT_PASS',
+        id: w.id,
+        titulo: w.titulo || `WT Pass #${w.id}`,
+        nome_grupo: w.nome_grupo || 'WT Pass',
+        grupo_id: w.grupo_id ?? null,
+        setor_evento_nome: w.setor_evento_nome || SETOR_WT_PASS_DEFAULT,
+        setor_evento_id: w.setor_evento_id ?? null,
+        data_evento: w.data_evento ?? null,
+        status: w.status || '',
+        qtd_ingressos: Number(w.qtd_ingressos ?? w.ocupadas ?? 0),
+      }));
+    return [...bids, ...wt].sort((a, b) =>
+      this.compareByDataEvento({ data_jogo: a.data_evento, titulo: a.titulo }, { data_jogo: b.data_evento, titulo: b.titulo })
+    );
+  }
+
+  get areaIngressosFiltrados(): AreaIngressosLinha[] {
+    let result = [...this.areaIngressosLinhas];
+    const q = (this.filtroBusca || '').trim().toLowerCase();
+    if (q) {
+      result = result.filter((l) => this.textoBuscaAreaIngressos(l).includes(q));
+    }
+    if (this.filtroGrupoId !== null) {
+      result = result.filter((l) => this.linhaMatchesGrupoFiltro(l));
+    }
+    if (this.filtroDataEvento) {
+      result = result.filter((l) => this.linhaMatchesDataEventoFiltro(l));
+    }
+    if (this.filtroStatus) {
+      result = result.filter((l) => String(l.status || '').toUpperCase() === this.filtroStatus);
+    }
+    if (this.filtroSetorId !== null) {
+      result = result.filter((l) => this.linhaMatchesSetorFiltro(l));
+    }
+    return result;
+  }
+
+  private textoBuscaAreaIngressos(l: AreaIngressosLinha): string {
+    const fmt = (d: string | null): string => {
+      if (!d) return '';
+      try {
+        const date = new Date(d);
+        if (Number.isNaN(date.getTime())) return String(d).toLowerCase();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      } catch {
+        return String(d).toLowerCase();
+      }
+    };
+    return [l.titulo, l.nome_grupo, l.setor_evento_nome, l.status, l.kind, fmt(l.data_evento), String(l.id)]
+      .filter((x) => x != null && String(x).length > 0)
+      .map((x) => String(x).toLowerCase())
+      .join(' ');
+  }
+
+  private linhaMatchesGrupoFiltro(l: AreaIngressosLinha): boolean {
+    if (this.filtroGrupoId === 'PUBLICO') return l.grupo_id == null;
+    return Number(l.grupo_id) === this.filtroGrupoId;
+  }
+
+  private linhaMatchesDataEventoFiltro(l: AreaIngressosLinha): boolean {
+    const key = this.dataEventoParaChave(l.data_evento);
+    if (!key) return false;
+    return key === this.filtroDataEvento;
+  }
+
+  private linhaMatchesSetorFiltro(l: AreaIngressosLinha): boolean {
+    if (this.filtroSetorId === 'SEM_SETOR') return l.setor_evento_id == null;
+    return Number(l.setor_evento_id) === this.filtroSetorId;
+  }
+
+  private dataEventoParaChave(dataEvento: string | null): string | null {
+    if (!dataEvento) return null;
+    const local = this.formatIsoParaDatetimeLocal(dataEvento);
+    const key = this.dataJogoParaApenasData(local);
+    return key || null;
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(ev: MouseEvent): void {
     const t = ev.target as Node;
@@ -1722,9 +2043,7 @@ export class DisparoEmailsComponent implements OnInit {
   podeDisparar(m: any): boolean {
     if (this.tipoAtivo === 'BID_ABERTO') return true;
     if (this.tipoAtivo === 'AREA_INGRESSOS') {
-      const status = (m.status || '').toUpperCase();
-      const sorteados = Number(m.ingressos_sorteados ?? 0);
-      return (status === 'ENCERRADA' || status === 'FINALIZADA') && sorteados > 0;
+      return this.podeDispararAreaIngressos(m);
     }
     const status = (m.status || '').toUpperCase();
     if (this.tipoAtivo === 'BID_ENCERRADO' || this.tipoAtivo === 'GANHADORES') {
@@ -1733,12 +2052,35 @@ export class DisparoEmailsComponent implements OnInit {
     return true;
   }
 
+  podeDispararAreaIngressos(l: AreaIngressosLinha | any): boolean {
+    if (l?.kind === 'WT_PASS' || l?.tipo === 'WT_PASS') {
+      const status = (l.status || '').toUpperCase();
+      const qtd = Number(l.qtd_ingressos ?? l.ocupadas ?? 0);
+      return (status === 'ENCERRADO' || status === 'REALIZADO') && qtd > 0;
+    }
+    const status = (l.status || '').toUpperCase();
+    const sorteados = Number(l.qtd_ingressos ?? l.ingressos_sorteados ?? 0);
+    return (status === 'ENCERRADA' || status === 'FINALIZADA') && sorteados > 0;
+  }
+
+  get areaIngressosDisparaveisFiltrados(): AreaIngressosLinha[] {
+    return this.areaIngressosFiltrados.filter((l) => this.podeDispararAreaIngressos(l));
+  }
+
   get matchesDisparaveisFiltrados(): any[] {
     return this.matchesFiltrados.filter((m) => this.podeDisparar(m));
   }
 
   get quantidadeSelecionados(): number {
-    return this.bidsSelecionados.size;
+    return this.bidsSelecionados.size + this.eventosRhSelecionados.size;
+  }
+
+  get linhasAreaIngressosSelecionadas(): AreaIngressosLinha[] {
+    return this.areaIngressosLinhas.filter(
+      (l) =>
+        (l.kind === 'BID' && this.bidsSelecionados.has(l.id)) ||
+        (l.kind === 'WT_PASS' && this.eventosRhSelecionados.has(l.id))
+    );
   }
 
   get matchesSelecionados(): any[] {
@@ -1747,9 +2089,9 @@ export class DisparoEmailsComponent implements OnInit {
 
   get resumoSetoresSelecionados(): { setor: string; qtd: number }[] {
     const mapa = new Map<string, number>();
-    for (const m of this.matchesSelecionados) {
-      const setor = (m.setor_evento_nome || 'Sem setor').trim() || 'Sem setor';
-      const qtd = Number(m.ingressos_sorteados ?? 0);
+    for (const l of this.linhasAreaIngressosSelecionadas) {
+      const setor = (l.setor_evento_nome || 'Sem setor').trim() || 'Sem setor';
+      const qtd = Number(l.qtd_ingressos ?? 0);
       mapa.set(setor, (mapa.get(setor) || 0) + qtd);
     }
     return Array.from(mapa.entries())
@@ -1762,16 +2104,42 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   get todosDisparaveisSelecionados(): boolean {
+    if (this.tipoAtivo === 'AREA_INGRESSOS') {
+      const disparaveis = this.areaIngressosDisparaveisFiltrados;
+      if (disparaveis.length === 0) return false;
+      return disparaveis.every((l) => this.isAreaIngressosSelecionado(l));
+    }
     const disparaveis = this.matchesDisparaveisFiltrados;
     if (disparaveis.length === 0) return false;
     return disparaveis.every((m) => this.bidsSelecionados.has(m.id));
   }
 
   get selecaoParcial(): boolean {
+    if (this.tipoAtivo === 'AREA_INGRESSOS') {
+      const disparaveis = this.areaIngressosDisparaveisFiltrados;
+      if (disparaveis.length === 0) return false;
+      const selected = disparaveis.filter((l) => this.isAreaIngressosSelecionado(l)).length;
+      return selected > 0 && selected < disparaveis.length;
+    }
     const disparaveis = this.matchesDisparaveisFiltrados;
     if (disparaveis.length === 0) return false;
     const selected = disparaveis.filter((m) => this.bidsSelecionados.has(m.id)).length;
     return selected > 0 && selected < disparaveis.length;
+  }
+
+  isAreaIngressosSelecionado(l: AreaIngressosLinha): boolean {
+    return l.kind === 'BID' ? this.bidsSelecionados.has(l.id) : this.eventosRhSelecionados.has(l.id);
+  }
+
+  toggleAreaIngressosSelecionado(l: AreaIngressosLinha, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (l.kind === 'BID') {
+      if (checked) this.bidsSelecionados.add(l.id);
+      else this.bidsSelecionados.delete(l.id);
+    } else {
+      if (checked) this.eventosRhSelecionados.add(l.id);
+      else this.eventosRhSelecionados.delete(l.id);
+    }
   }
 
   isBidSelecionado(id: number): boolean {
@@ -1786,6 +2154,21 @@ export class DisparoEmailsComponent implements OnInit {
 
   toggleSelecionarTodos(event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
+    if (this.tipoAtivo === 'AREA_INGRESSOS') {
+      const disparaveis = this.areaIngressosDisparaveisFiltrados;
+      if (checked) {
+        disparaveis.forEach((l) => {
+          if (l.kind === 'BID') this.bidsSelecionados.add(l.id);
+          else this.eventosRhSelecionados.add(l.id);
+        });
+      } else {
+        disparaveis.forEach((l) => {
+          if (l.kind === 'BID') this.bidsSelecionados.delete(l.id);
+          else this.eventosRhSelecionados.delete(l.id);
+        });
+      }
+      return;
+    }
     const disparaveis = this.matchesDisparaveisFiltrados;
     if (checked) {
       disparaveis.forEach((m) => this.bidsSelecionados.add(m.id));
@@ -1796,6 +2179,7 @@ export class DisparoEmailsComponent implements OnInit {
 
   limparSelecaoBids(): void {
     this.bidsSelecionados.clear();
+    this.eventosRhSelecionados.clear();
   }
 
   private escapeHtml(s: string): string {
@@ -2009,12 +2393,11 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   abrirModalAreaIngressos(): void {
-    if (this.bidsSelecionados.size < 1) {
+    if (this.quantidadeSelecionados < 1) {
       Swal.fire('Atenção', 'Selecione ao menos um evento na tabela.', 'warning');
       return;
     }
 
-    const matches = this.matchesSelecionados;
     forkJoin({
       listas: this.emailService.getLists(),
       templates: this.emailService.getTemplates(),
@@ -2023,14 +2406,16 @@ export class DisparoEmailsComponent implements OnInit {
         this.listas = listas || [];
         const all = templates || [];
         this.templates = all.filter((t) => t.tipo_disparo === 'AREA_INGRESSOS');
-        this.mostrarModalAreaIngressos(matches);
+        this.mostrarModalAreaIngressos();
       },
       error: () => Swal.fire('Erro', 'Falha ao carregar listas ou templates.', 'error'),
     });
   }
 
-  private mostrarModalAreaIngressos(matches: any[]): void {
-    const partidaIds = matches.map((m) => m.id);
+  private mostrarModalAreaIngressos(): void {
+    const linhas = this.linhasAreaIngressosSelecionadas;
+    const partidaIds = linhas.filter((l) => l.kind === 'BID').map((l) => l.id);
+    const eventoRhIds = linhas.filter((l) => l.kind === 'WT_PASS').map((l) => l.id);
     const listasOptions =
       this.listas.length > 0
         ? this.listas.map((l) => `<option value="${l.id}">${l.nome}</option>`).join('')
@@ -2051,16 +2436,28 @@ export class DisparoEmailsComponent implements OnInit {
       )
       .join('');
 
-    const maxShow = 5;
-    const titulos = matches.map((m) => m.titulo);
-    let resumoEventos = `<p class="text-left text-sm text-gray-600 mb-2"><strong>${matches.length}</strong> evento(s) selecionado(s):</p>`;
-    if (titulos.length <= maxShow) {
-      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-3 list-disc pl-5">${titulos.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
-    } else {
-      const shown = titulos.slice(0, maxShow);
-      const rest = titulos.length - maxShow;
-      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-1 list-disc pl-5">${shown.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
-      resumoEventos += `<p class="text-left text-xs text-gray-500 mb-3">… e mais ${rest} evento(s)</p>`;
+    const maxShow = 8;
+    const eventosRows = linhas
+      .slice(0, maxShow)
+      .map(
+        (l) =>
+          `<tr>
+            <td class="px-3 py-1.5 border border-gray-200 text-left">${this.escapeHtml(l.titulo)}</td>
+            <td class="px-3 py-1.5 border border-gray-200 text-center">${this.escapeHtml(l.nome_grupo)}</td>
+            <td class="px-3 py-1.5 border border-gray-200 text-center">${this.escapeHtml(l.setor_evento_nome)}</td>
+            <td class="px-3 py-1.5 border border-gray-200 text-center font-semibold">${l.qtd_ingressos}</td>
+          </tr>`
+      )
+      .join('');
+    let resumoEventos = `<p class="text-left text-sm text-gray-600 mb-2"><strong>${linhas.length}</strong> evento(s) selecionado(s):</p>`;
+    resumoEventos += `<table class="w-full text-sm border-collapse mb-3"><thead><tr class="bg-gray-100">
+      <th class="px-3 py-1.5 border border-gray-200 text-left text-xs uppercase">Evento</th>
+      <th class="px-3 py-1.5 border border-gray-200 text-center text-xs uppercase">Grupo</th>
+      <th class="px-3 py-1.5 border border-gray-200 text-center text-xs uppercase">Setor</th>
+      <th class="px-3 py-1.5 border border-gray-200 text-center text-xs uppercase">Ingressos</th>
+    </tr></thead><tbody>${eventosRows}</tbody></table>`;
+    if (linhas.length > maxShow) {
+      resumoEventos += `<p class="text-left text-xs text-gray-500 mb-3">… e mais ${linhas.length - maxShow} evento(s)</p>`;
     }
 
     const tabelaResumo = `<table class="w-full text-sm border-collapse mb-3"><thead><tr class="bg-gray-100"><th class="px-3 py-1.5 border border-gray-200 text-left text-xs uppercase">Setor</th><th class="px-3 py-1.5 border border-gray-200 text-center text-xs uppercase">Ingressos</th></tr></thead><tbody>${resumoSetoresHtml}<tr class="bg-gray-50 font-bold"><td class="px-3 py-1.5 border border-gray-200">Total</td><td class="px-3 py-1.5 border border-gray-200 text-center">${this.totalIngressosSelecionados}</td></tr></tbody></table>`;
@@ -2110,7 +2507,7 @@ export class DisparoEmailsComponent implements OnInit {
             Swal.fire('Atenção', 'Selecione o template para pré-visualizar.', 'warning');
             return;
           }
-          this.emailService.previewAreaIngressos(partidaIds, templateId).subscribe({
+          this.emailService.previewAreaIngressos(partidaIds, eventoRhIds, templateId).subscribe({
             next: (res) => {
               Swal.fire({
                 title: res.assunto || 'Pré-visualização',
@@ -2170,13 +2567,14 @@ export class DisparoEmailsComponent implements OnInit {
     }).then(async (result) => {
       if (result.isConfirmed && result.value) {
         const { templateId, listaId, emailsPersonalizados } = result.value!;
-        await this.executarDisparoAreaIngressos(partidaIds, templateId, { listaId, emailsPersonalizados });
+        await this.executarDisparoAreaIngressos(partidaIds, eventoRhIds, templateId, { listaId, emailsPersonalizados });
       }
     });
   }
 
   private async executarDisparoAreaIngressos(
     partidaIds: number[],
+    eventoRhIds: number[],
     templateId: number,
     opcoes: { listaId?: number; emailsPersonalizados?: string[] }
   ): Promise<void> {
@@ -2192,6 +2590,7 @@ export class DisparoEmailsComponent implements OnInit {
     try {
       const res = await this.emailService.sendAreaIngressosStream(
         partidaIds,
+        eventoRhIds,
         templateId,
         this.currentUser?.id,
         opcoes,
@@ -2226,7 +2625,7 @@ export class DisparoEmailsComponent implements OnInit {
       }
     }
     this.limparSelecaoBids();
-    this.carregarMatches();
+    this.carregarAreaIngressos();
   }
 
   private mostrarModalDisparo(match: any): void {
