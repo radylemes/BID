@@ -12,6 +12,7 @@ const CONFIG_KEYS = [
   "smtp_from",
   "acs_connection_string",
   "acs_sender",
+  "email_ocultar_para",
 ];
 
 const NOT_CONFIGURED_MSG =
@@ -31,7 +32,7 @@ async function loadConfigFromDb() {
 
 /**
  * Lê as configurações de e-mail da tabela configuracoes.
- * @returns {Promise<{ provider: 'smtp'|'acs', smtpHost: string, smtpPort: number, smtpSecure: boolean, smtpUser: string, smtpPass: string, smtpFrom: string, acsConnectionString: string, acsSender: string }>}
+ * @returns {Promise<{ provider: 'smtp'|'acs', smtpHost: string, smtpPort: number, smtpSecure: boolean, smtpUser: string, smtpPass: string, smtpFrom: string, acsConnectionString: string, acsSender: string, emailOcultarPara: boolean }>}
  */
 async function getEmailProviderConfig() {
   const cfg = await loadConfigFromDb();
@@ -54,7 +55,28 @@ async function getEmailProviderConfig() {
       ? String(cfg.acs_connection_string).trim()
       : "",
     acsSender: cfg.acs_sender ? String(cfg.acs_sender).trim() : "",
+    emailOcultarPara:
+      cfg.email_ocultar_para === "1" || cfg.email_ocultar_para === "true",
   };
+}
+
+/**
+ * Quando ativo, coloca o destinatário real em BCC e o remetente no campo Para.
+ */
+function applyHiddenToRecipients(opts, cfg) {
+  if (!cfg?.emailOcultarPara || !opts?.to) return opts;
+  const realTo = String(opts.to).trim();
+  if (!realTo) return opts;
+  const envelopeTo =
+    (cfg.provider === "acs" ? cfg.acsSender : cfg.smtpFrom) || realTo;
+  if (envelopeTo.toLowerCase() === realTo.toLowerCase()) return opts;
+
+  const result = { ...opts, to: envelopeTo, bcc: realTo };
+  if (opts.bcc) {
+    const existing = Array.isArray(opts.bcc) ? opts.bcc : [opts.bcc];
+    result.bcc = [...new Set([realTo, ...existing.map((a) => String(a).trim())])];
+  }
+  return result;
 }
 
 function createSmtpTransporter(cfg) {
@@ -112,8 +134,17 @@ function mapAttachmentsForAcs(attachments) {
   }));
 }
 
-async function sendViaAcs(cfg, { to, subject, html, text, attachments }) {
+async function sendViaAcs(cfg, { to, bcc, subject, html, text, attachments }) {
   const client = new EmailClient(cfg.acsConnectionString);
+  const recipients = {
+    to: [{ address: String(to).trim() }],
+  };
+  if (bcc) {
+    const bccList = Array.isArray(bcc) ? bcc : [bcc];
+    recipients.bcc = bccList
+      .map((addr) => ({ address: String(addr).trim() }))
+      .filter((entry) => entry.address);
+  }
   const message = {
     senderAddress: cfg.acsSender,
     content: {
@@ -121,9 +152,7 @@ async function sendViaAcs(cfg, { to, subject, html, text, attachments }) {
       html: html || undefined,
       plainText: text || stripHtml(html) || subject || "",
     },
-    recipients: {
-      to: [{ address: String(to).trim() }],
-    },
+    recipients,
   };
 
   const acsAttachments = mapAttachmentsForAcs(attachments);
@@ -146,9 +175,10 @@ function buildSmtpSender(cfg, transporter) {
     from: cfg.smtpFrom,
     _transporter: transporter,
     sendMail: async (opts) => {
+      const finalOpts = applyHiddenToRecipients(opts, cfg);
       await transporter.sendMail({
         from: cfg.smtpFrom,
-        ...opts,
+        ...finalOpts,
       });
     },
   };
@@ -159,12 +189,14 @@ function buildAcsSender(cfg) {
     provider: "acs",
     from: cfg.acsSender,
     sendMail: async (opts) => {
+      const finalOpts = applyHiddenToRecipients(opts, cfg);
       await sendViaAcs(cfg, {
-        to: opts.to,
-        subject: opts.subject,
-        html: opts.html,
-        text: opts.text,
-        attachments: opts.attachments,
+        to: finalOpts.to,
+        bcc: finalOpts.bcc,
+        subject: finalOpts.subject,
+        html: finalOpts.html,
+        text: finalOpts.text,
+        attachments: finalOpts.attachments,
       });
     },
   };
@@ -298,4 +330,5 @@ module.exports = {
   isSmtpConnectionError,
   NOT_CONFIGURED_MSG,
   acsRateLimit,
+  applyHiddenToRecipients,
 };

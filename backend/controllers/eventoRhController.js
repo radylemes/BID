@@ -1,5 +1,33 @@
 const db = require("../config/db");
+const fs = require("fs");
+const path = require("path");
 const logErro = require("../utils/errorLogger");
+
+function normalizeUploadPath(filePath) {
+  const norm = path.normalize(filePath).replace(/\\/g, "/");
+  const marker = "uploads/";
+  const idx = norm.indexOf(marker);
+  return idx >= 0 ? norm.slice(idx) : `uploads/banners/${path.basename(norm)}`;
+}
+
+function resolveBidImageField(req, bodyField, fileField) {
+  const files = req.files?.[fileField];
+  if (files?.[0]) {
+    return normalizeUploadPath(files[0].path);
+  }
+  const val = req.body[bodyField];
+  return val && String(val).trim() ? String(val).trim() : null;
+}
+
+function tryDeleteLocalUpload(storedPath) {
+  if (!storedPath || String(storedPath).startsWith("http") || storedPath === "db") return;
+  const norm = String(storedPath).replace(/\\/g, "/");
+  if (!norm.includes("uploads/banners/")) return;
+  const abs = path.isAbsolute(norm) ? norm : path.join(process.cwd(), norm);
+  try {
+    if (fs.existsSync(abs)) fs.unlinkSync(abs);
+  } catch (_) {}
+}
 const { safeAuditoriaDetalhes, truncateMotivo, safeInt } = require("../utils/dbHelpers");
 const { sendWtPassPromovidoFilaEmail } = require("./emailController");
 
@@ -572,7 +600,6 @@ exports.createEvento = async (req, res) => {
   try {
     const {
       titulo,
-      banner,
       subtitulo,
       descricao,
       local,
@@ -611,7 +638,7 @@ exports.createEvento = async (req, res) => {
     const inicioFormatado = data_inicio_inscricao
       ? formatarDataLocal(data_inicio_inscricao)
       : formatarDataLocal(new Date());
-    const bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;
+    const bannerUrl = resolveBidImageField(req, "banner", "banner_file");
     const listaEspera = permitir_lista_espera === false ? 0 : 1;
     /** Por padrão o auto-encerramento fica ativo (admin pode desligar no formulário). */
     const autoEncerrarFlag = auto_encerrar === false ? 0 : 1;
@@ -690,7 +717,7 @@ exports.updateEvento = async (req, res) => {
   const connection = await db.getConnection();
   try {
     const [st] = await connection.execute(
-      `SELECT status, titulo, data_limite_inscricao FROM eventos_rh WHERE id = ?`,
+      `SELECT status, titulo, data_limite_inscricao, banner FROM eventos_rh WHERE id = ?`,
       [id],
     );
     if (st.length === 0) {
@@ -705,7 +732,12 @@ exports.updateEvento = async (req, res) => {
         error: "Não é possível reabrir um evento encerrado. Utilize clonar para criar um novo.",
       });
     }
-    const bannerUrl = banner !== undefined ? (banner && String(banner).trim() ? String(banner).trim() : null) : undefined;
+    let bannerUrl;
+    if (req.files?.banner_file?.[0]) {
+      bannerUrl = normalizeUploadPath(req.files.banner_file[0].path);
+    } else if (banner !== undefined) {
+      bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;
+    }
     const listaEspera =
       permitir_lista_espera === undefined ? undefined : permitir_lista_espera === false ? 0 : 1;
     const autoEncerrarFlag =
@@ -800,6 +832,10 @@ exports.updateEvento = async (req, res) => {
             "Inscrições encerradas: não é possível editar o evento. Altere apenas o estado no painel ou crie um novo evento a partir do clone.",
         });
       }
+    }
+
+    if (bannerUrl !== undefined && bannerUrl && st[0].banner && bannerUrl !== st[0].banner) {
+      tryDeleteLocalUpload(st[0].banner);
     }
 
     vals.push(id);

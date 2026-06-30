@@ -11,6 +11,7 @@ import {
   formatarDataHoraWtPass,
   formatarDataWtPass,
 } from '../../utils/wt-pass-datas';
+import { compressImageForBid } from '../../utils/bid-image';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -621,6 +622,94 @@ export class EventoRhManagerComponent implements OnInit {
       .replace(/"/g, '&quot;');
   }
 
+  private buildBannerFieldHtml(
+    label: string,
+    fileInputId: string,
+    previewId: string,
+    currentThumbUrl: string,
+    showKeepHint: boolean,
+  ): string {
+    const preview = currentThumbUrl
+      ? `<img id="${previewId}" src="${this.escapeHtml(currentThumbUrl)}" alt="" class="mt-1 h-16 w-auto max-w-full rounded border border-gray-200 object-cover">`
+      : `<img id="${previewId}" src="" alt="" class="mt-1 h-16 w-auto max-w-full rounded border border-gray-200 object-cover hidden">`;
+    const hint = showKeepHint
+      ? '<p class="text-[10px] text-gray-400 mt-1">Deixe vazio para manter a imagem atual.</p>'
+      : '';
+    return `
+      <div>
+        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">${label}</label>
+        <input id="${fileInputId}" type="file" accept="image/*" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700">
+        ${preview}
+        ${hint}
+      </div>`;
+  }
+
+  private wireBannerFilePreview(fileInputId: string, previewId: string): void {
+    const input = document.getElementById(fileInputId) as HTMLInputElement | null;
+    const preview = document.getElementById(previewId) as HTMLImageElement | null;
+    if (!input || !preview) return;
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove('hidden');
+    });
+  }
+
+  private async compressBannerFromInput(inputId: string): Promise<File | null | false> {
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    const raw = input?.files?.[0];
+    if (!raw) return null;
+    try {
+      return await compressImageForBid(raw);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Não foi possível processar o banner.';
+      Swal.showValidationMessage(msg);
+      return false;
+    }
+  }
+
+  private appendBannerToFormData(
+    fd: FormData,
+    opts: { banner?: string | null; bannerFile?: File | null },
+  ): void {
+    if (opts.bannerFile) {
+      fd.append('banner_file', opts.bannerFile, opts.bannerFile.name);
+    } else {
+      fd.append('banner', opts.banner ?? '');
+    }
+  }
+
+  private buildEventoFormData(
+    payload: Record<string, unknown>,
+    opts: { banner?: string | null; bannerFile?: File | null },
+  ): FormData {
+    const fd = new FormData();
+    if (payload['titulo'] != null) fd.append('titulo', String(payload['titulo'] ?? ''));
+    if (payload['subtitulo'] != null) fd.append('subtitulo', String(payload['subtitulo'] ?? ''));
+    if (payload['descricao'] != null) fd.append('descricao', String(payload['descricao'] ?? ''));
+    if (payload['local'] != null) fd.append('local', String(payload['local'] ?? ''));
+    if (payload['vagas'] != null) fd.append('vagas', String(payload['vagas']));
+    if (payload['permitir_lista_espera'] !== undefined) {
+      fd.append('permitir_lista_espera', payload['permitir_lista_espera'] ? 'true' : 'false');
+    }
+    if (payload['auto_encerrar'] !== undefined) {
+      fd.append('auto_encerrar', payload['auto_encerrar'] ? 'true' : 'false');
+    }
+    if (payload['data_inicio_inscricao'] != null) {
+      fd.append('data_inicio_inscricao', String(payload['data_inicio_inscricao'] ?? ''));
+    }
+    if (payload['data_limite_inscricao'] != null) {
+      fd.append('data_limite_inscricao', String(payload['data_limite_inscricao']));
+    }
+    if (payload['data_evento'] != null) fd.append('data_evento', String(payload['data_evento']));
+    if (payload['adminId'] != null) fd.append('adminId', String(payload['adminId']));
+    if (payload['status'] != null) fd.append('status', String(payload['status']));
+    if (payload['motivo'] != null) fd.append('motivo', String(payload['motivo']));
+    this.appendBannerToFormData(fd, opts);
+    return fd;
+  }
+
   private textoCpfInscrito(cpf: unknown): string {
     const d = normalizarCpfDigits(cpf);
     return d.length === 11 ? formatarInputCpf(d) : '—';
@@ -853,6 +942,13 @@ export class EventoRhManagerComponent implements OnInit {
     }
     const tituloModal = ehClone ? 'Clonar evento WT Pass' : 'Novo evento WT Pass';
     const emojiTitulo = ehClone ? '📑' : '🎫';
+    const bannerFieldHtml = this.buildBannerFieldHtml(
+      'Banner (imagem)',
+      'rh-new-bannerFile',
+      'rh-new-bannerPreview',
+      ehClone && this.novo.banner ? this.getBannerThumbUrl({ banner: this.novo.banner }) : '',
+      ehClone,
+    );
 
     const preencherFormCriacao = () => {
       const setVal = (id: string, v: string) => {
@@ -862,7 +958,6 @@ export class EventoRhManagerComponent implements OnInit {
       setVal('rh-new-titulo', this.novo.titulo || '');
       setVal('rh-new-subtitulo', this.novo.subtitulo || '');
       setVal('rh-new-descricao', this.novo.descricao || '');
-      setVal('rh-new-banner', this.novo.banner || '');
       setVal('rh-new-local', this.novo.local || '');
       const vagasEl = document.getElementById('rh-new-vagas') as HTMLInputElement | null;
       if (vagasEl) vagasEl.value = String(this.novo.vagas || 10);
@@ -897,6 +992,7 @@ export class EventoRhManagerComponent implements OnInit {
             '</span>';
         }
         preencherFormCriacao();
+        this.wireBannerFilePreview('rh-new-bannerFile', 'rh-new-bannerPreview');
       },
       html: `
         <div class="text-left space-y-4 px-2 max-w-full min-w-0 overflow-x-hidden box-border">
@@ -912,8 +1008,7 @@ export class EventoRhManagerComponent implements OnInit {
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-bold text-gray-500 uppercase mb-1" for="rh-new-banner">Banner (URL da imagem)</label>
-              <input id="rh-new-banner" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... ou /uploads/..." />
+              ${bannerFieldHtml}
             </div>
             <div>
               <label class="block text-xs font-bold text-gray-500 uppercase mb-1" for="rh-new-local">Local</label>
@@ -966,7 +1061,7 @@ export class EventoRhManagerComponent implements OnInit {
       confirmButtonColor: '#4f46e5',
       confirmButtonText: 'Salvar evento',
       cancelButtonText: 'Cancelar',
-      preConfirm: () => {
+      preConfirm: async () => {
         const titulo = (document.getElementById('rh-new-titulo') as HTMLInputElement)?.value?.trim();
         const dataLimite = (document.getElementById('rh-new-limite') as HTMLInputElement)?.value;
         const dataEvento = (document.getElementById('rh-new-evento') as HTMLInputElement)?.value?.trim();
@@ -979,11 +1074,12 @@ export class EventoRhManagerComponent implements OnInit {
           Swal.showValidationMessage('Data do evento inválida.');
           return null;
         }
+        const bannerFile = await this.compressBannerFromInput('rh-new-bannerFile');
+        if (bannerFile === false) return false;
         return {
           titulo,
           subtitulo: (document.getElementById('rh-new-subtitulo') as HTMLInputElement)?.value?.trim() || null,
           descricao: (document.getElementById('rh-new-descricao') as HTMLTextAreaElement)?.value?.trim() || null,
-          banner: (document.getElementById('rh-new-banner') as HTMLInputElement)?.value?.trim() || null,
           local: (document.getElementById('rh-new-local') as HTMLInputElement)?.value?.trim() || null,
           vagas: Number((document.getElementById('rh-new-vagas') as HTMLInputElement)?.value || 1),
           permitir_lista_espera: (document.getElementById('rh-new-fila') as HTMLInputElement)?.checked ?? true,
@@ -992,11 +1088,17 @@ export class EventoRhManagerComponent implements OnInit {
           data_limite_inscricao: this.toIso(dataLimite),
           data_evento: dataEventoIso,
           adminId: this.currentUser.id,
+          bannerFile,
         };
       },
     }).then((r) => {
       if (!r.isConfirmed || !r.value) return;
-      this.eventoRhService.createEvento(r.value).subscribe({
+      const v = r.value as Record<string, unknown> & { bannerFile?: File | null };
+      const fd = this.buildEventoFormData(v, {
+        bannerFile: v.bannerFile ?? null,
+        banner: v.bannerFile ? null : ehClone && this.novo.banner ? String(this.novo.banner) : '',
+      });
+      this.eventoRhService.createEvento(fd).subscribe({
         next: () => {
           Swal.fire(
             ehClone ? 'Clonado' : 'Criado',
@@ -1065,6 +1167,13 @@ export class EventoRhManagerComponent implements OnInit {
           `<option value="${s}" ${st === s ? 'selected' : ''}>${this.rotuloEstadoEventoRh(s)}</option>`,
       )
       .join('');
+    const bannerFieldHtml = this.buildBannerFieldHtml(
+      'Banner (imagem)',
+      'rh-edit-bannerFile',
+      'rh-edit-bannerPreview',
+      this.getBannerThumbUrl(ev),
+      true,
+    );
 
     Swal.fire({
       title: 'Editar evento WT Pass',
@@ -1077,12 +1186,12 @@ export class EventoRhManagerComponent implements OnInit {
         setVal('rh-edit-titulo', ev.titulo || '');
         setVal('rh-edit-subtitulo', ev.subtitulo || '');
         setVal('rh-edit-descricao', ev.descricao || '');
-        setVal('rh-edit-banner', ev.banner || '');
         setVal('rh-edit-local', ev.local || '');
         const fila = document.getElementById('rh-edit-fila') as HTMLInputElement | null;
         if (fila) fila.checked = Boolean(ev.permitir_lista_espera);
         const autoEnc = document.getElementById('rh-edit-auto-encerrar') as HTMLInputElement | null;
         if (autoEnc) autoEnc.checked = ev.auto_encerrar == null ? true : Boolean(ev.auto_encerrar);
+        this.wireBannerFilePreview('rh-edit-bannerFile', 'rh-edit-bannerPreview');
       },
       html: `
         <div class="text-left space-y-4 px-2 max-w-full min-w-0 overflow-x-hidden box-border">
@@ -1098,8 +1207,7 @@ export class EventoRhManagerComponent implements OnInit {
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-bold text-gray-500 uppercase mb-1" for="rh-edit-banner">Banner (URL da imagem)</label>
-              <input id="rh-edit-banner" type="url" class="swal2-input w-full m-0 h-10 text-sm border-gray-300 rounded-lg" placeholder="https://... ou /uploads/..." />
+              ${bannerFieldHtml}
             </div>
             <div>
               <label class="block text-xs font-bold text-gray-500 uppercase mb-1" for="rh-edit-local">Local</label>
@@ -1160,7 +1268,7 @@ export class EventoRhManagerComponent implements OnInit {
       confirmButtonColor: '#4f46e5',
       confirmButtonText: 'Guardar alterações',
       cancelButtonText: 'Cancelar',
-      preConfirm: () => {
+      preConfirm: async () => {
         const dataLimite = (document.getElementById('rh-edit-limite') as HTMLInputElement)?.value;
         const dataEvento = (document.getElementById('rh-edit-evento') as HTMLInputElement)?.value?.trim();
         if (!dataLimite || !dataEvento) {
@@ -1179,11 +1287,12 @@ export class EventoRhManagerComponent implements OnInit {
           Swal.showValidationMessage('Indique o motivo para auditoria (mínimo 3 caracteres).');
           return null;
         }
+        const bannerFile = await this.compressBannerFromInput('rh-edit-bannerFile');
+        if (bannerFile === false) return false;
         return {
           titulo: (document.getElementById('rh-edit-titulo') as HTMLInputElement)?.value?.trim() || null,
           subtitulo: (document.getElementById('rh-edit-subtitulo') as HTMLInputElement)?.value?.trim() || null,
           descricao: (document.getElementById('rh-edit-descricao') as HTMLTextAreaElement)?.value?.trim() || null,
-          banner: (document.getElementById('rh-edit-banner') as HTMLInputElement)?.value?.trim() || null,
           local: (document.getElementById('rh-edit-local') as HTMLInputElement)?.value?.trim() || null,
           status: (document.getElementById('rh-edit-status') as HTMLSelectElement).value,
           vagas: Number((document.getElementById('rh-edit-vagas') as HTMLInputElement)?.value || 1),
@@ -1194,14 +1303,18 @@ export class EventoRhManagerComponent implements OnInit {
           data_evento: dataEventoIso,
           adminId: this.currentUser.id,
           motivo,
+          bannerFile,
         };
       },
     }).then((r) => {
       if (!r.isConfirmed || !r.value) return;
+      const v = r.value as Record<string, unknown> & { bannerFile?: File | null };
+      const fd = this.buildEventoFormData(v, {
+        bannerFile: v.bannerFile ?? null,
+        banner: v.bannerFile ? null : ev.banner ? String(ev.banner) : '',
+      });
       this.eventoRhService
-        .updateEvento(Number(ev.id), {
-          ...r.value,
-        })
+        .updateEvento(Number(ev.id), fd)
         .subscribe({
           next: () => {
             Swal.fire('OK', 'Evento atualizado.', 'success');

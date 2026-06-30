@@ -35,6 +35,28 @@ import { FormsModule } from '@angular/forms';
         </div>
       </div>
 
+      <div
+        *ngIf="!somenteDisponiveis"
+        class="bg-[var(--color-bg-surface)] border border-[var(--app-border)] rounded-2xl p-4 sm:p-5 md:p-6"
+      >
+        <p class="text-sm text-[var(--app-text-muted)] leading-relaxed">
+          O WT Pass é um benefício exclusivo para colaboradores WTorre, criado para proporcionar experiências
+          únicas nos eventos realizados na Wtorre Entretenimento.
+        </p>
+        <p class="text-sm text-[var(--app-text-muted)] mt-3 leading-relaxed">
+          Por meio dele, os colaboradores contemplados recebem uma pulseira de acesso pessoal e intransferível,
+          que permite assistir ao evento em um setor previamente definido pela organização. O benefício é
+          destinado exclusivamente ao colaborador, não permitindo a utilização por terceiros ou a entrada de
+          acompanhantes.
+        </p>
+        <p class="text-sm text-[var(--app-text-muted)] mt-3 leading-relaxed">
+          Mais do que acesso a eventos, o WT Pass é uma forma de reconhecer e valorizar as pessoas que contribuem
+          diariamente para a construção dos nossos projetos. Por isso, contamos com a colaboração de todos para
+          que a experiência seja aproveitada com responsabilidade, respeito às regras do programa e alinhamento
+          aos valores do Grupo WTorre.
+        </p>
+      </div>
+
       <div *ngIf="!somenteDisponiveis" class="grid gap-4 md:grid-cols-2">
         <div class="bg-[var(--color-bg-surface)] border border-[var(--app-border)] rounded-xl p-4 sm:p-5">
           <h3 class="text-xl font-black text-[var(--app-text)] border-l-4 border-indigo-500 pl-3">

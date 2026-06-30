@@ -123,6 +123,86 @@
   </div>
 
   <div
+    *ngIf="isAdmin"
+    class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-4 py-3"
+  >
+    <div class="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+      <label
+        class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-3 py-2 text-sm transition-colors"
+        [class.border-indigo-300]="modoUsuario"
+        [class.bg-indigo-50]="modoUsuario"
+      >
+        <input
+          type="checkbox"
+          class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+          [(ngModel)]="modoUsuario"
+          (ngModelChange)="onModoUsuarioChange()"
+        />
+        <span class="font-bold text-[var(--app-text)]">Modo usuário</span>
+      </label>
+      <span class="text-xs text-[var(--app-text-muted)]">
+        Ver apenas eventos do meu grupo e públicos
+      </span>
+    </div>
+
+    <div *ngIf="!modoUsuario" class="relative shrink-0" (click)="$event.stopPropagation()">
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface-alt)] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[var(--app-text)] transition-colors"
+        [class.border-indigo-300]="filtroGrupoAtivo"
+        [class.bg-indigo-50]="filtroGrupoAtivo"
+        [class.text-indigo-700]="filtroGrupoAtivo"
+        (click)="toggleMenuGrupo($event)"
+      >
+        <span aria-hidden="true">🎲</span>
+        {{ filtroGrupoLabel }}
+        <span class="text-[10px] opacity-70">▼</span>
+      </button>
+      <div
+        *ngIf="menuFiltroGrupoAberto"
+        class="absolute right-0 z-50 mt-1 max-h-56 min-w-[12rem] overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 shadow-lg"
+        role="menu"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+          [class.font-semibold]="filtroGrupoId === null"
+          (click)="selectGrupoFiltro(null)"
+        >
+          Todos os grupos
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+          [class.font-semibold]="filtroGrupoId === 'PUBLICO'"
+          (click)="selectGrupoFiltro('PUBLICO')"
+        >
+          Público
+        </button>
+        <button
+          *ngFor="let g of grupos"
+          type="button"
+          role="menuitem"
+          class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]"
+          [class.font-semibold]="filtroGrupoId === g.id"
+          (click)="selectGrupoFiltro(g.id)"
+        >
+          {{ g.nome }}
+        </button>
+      </div>
+    </div>
+
+    <span
+      *ngIf="filtroAdminAtivo"
+      class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700"
+    >
+      Filtro ativo
+    </span>
+  </div>
+
+  <div
     *ngIf="loading && matches.length === 0"
     class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"
   >
@@ -134,7 +214,7 @@
 
   <div *ngIf="!loading && matches.length === 0" class="text-center py-20">
     <div class="text-5xl mb-2 grayscale opacity-30">😴</div>
-    <p class="text-[var(--app-text-muted)] text-sm font-medium">Nenhum evento disponível no momento.</p>
+    <p class="text-[var(--app-text-muted)] text-sm font-medium">{{ mensagemSemEventos }}</p>
   </div>
 
   <div

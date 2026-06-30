@@ -170,6 +170,7 @@ export class EmailTemplatesComponent implements OnInit {
               <option value="BID_ABERTO" ${t?.tipo_disparo === 'BID_ABERTO' ? 'selected' : ''}>Bid aberto</option>
               <option value="BID_ENCERRADO" ${t?.tipo_disparo === 'BID_ENCERRADO' ? 'selected' : ''}>Bid encerrado</option>
               <option value="GANHADORES" ${t?.tipo_disparo === 'GANHADORES' ? 'selected' : ''}>Ganhadores</option>
+              <option value="EVENTO" ${t?.tipo_disparo === 'EVENTO' ? 'selected' : ''}>Evento</option>
               <option value="USUARIO_CRIADO" ${t?.tipo_disparo === 'USUARIO_CRIADO' ? 'selected' : ''}>Criação de utilizador</option>
               <option value="WT_PASS_PROMOVIDO_FILA" ${t?.tipo_disparo === 'WT_PASS_PROMOVIDO_FILA' ? 'selected' : ''}>WT Pass — vaga na fila</option>
             </select>

@@ -103,11 +103,11 @@ export class EventoRhService {
     return this.http.get<any[]>(`${this.apiUrl}/${eventoId}/inscritos`);
   }
 
-  createEvento(body: Record<string, unknown>): Observable<any> {
+  createEvento(body: Record<string, unknown> | FormData): Observable<any> {
     return this.http.post(this.apiUrl, body);
   }
 
-  updateEvento(id: number, body: Record<string, unknown>): Observable<any> {
+  updateEvento(id: number, body: Record<string, unknown> | FormData): Observable<any> {
     return this.http.put(`${this.apiUrl}/${id}`, body);
   }
 

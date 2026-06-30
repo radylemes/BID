@@ -10,6 +10,9 @@ export interface DisparoProgressState {
   enviados: number;
   processados: number;
   recentItems: DisparoDestinatario[];
+  eventoIndice?: number;
+  totalEventos?: number;
+  tituloEvento?: string;
 }
 
 function escapeHtml(s: string): string {
@@ -106,8 +109,16 @@ function buildProgressHtml(state: DisparoProgressState): string {
     )
     .join('');
 
+  const eventoHeader =
+    state.totalEventos != null && state.totalEventos > 1 && state.eventoIndice != null
+      ? `<p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#4338ca;">
+          Evento ${state.eventoIndice}/${state.totalEventos}${state.tituloEvento ? ` — ${escapeHtml(state.tituloEvento)}` : ''}
+        </p>`
+      : '';
+
   return `
     <div style="text-align:left;">
+      ${eventoHeader}
       <p style="margin:0 0 12px;font-size:14px;color:#4b5563;">
         Enviando e-mail <strong>${processados}</strong> de <strong>${total || '…'}</strong>
         ${state.enviados > 0 ? `<span style="color:#059669;"> (${state.enviados} com sucesso)</span>` : ''}
@@ -175,10 +186,13 @@ export function appendProgressItem(
     enviados: progress.enviados,
     processados: progress.enviados + erros,
     recentItems,
+    eventoIndice: state.eventoIndice,
+    totalEventos: state.totalEventos,
+    tituloEvento: state.tituloEvento,
   };
 }
 
-export async function showDisparoResultModal(res: SendEmailsResponse): Promise<void> {
+export async function showDisparoResultModal(res: SendEmailsResponse, notaExtra?: string): Promise<void> {
   const errosCount = res.destinatarios?.filter((d) => d.status === 'erro').length ?? res.erros?.length ?? 0;
   let icon: 'success' | 'warning' | 'error' = 'success';
   let title = 'Disparo concluído';
@@ -191,10 +205,14 @@ export async function showDisparoResultModal(res: SendEmailsResponse): Promise<v
     title = 'Disparo concluído com falhas';
   }
 
+  const notaHtml = notaExtra
+    ? `<p style="margin:0 0 12px;font-size:13px;color:#4338ca;font-weight:600;">${escapeHtml(notaExtra)}</p>`
+    : '';
+
   await Swal.fire({
     icon,
     title,
-    html: buildResultHtml(res),
+    html: `${notaHtml}${buildResultHtml(res)}`,
     width: '820px',
     confirmButtonText: 'Fechar',
     customClass: { popup: 'rounded-xl', htmlContainer: 'disparo-result-html' },

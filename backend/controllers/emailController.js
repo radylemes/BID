@@ -139,7 +139,7 @@ function escapeHtmlPdf(s) {
 
 /**
  * Monta HTML do PDF "Apostas e ganhadores" no mesmo formato do modal (Tailwind).
- * data: { titulo, dataEvento, localEvento, setorEvento, qtdIngressos, totalPontos, mediaPontos, totalParticipantes, notaCorte, bannerDataUrl?, bannerUrl?, ganhadores: [{ nome, setor?, valor }] }
+ * data: { titulo, dataEvento, localEvento, setorEvento, qtdIngressos, totalPontos, mediaPontos, totalParticipantes, notaCorte, bannerDataUrl?, bannerUrl?, ganhadores: [{ nome, setor?, valor, dataAposta? }] }
  */
 function buildPdfGanhadoresHtml(data) {
   const titulo = escapeHtmlPdf(data.titulo || "Evento");
@@ -163,6 +163,7 @@ function buildPdfGanhadoresHtml(data) {
     .map((g, i) => {
       const nome = escapeHtmlPdf((g.nome || "—").substring(0, 50));
       const valor = g.valor ?? 0;
+      const dataAposta = escapeHtmlPdf(g.dataAposta || "—");
       const initial = (g.nome || "?").charAt(0).toUpperCase();
       const avatarHtml = g.fotoDataUrl
         ? `<img src="${g.fotoDataUrl}" alt="" class="w-10 h-10 rounded-full object-cover border-2 border-emerald-300 shrink-0" />`
@@ -174,9 +175,12 @@ function buildPdfGanhadoresHtml(data) {
               <span class="text-sm font-black text-gray-700">${i + 1}º</span>
             </div>
             <div class="flex items-center justify-center overflow-hidden shrink-0">${avatarHtml}</div>
-            <div class="text-left truncate flex items-center gap-2">
-              <span class="text-sm font-black text-gray-800">${nome}</span>
-              <span class="bg-emerald-100 text-emerald-700 font-black text-xs px-2 py-0.5 rounded-md border border-emerald-200">Ganhou</span>
+            <div class="text-left min-w-0">
+              <div class="truncate flex items-center gap-2">
+                <span class="text-sm font-black text-gray-800">${nome}</span>
+                <span class="bg-emerald-100 text-emerald-700 font-black text-xs px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">Ganhou</span>
+              </div>
+              <p class="text-[11px] text-gray-500 font-medium mt-0.5 tabular-nums">🕐 ${dataAposta}</p>
             </div>
           </div>
           <div class="shrink-0 pl-3">
@@ -689,7 +693,9 @@ async function finalizarDisparo(prepared, resultados, adminId) {
         ? "email_bid_encerrado_em"
         : tipoDisparo === "GANHADORES"
           ? "email_ganhadores_em"
-          : null;
+          : tipoDisparo === "EVENTO"
+            ? "email_evento_em"
+            : null;
   if (colunaDisparo && enviados > 0) {
     await db.query(`UPDATE partidas SET ${colunaDisparo} = NOW() WHERE id = ?`, [partidaId]);
   }
@@ -1005,6 +1011,7 @@ const TIPOS_DISPARO_VALIDOS = [
   "BID_ABERTO",
   "BID_ENCERRADO",
   "GANHADORES",
+  "EVENTO",
   "USUARIO_CRIADO",
   "WT_PASS_PROMOVIDO_FILA",
 ];
@@ -1054,7 +1061,7 @@ exports.createTemplate = async (req, res) => {
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
       return res.status(400).json({
         error:
-          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, EVENTO, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
       });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
@@ -1100,7 +1107,7 @@ exports.updateTemplate = async (req, res) => {
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
       return res.status(400).json({
         error:
-          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, EVENTO, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
       });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
@@ -1688,12 +1695,13 @@ async function buildListaGanhadoresPdf(partidaId) {
 
   const [ganhadores] = await db.query(
     `SELECT u.id AS usuario_id, u.nome_completo AS titular_nome, u.foto AS usuario_foto,
-             u.avatar_data, u.avatar_tipo, s.nome AS titular_setor, a.valor_pago AS lance_pago
+             u.avatar_data, u.avatar_tipo, s.nome AS titular_setor, a.valor_pago AS lance_pago,
+             a.data_aposta
      FROM apostas a
      JOIN usuarios u ON a.usuario_id = u.id
      LEFT JOIN setores s ON u.setor_id = s.id
      WHERE a.partida_id = ? AND a.status = 'GANHOU'
-     ORDER BY a.valor_pago DESC`,
+     ORDER BY a.valor_pago DESC, a.data_aposta ASC, a.id ASC`,
     [partidaId]
   );
   if (!ganhadores || ganhadores.length === 0) return null;
@@ -1781,6 +1789,7 @@ async function buildListaGanhadoresPdf(partidaId) {
       setor: (String(r.titular_setor || "").trim() || "—"),
       valor: Number(r.lance_pago) ?? 0,
       fotoDataUrl,
+      dataAposta: formatarDataPtBr(r.data_aposta) || "—",
     };
   });
 

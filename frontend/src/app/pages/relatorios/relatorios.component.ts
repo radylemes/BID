@@ -256,9 +256,17 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                       </div>
                     </td>
                     <td class="min-w-0 px-3 py-2 align-middle">
-                      <span class="block text-[var(--app-text)] font-medium truncate" [title]="m.titulo || '—'">{{
-                        m.titulo || '—'
-                      }}</span>
+                      <span
+                        class="block text-[var(--app-text)] font-medium truncate"
+                        [title]="tituloListaBid(m)"
+                        >{{ m.titulo || '—' }}</span
+                      >
+                      <span
+                        *ngIf="m.setor_evento_nome"
+                        class="block text-[10px] text-indigo-600 font-semibold truncate mt-0.5"
+                        [title]="m.setor_evento_nome"
+                        >{{ m.setor_evento_nome }}</span
+                      >
                     </td>
                     <td class="w-[7.5rem] px-3 py-2 align-middle whitespace-nowrap tabular-nums text-[var(--app-text-muted)]">
                       {{ formatarDataCurta(m.data_jogo) }}
@@ -400,7 +408,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                 <div>
                   <h3 class="text-base font-bold text-[var(--app-text)]">{{ matchSelecionado.titulo || '—' }}</h3>
                   <p class="text-xs text-[var(--app-text-muted)] mt-1">
-                    {{ matchSelecionado.nome_grupo || '—' }} · {{ formatarDataCurta(matchSelecionado.data_jogo) }}
+                    {{ matchSelecionado.nome_grupo || '—' }} · {{ formatarDataCurta(matchSelecionado.data_jogo) }}<ng-container *ngIf="matchSelecionado.setor_evento_nome"> · <span class="text-indigo-600 font-semibold">{{ matchSelecionado.setor_evento_nome }}</span></ng-container>
                   </p>
                 </div>
                 <button
@@ -411,7 +419,11 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                   Exportar XLSX
                 </button>
               </div>
-              <dl class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-4 border-b border-[var(--app-border)] pb-4">
+              <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs mb-4 border-b border-[var(--app-border)] pb-4">
+                <div>
+                  <dt class="text-[var(--app-text-muted)] font-semibold">Setor do evento</dt>
+                  <dd class="text-[var(--app-text)]">{{ matchSelecionado.setor_evento_nome || '—' }}</dd>
+                </div>
                 <div>
                   <dt class="text-[var(--app-text-muted)] font-semibold">Status</dt>
                   <dd class="text-[var(--app-text)]">{{ matchSelecionado.status || '—' }}</dd>
@@ -456,7 +468,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                   <thead class="bg-[var(--color-bg-surface-alt)] text-[var(--app-text-muted)] sticky top-0">
                     <tr>
                       <th class="px-2 py-2">Titular</th>
-                      <th class="px-2 py-2">Setor</th>
+                      <th class="px-2 py-2">Setor (titular)</th>
                       <th class="px-2 py-2">Data da retirada</th>
                       <th class="px-2 py-2">Retirante</th>
                       <th class="px-2 py-2">Check-in</th>
@@ -735,7 +747,8 @@ export class RelatoriosComponent implements OnInit {
     return sorted.filter((m) => {
       const t = String(m.titulo || '').toLowerCase();
       const g = String(m.nome_grupo || '').toLowerCase();
-      return t.includes(q) || g.includes(q);
+      const s = String(m.setor_evento_nome || '').toLowerCase();
+      return t.includes(q) || g.includes(q) || s.includes(q);
     });
   }
 
@@ -958,6 +971,14 @@ export class RelatoriosComponent implements OnInit {
       .replace(/\s+/g, '_')
       .slice(0, 50);
 
+    const metaAp = [
+      ['Evento', m.titulo ?? '—'],
+      ['Setor do evento', m.setor_evento_nome ?? '—'],
+      ['Grupo', m.nome_grupo ?? '—'],
+      ['Data do evento', this.formatarDataCurta(m.data_jogo)],
+      ['Status', m.status ?? '—'],
+      [],
+    ];
     const headAp = ['Data e hora', 'Participante', 'Lance (pts)', 'Resultado'];
     const linhasAp = (this.bidApostas || []).map((row: any) => [
       this.fmtDataExcel(row.data_aposta),
@@ -965,9 +986,9 @@ export class RelatoriosComponent implements OnInit {
       row.valor_pago ?? '',
       this.rotuloStatusAposta(String(row.status ?? '')),
     ]);
-    const wsAp = XLSX.utils.aoa_to_sheet([headAp, ...linhasAp]);
+    const wsAp = XLSX.utils.aoa_to_sheet([...metaAp, headAp, ...linhasAp]);
 
-    const headGa = ['Titular', 'Setor', 'Data da retirada', 'Retirante', 'CPF retirante', 'Check-in'];
+    const headGa = ['Titular', 'Setor (titular)', 'Data da retirada', 'Retirante', 'CPF retirante', 'Check-in'];
     const linhasGa = (this.bidGanhadores || []).map((g: any) => [
       g.titular_nome ?? '',
       g.titular_setor ?? '',
@@ -991,6 +1012,12 @@ export class RelatoriosComponent implements OnInit {
     } catch {
       return '—';
     }
+  }
+
+  tituloListaBid(m: { titulo?: string | null; setor_evento_nome?: string | null }): string {
+    const titulo = String(m?.titulo || '—').trim();
+    const setor = String(m?.setor_evento_nome || '').trim();
+    return setor ? `${titulo} — ${setor}` : titulo;
   }
 
   formatarDataHora(iso: string | null | undefined): string {

@@ -185,6 +185,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
       'BID_ABERTO',
       'BID_ENCERRADO',
       'GANHADORES',
+      'EVENTO',
       'USUARIO_CRIADO',
       'WT_PASS_PROMOVIDO_FILA',
     ]);

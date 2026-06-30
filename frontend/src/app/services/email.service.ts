@@ -242,7 +242,7 @@ export class EmailService {
       listaId?: number | null;
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
-      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
     }
   ): Observable<SendEmailsResponse> {
     return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, this.buildSendBody(partidaId, templateId, adminId, options));
@@ -257,7 +257,7 @@ export class EmailService {
       listaId?: number | null;
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
-      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
     },
     callbacks?: SendStreamCallbacks
   ): Promise<SendEmailsResponse> {
@@ -299,7 +299,7 @@ export class EmailService {
       listaId?: number | null;
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
-      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
     }
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {

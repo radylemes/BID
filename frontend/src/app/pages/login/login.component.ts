@@ -27,8 +27,12 @@ import Swal from 'sweetalert2';
         shadow-[0_0_0_1px_rgba(130,10,209,0.10),0_32px_72px_rgba(0,0,0,0.55)]
       ">
 
-        <!-- Logo WTorre -->
-        <img src="assets/wtorre.svg" alt="WTorre" class="h-[17px] w-auto mb-0" />
+        <!-- Logo BID WTORRE -->
+        <img
+          src="assets/bid-wtorre-logo.png"
+          alt="BID WTORRE - Plataforma Interna"
+          class="max-w-[280px] w-full h-auto mb-0"
+        />
 
         <!-- Divisória -->
         <div class="w-full h-px bg-white/[0.08] my-[26px]"></div>
@@ -77,6 +81,16 @@ import Swal from 'sweetalert2';
           <div class="w-full h-px bg-white/[0.08] my-5"></div>
           <form class="w-full space-y-4" (ngSubmit)="login()">
 
+            <div *ngIf="loginError" role="alert"
+              class="w-full flex items-center gap-2 px-3 py-2.5
+                     rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              {{ loginError }}
+            </div>
+
             <div>
               <label for="email" class="block text-[11px] font-medium uppercase tracking-widest text-white/40 mb-1.5">E-mail</label>
               <div class="relative">
@@ -86,7 +100,8 @@ import Swal from 'sweetalert2';
                   </svg>
                 </span>
                 <input id="email" name="username" type="text" required
-                  [(ngModel)]="credentials.username" placeholder="seu@email.com"
+                  [(ngModel)]="credentials.username" (ngModelChange)="clearLoginError()"
+                  placeholder="seu@email.com"
                   [disabled]="loading"
                   class="w-full rounded-lg bg-white/[0.06] border border-white/[0.08] pl-9 pr-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-[#820AD1] focus:border-[#820AD1] transition-colors"
                 />
@@ -102,7 +117,8 @@ import Swal from 'sweetalert2';
                   </svg>
                 </span>
                 <input id="password" name="password" [type]="showPassword ? 'text' : 'password'" required
-                  [(ngModel)]="credentials.password" placeholder="••••••••"
+                  [(ngModel)]="credentials.password" (ngModelChange)="clearLoginError()"
+                  placeholder="••••••••"
                   [disabled]="loading"
                   class="w-full rounded-lg bg-white/[0.06] border border-white/[0.08] pl-9 pr-10 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-[#820AD1] focus:border-[#820AD1] transition-colors"
                 />
@@ -131,10 +147,15 @@ export class LoginComponent implements OnInit {
   loading = false;
   showAdminLogin = false;
   showPassword = false;
-  wtorreLogoSrc = 'assets/wtorre.svg';
+  loginError: string | null = null;
 
   toggleAdminLogin() {
     this.showAdminLogin = !this.showAdminLogin;
+    this.loginError = null;
+  }
+
+  clearLoginError() {
+    this.loginError = null;
   }
 
   constructor(
@@ -158,7 +179,6 @@ export class LoginComponent implements OnInit {
 
   async checkMsRedirect() {
     try {
-      // O handleRedirect no AuthService vai processar o token caso ele exista na URL
       await this.authService.handleRedirect();
     } catch (error) {
       console.error('Erro ao processar retorno da Microsoft:', error);
@@ -170,6 +190,7 @@ export class LoginComponent implements OnInit {
       Swal.fire('Atenção', 'Preencha todos os campos.', 'warning');
       return;
     }
+    this.loginError = null;
     this.loading = true;
     this.authService.loginManual(this.credentials).subscribe({
       next: () => {
@@ -180,14 +201,17 @@ export class LoginComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        Swal.fire('Erro', err.error?.message || 'Falha na autenticação', 'error');
+        if (err.status === 401) {
+          this.loginError = 'Usuário ou senha inválidos.';
+        } else {
+          Swal.fire('Erro', err.error?.message || 'Falha na autenticação', 'error');
+        }
       },
     });
   }
 
   loginMicrosoft() {
     this.loading = true;
-    // Dispara o redirecionamento total (sai do seu site e vai para a MS)
     this.authService.loginMicrosoft();
   }
 }

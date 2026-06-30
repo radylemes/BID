@@ -320,6 +320,14 @@ import {
               </button>
             </div>
 
+            <div class="flex items-start gap-2 mb-4 max-w-3xl rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <input [(ngModel)]="emailOcultarPara" type="checkbox" id="emailOcultarPara" class="rounded border-gray-300 mt-0.5" />
+              <label for="emailOcultarPara" class="text-sm text-gray-700">
+                <span class="font-medium">Ocultar e-mail do destinatário no campo Para (enviar via BCC)</span>
+                <span class="block text-xs text-gray-500 mt-0.5">O destinatário real recebe o e-mail em cópia oculta; o campo Para mostra o endereço remetente.</span>
+              </label>
+            </div>
+
             <div *ngIf="emailProvider !== 'acs'" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Host SMTP (servidor, ex: smtp.office365.com)</label>
@@ -819,6 +827,7 @@ export class SettingsComponent implements OnInit {
   emailProvider = 'smtp';
   acsConnectionString = '';
   acsSender = '';
+  emailOcultarPara = false;
   bidPolicyHtml = '';
   bidPolicyPdfFile: File | null = null;
   wtPassPolicyHtml = '';
@@ -923,6 +932,8 @@ export class SettingsComponent implements OnInit {
         this.emailProvider = settings['email_provider'] ?? 'smtp';
         this.acsConnectionString = settings['acs_connection_string'] ?? '';
         this.acsSender = settings['acs_sender'] ?? '';
+        this.emailOcultarPara =
+          settings['email_ocultar_para'] === '1' || settings['email_ocultar_para'] === 'true';
         this.bidPolicyHtml = settings['bid_policy_html'] ?? '';
         this.cd.detectChanges();
       },
@@ -1168,6 +1179,7 @@ export class SettingsComponent implements OnInit {
       smtp_pass: this.smtpPass,
       smtp_from: this.smtpFrom,
       app_base_url: this.appBaseUrl,
+      email_ocultar_para: this.emailOcultarPara ? '1' : '0',
     };
     this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
       next: () => Swal.fire({ icon: 'success', title: 'Configurações SMTP guardadas.', timer: 1500, showConfirmButton: false }),
@@ -1180,6 +1192,7 @@ export class SettingsComponent implements OnInit {
       email_provider: 'acs',
       acs_connection_string: this.acsConnectionString.trim(),
       acs_sender: this.acsSender.trim(),
+      email_ocultar_para: this.emailOcultarPara ? '1' : '0',
     };
     this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
       next: () =>

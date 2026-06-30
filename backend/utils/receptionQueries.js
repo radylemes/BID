@@ -1,5 +1,7 @@
 const { normalizarCpfDigits } = require("./cpf");
 
+const SETOR_EVENTO_WT_PASS = "Pista Premium";
+
 function mapGuestRowBid(r, setorEventoNome) {
   const titCpf =
     normalizarCpfDigits(r.titular_cpf_db) ||
@@ -28,7 +30,7 @@ function mapGuestRowBid(r, setorEventoNome) {
   };
 }
 
-function mapGuestRowWt(r, setorEventoNome) {
+function mapGuestRowWt(r) {
   const titCpf =
     normalizarCpfDigits(r.titular_cpf_db) ||
     normalizarCpfDigits(r.titular_cpf_conv_padrao);
@@ -47,7 +49,7 @@ function mapGuestRowWt(r, setorEventoNome) {
     titular_nome: nomeTit,
     titular_cpf: titCpf || null,
     empresa: r.empresa || "Geral",
-    setor_evento_nome: setorEventoNome || null,
+    setor_evento_nome: SETOR_EVENTO_WT_PASS,
     recebedor_nome: r.portaria_recebedor_nome || nomeTit || "Pendente",
     recebedor_cpf: recebedorCpfExibicao || "---",
     retirante_nome: nomeTit,
@@ -178,17 +180,6 @@ async function fetchReceptionGuestsForEvent(executor, eventId, tipoEvento) {
   }
 
   if (isWtEvento) {
-    const [setorRows] = await executor.execute(
-      `SELECT se.nome AS setor_evento_nome
-         FROM eventos_rh ev
-         LEFT JOIN partidas p ON p.id = ev.partida_id
-         LEFT JOIN setores_evento se ON se.id = p.setor_evento_id
-        WHERE ev.id = ?
-        LIMIT 1`,
-      [idRef],
-    );
-    const setorEventoNome = setorRows[0]?.setor_evento_nome || null;
-
     const [rowsWt] = await executor.execute(
       `SELECT i.id AS inscricao_rh_id, i.portaria_checkin, i.portaria_assinatura, i.portaria_documento,
           i.portaria_recebedor_nome, i.portaria_recebedor_cpf,
@@ -203,7 +194,7 @@ async function fetchReceptionGuestsForEvent(executor, eventId, tipoEvento) {
         ORDER BY u.nome_completo ASC`,
       [idRef],
     );
-    return rowsWt.map((r) => mapGuestRowWt(r, setorEventoNome));
+    return rowsWt.map((r) => mapGuestRowWt(r));
   }
 
   const partidaId = idRef;
@@ -248,7 +239,7 @@ async function fetchReceptionGuestsForEvent(executor, eventId, tipoEvento) {
   );
 
   const formatedBid = rowsBid.map((r) => mapGuestRowBid(r, setorEventoNome));
-  const formatedWt = rowsWt.map((r) => mapGuestRowWt(r, setorEventoNome));
+  const formatedWt = rowsWt.map((r) => mapGuestRowWt(r));
   return [...formatedBid, ...formatedWt].sort((a, b) =>
     String(a.titular_nome || "").localeCompare(String(b.titular_nome || ""), "pt", {
       sensitivity: "base",
@@ -358,7 +349,7 @@ function mapSupervisorAcessoAtivoWt(r) {
     retirante_nome: r.titular_nome || null,
     evento_titulo: r.evento_titulo || null,
     empresa: r.empresa || "Geral",
-    setor_evento_nome: r.setor_evento_nome || null,
+    setor_evento_nome: SETOR_EVENTO_WT_PASS,
     liberado_por_nome: r.liberado_por_nome || null,
     partida_id: r.partida_id != null ? Number(r.partida_id) : null,
     evento_rh_id: r.evento_rh_id != null ? Number(r.evento_rh_id) : null,
@@ -387,7 +378,7 @@ function mapSupervisorAcessoCancelado(row) {
     titular_nome: det.titular || null,
     evento_titulo: det.evento || null,
     empresa: det.empresa || "Geral",
-    setor_evento_nome: det.setor || null,
+    setor_evento_nome: tipo === "WT_PASS" ? SETOR_EVENTO_WT_PASS : det.setor || null,
     liberado_por_nome: det.liberado_por || null,
     cancelado_em: dbUtcToISO(row.criado_em),
     cancelado_por_nome: row.cancelado_por_nome || null,

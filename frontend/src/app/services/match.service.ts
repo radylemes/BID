@@ -11,8 +11,16 @@ export class MatchService {
 
   constructor(private http: HttpClient) {}
 
-  getMatches(userId: number, isDashboard: boolean = false): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}?userId=${userId}&dashboard=${isDashboard}`);
+  getMatches(
+    userId: number,
+    isDashboard: boolean = false,
+    opts?: { viewAsUser?: boolean; grupoId?: number | 'PUBLICO' | null },
+  ): Observable<any[]> {
+    let url = `${this.apiUrl}?userId=${userId}&dashboard=${isDashboard}`;
+    if (opts?.viewAsUser) url += '&viewAsUser=true';
+    if (opts?.grupoId === 'PUBLICO') url += '&grupoId=PUBLICO';
+    else if (opts?.grupoId != null) url += `&grupoId=${opts.grupoId}`;
+    return this.http.get<any[]>(url);
   }
 
   getMyBets(userId: number): Observable<any[]> {

@@ -120,7 +120,7 @@ exports.getGroups = async (req, res) => {
 };
 
 exports.getMatches = async (req, res) => {
-  const { userId, dashboard } = req.query;
+  const { userId, dashboard, viewAsUser, grupoId } = req.query;
   try {
     const [users] = await db.execute(
       "SELECT perfil, grupo_id FROM usuarios WHERE id = ?",
@@ -156,6 +156,17 @@ exports.getMatches = async (req, res) => {
     if (user.perfil !== "ADMIN") {
       sql += ` AND (p.grupo_id = ? OR p.grupo_id IS NULL) `;
       params.push(user.grupo_id || 0);
+    } else if (viewAsUser === "true") {
+      sql += ` AND (p.grupo_id = ? OR p.grupo_id IS NULL) `;
+      params.push(user.grupo_id || 0);
+    } else if (grupoId === "PUBLICO") {
+      sql += ` AND p.grupo_id IS NULL `;
+    } else if (grupoId && grupoId !== "ALL") {
+      const gid = Number(grupoId);
+      if (!Number.isNaN(gid)) {
+        sql += ` AND p.grupo_id = ? `;
+        params.push(gid);
+      }
     }
 
     if (dashboard === 'true') {
@@ -195,6 +206,7 @@ exports.getMatches = async (req, res) => {
         email_bid_aberto_em: dbUtcToISO(row.email_bid_aberto_em),
         email_bid_encerrado_em: dbUtcToISO(row.email_bid_encerrado_em),
         email_ganhadores_em: dbUtcToISO(row.email_ganhadores_em),
+        email_evento_em: dbUtcToISO(row.email_evento_em),
         titulo: row.titulo || "Evento sem título",
         quantidade_premios: qtdPremios,
         quantidade_premios_efetiva: qtdPremiosEfetiva,

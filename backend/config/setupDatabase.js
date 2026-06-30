@@ -738,6 +738,7 @@ async function initializeDatabase() {
       { nome: "email_bid_aberto_em", tipo: "DATETIME NULL" },
       { nome: "email_bid_encerrado_em", tipo: "DATETIME NULL" },
       { nome: "email_ganhadores_em", tipo: "DATETIME NULL" },
+      { nome: "email_evento_em", tipo: "DATETIME NULL" },
     ]);
     await ensureColumns("regras_pontuacao", [
       { nome: "grupo_id", tipo: "INT NULL" },

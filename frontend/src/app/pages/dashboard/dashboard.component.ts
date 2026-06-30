@@ -1,6 +1,7 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatchService } from '../../services/match.service';
 import { GuestService } from '../../services/guest.service';
 import { SettingsService } from '../../services/settings.service';
@@ -15,10 +16,12 @@ import {
   DirecaoLimiteIndicacao,
 } from '../../utils/convidados-limite-indicacao';
 
+type FiltroGrupoDashboard = null | number | 'PUBLICO';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
@@ -32,6 +35,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   /** Perfis que não participam do WT Pass (menu e inscrição). */
   isPortaria = false;
+  isAdmin = false;
+  modoUsuario = false;
+  filtroGrupoId: FiltroGrupoDashboard = null;
+  grupos: any[] = [];
+  menuFiltroGrupoAberto = false;
   wtPassDisponiveisCount = 0;
   wtPassContagemCarregada = false;
 
@@ -49,8 +57,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    this.isPortaria =
-      String(this.currentUser?.role || this.currentUser?.perfil || '').toUpperCase() === 'PORTARIA';
+    const role = String(this.currentUser?.role || this.currentUser?.perfil || '').toUpperCase();
+    this.isPortaria = role === 'PORTARIA';
+    this.isAdmin = role === 'ADMIN';
+    if (this.isAdmin) {
+      this.carregarPreferenciasFiltro();
+      this.carregarGrupos();
+    }
     this.carregarConfigLimiteIndicacao();
     this.carregarDados();
     if (!this.isPortaria) this.carregarContagemWtPass();
@@ -59,6 +72,101 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.atualizarTimers();
       this.cd.detectChanges();
     }, 1000);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    this.menuFiltroGrupoAberto = false;
+  }
+
+  private storageKey(suffix: string): string {
+    const uid = this.currentUser?.id ?? '0';
+    return `dashboard${suffix}_${uid}`;
+  }
+
+  private carregarPreferenciasFiltro() {
+    const modo = localStorage.getItem(this.storageKey('ModoUsuario'));
+    this.modoUsuario = modo === 'true';
+    const grupo = localStorage.getItem(this.storageKey('FiltroGrupo'));
+    if (grupo === 'PUBLICO') this.filtroGrupoId = 'PUBLICO';
+    else if (grupo && grupo !== 'null') {
+      const n = Number(grupo);
+      this.filtroGrupoId = Number.isNaN(n) ? null : n;
+    } else {
+      this.filtroGrupoId = null;
+    }
+    if (this.modoUsuario) this.filtroGrupoId = null;
+  }
+
+  private salvarPreferenciasFiltro() {
+    localStorage.setItem(this.storageKey('ModoUsuario'), String(this.modoUsuario));
+    if (this.filtroGrupoId === 'PUBLICO') {
+      localStorage.setItem(this.storageKey('FiltroGrupo'), 'PUBLICO');
+    } else if (this.filtroGrupoId != null) {
+      localStorage.setItem(this.storageKey('FiltroGrupo'), String(this.filtroGrupoId));
+    } else {
+      localStorage.setItem(this.storageKey('FiltroGrupo'), 'null');
+    }
+  }
+
+  private carregarGrupos() {
+    this.matchService.getGroups().subscribe({
+      next: (data) => {
+        this.grupos = data || [];
+        this.cd.detectChanges();
+      },
+    });
+  }
+
+  get filtroGrupoAtivo(): boolean {
+    return this.filtroGrupoId !== null;
+  }
+
+  get filtroAdminAtivo(): boolean {
+    return this.modoUsuario || this.filtroGrupoAtivo;
+  }
+
+  get filtroGrupoLabel(): string {
+    if (this.filtroGrupoId === 'PUBLICO') return 'Público';
+    if (this.filtroGrupoId != null) {
+      const g = this.grupos.find((x) => x.id === this.filtroGrupoId);
+      return g?.nome || 'Grupo';
+    }
+    return 'Todos os grupos';
+  }
+
+  get mensagemSemEventos(): string {
+    if (this.isAdmin && this.filtroAdminAtivo) {
+      return 'Nenhum evento disponível para este filtro.';
+    }
+    return 'Nenhum evento disponível no momento.';
+  }
+
+  toggleMenuGrupo(ev: MouseEvent) {
+    ev.stopPropagation();
+    this.menuFiltroGrupoAberto = !this.menuFiltroGrupoAberto;
+  }
+
+  onModoUsuarioChange() {
+    if (this.modoUsuario) this.filtroGrupoId = null;
+    this.salvarPreferenciasFiltro();
+    this.carregarDados();
+  }
+
+  selectGrupoFiltro(grupoId: FiltroGrupoDashboard) {
+    this.filtroGrupoId = grupoId;
+    this.menuFiltroGrupoAberto = false;
+    this.salvarPreferenciasFiltro();
+    this.carregarDados();
+  }
+
+  private buildMatchOptions():
+    | { viewAsUser?: boolean; grupoId?: number | 'PUBLICO' | null }
+    | undefined {
+    if (!this.isAdmin) return undefined;
+    if (this.modoUsuario) return { viewAsUser: true };
+    if (this.filtroGrupoId !== null) return { grupoId: this.filtroGrupoId };
+    return undefined;
   }
 
   ngOnDestroy() {
@@ -113,7 +221,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
     this.loading = true;
-    this.matchService.getMatches(this.currentUser.id, true).subscribe({
+    const matchOpts = this.buildMatchOptions();
+    this.matchService.getMatches(this.currentUser.id, true, matchOpts).subscribe({
       next: (data) => {
         // FILTRO LOCAL GARANTIDO: Remove eventos passados (baseado na data_jogo)
         const hoje = new Date();

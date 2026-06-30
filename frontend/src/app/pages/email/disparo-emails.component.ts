@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -19,7 +19,9 @@ import {
 } from './email-disparo-progress.util';
 import Swal from 'sweetalert2';
 
-type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
+type FiltroGrupoMatch = number | 'PUBLICO' | null;
+type FiltroSetorMatch = number | 'SEM_SETOR' | null;
 
 @Component({
   selector: 'app-disparo-emails',
@@ -113,6 +115,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
               <option value="BID_ABERTO">1 – Bid Aberto</option>
               <option value="BID_ENCERRADO">2 – Bid Encerrado</option>
               <option value="GANHADORES">3 – Ganhadores</option>
+              <option value="EVENTO">4 – Evento (agrupar)</option>
             </select>
           </div>
           <ul class="hidden sm:flex text-sm font-medium text-center -space-x-px" role="tablist">
@@ -121,7 +124,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 type="button"
                 role="tab"
                 [attr.aria-current]="tipoAtivo === 'BID_ABERTO' ? 'page' : null"
-                (click)="tipoAtivo = 'BID_ABERTO'"
+                (click)="setTipoAtivo('BID_ABERTO')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'BID_ABERTO',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'BID_ABERTO'
@@ -137,7 +140,7 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 type="button"
                 role="tab"
                 [attr.aria-current]="tipoAtivo === 'BID_ENCERRADO' ? 'page' : null"
-                (click)="tipoAtivo = 'BID_ENCERRADO'"
+                (click)="setTipoAtivo('BID_ENCERRADO')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'BID_ENCERRADO',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'BID_ENCERRADO'
@@ -153,15 +156,31 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 type="button"
                 role="tab"
                 [attr.aria-current]="tipoAtivo === 'GANHADORES' ? 'page' : null"
-                (click)="tipoAtivo = 'GANHADORES'"
+                (click)="setTipoAtivo('GANHADORES')"
                 [ngClass]="{
                   'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'GANHADORES',
                   'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'GANHADORES'
                 }"
-                class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+                class="inline-flex items-center justify-center w-full border font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
               >
                 <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l4-4 4 4 5-5M4 18h16"/></svg>
                 3 – Ganhadores
+              </button>
+            </li>
+            <li class="w-full focus-within:z-10" role="presentation">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-current]="tipoAtivo === 'EVENTO' ? 'page' : null"
+                (click)="setTipoAtivo('EVENTO')"
+                [ngClass]="{
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'EVENTO',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'EVENTO'
+                }"
+                class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+              >
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                4 – Evento (agrupar)
               </button>
             </li>
           </ul>
@@ -169,13 +188,111 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
 
         <div class="p-4">
           <p class="text-sm text-[var(--app-text-muted)] mb-4" [innerHTML]="descricaoTipo"></p>
-          <div class="mb-4">
-            <input
-              type="text"
-              [(ngModel)]="filtroDisparo"
-              placeholder="Buscar BID por título, grupo, status ou ID..."
-              class="w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+
+          <div
+            *ngIf="!loading && matches.length > 0"
+            class="mb-4 border border-[var(--app-border)] rounded-xl bg-[var(--color-bg-surface-alt)] px-4 pt-4 pb-4"
+          >
+            <div class="sm:hidden">
+              <label for="tabs-periodo-disparo" class="sr-only">Período dos BIDs</label>
+              <select
+                id="tabs-periodo-disparo"
+                [value]="abaPeriodoBids"
+                (change)="setAbaPeriodoBids($any($event.target).value)"
+                class="block w-full px-3 py-2.5 bg-[var(--color-bg-surface)] border border-[var(--app-border)] text-[var(--app-text)] text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              >
+                <option value="atuais">Em andamento ({{ matchesAtuaisCount }})</option>
+                <option value="anteriores">Anteriores ({{ matchesAnterioresCount }})</option>
+              </select>
+            </div>
+            <ul class="hidden sm:flex text-sm font-medium text-center -space-x-px" role="tablist">
+              <li class="w-full focus-within:z-10" role="presentation">
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-current]="abaPeriodoBids === 'atuais' ? 'page' : null"
+                  (click)="setAbaPeriodoBids('atuais')"
+                  [ngClass]="{
+                    'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaPeriodoBids === 'atuais',
+                    'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaPeriodoBids !== 'atuais'
+                  }"
+                  class="inline-flex items-center justify-center w-full border rounded-l-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+                >
+                  <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                  Em andamento ({{ matchesAtuaisCount }})
+                </button>
+              </li>
+              <li class="w-full focus-within:z-10" role="presentation">
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-current]="abaPeriodoBids === 'anteriores' ? 'page' : null"
+                  (click)="setAbaPeriodoBids('anteriores')"
+                  [ngClass]="{
+                    'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': abaPeriodoBids === 'anteriores',
+                    'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': abaPeriodoBids !== 'anteriores'
+                  }"
+                  class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+                >
+                  <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 1 1 0-4h14a2 2 0 1 1 0 4M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8m-9 4h4"/></svg>
+                  Anteriores ({{ matchesAnterioresCount }})
+                </button>
+              </li>
+            </ul>
+            <div class="mt-3 pt-3 border-t border-[var(--app-border)]">
+              <label for="busca-disparo-bids" class="sr-only">Buscar BIDs</label>
+              <div class="relative">
+                <span
+                  class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--app-text-muted)]"
+                  aria-hidden="true"
+                >
+                  <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                </span>
+                <input
+                  id="busca-disparo-bids"
+                  type="search"
+                  name="buscaDisparoBids"
+                  [(ngModel)]="filtroBusca"
+                  autocomplete="off"
+                  placeholder="Buscar por título, local, grupo, setor, status ou datas…"
+                  class="block w-full rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-2.5 pl-10 pr-10 text-sm text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 outline-none"
+                />
+                <button
+                  *ngIf="filtroBusca.trim()"
+                  type="button"
+                  (click)="filtroBusca = ''"
+                  class="absolute inset-y-0 right-0 flex items-center pr-2 text-[var(--app-text-muted)] hover:text-[var(--app-text)] rounded-r-lg px-2 text-xs font-medium"
+                  title="Limpar busca"
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            *ngIf="tipoAtivo === 'EVENTO' && quantidadeSelecionados > 0"
+            class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50/60 px-4 py-3"
+          >
+            <span class="text-sm font-medium text-indigo-900">
+              <strong>{{ quantidadeSelecionados }}</strong> evento(s) selecionado(s)
+            </span>
+            <button
+              type="button"
+              (click)="abrirModalDisparoLote()"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition"
             >
+              Disparar selecionados
+            </button>
+            <button
+              type="button"
+              (click)="limparSelecaoBids()"
+              class="text-xs font-medium text-indigo-700 hover:text-indigo-900 underline"
+            >
+              Limpar seleção
+            </button>
           </div>
 
           <div *ngIf="loading" class="py-8 text-center text-[var(--app-text-muted)]">
@@ -187,22 +304,128 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
           </div>
 
           <div *ngIf="!loading && matches.length > 0" class="overflow-x-auto rounded-xl border border-[var(--app-border)]">
-            <table class="min-w-[700px] w-full text-sm">
+            <table class="min-w-[980px] w-full text-sm">
               <thead>
                 <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
+                  <th *ngIf="tipoAtivo === 'EVENTO'" class="w-10 px-2 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+                      [checked]="todosDisparaveisSelecionados"
+                      [indeterminate]="selecaoParcial"
+                      (change)="toggleSelecionarTodos($event)"
+                      aria-label="Selecionar todos os eventos visíveis"
+                    />
+                  </th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--app-text-muted)] uppercase">BID</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase">Status</th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #dataFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Data do evento</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroDataAtivo }"
+                        [attr.aria-expanded]="menuFiltroDataAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por data do evento"
+                        (click)="toggleFiltroDataMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #setorFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Setor</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroSetorAtivo }"
+                        [attr.aria-expanded]="menuFiltroSetorAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por setor"
+                        (click)="toggleFiltroSetorMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #grupoFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Grupo</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': filtroGrupoAtivo }"
+                        [attr.aria-expanded]="menuFiltroGrupoAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por grupo"
+                        (click)="toggleFiltroGrupoMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="px-3 py-3 text-center align-middle">
+                    <div #statusFiltroHost class="relative inline-flex items-center justify-center gap-1.5">
+                      <span class="text-xs font-semibold text-[var(--app-text-muted)] uppercase whitespace-nowrap">Status</span>
+                      <button
+                        type="button"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                        [ngClass]="{ 'bg-[var(--app-nav-hover-bg)] text-[var(--app-text)]': !!filtroStatus }"
+                        [attr.aria-expanded]="menuFiltroStatusAberto"
+                        aria-haspopup="true"
+                        aria-label="Filtrar por status"
+                        (click)="toggleFiltroStatusMenu($event)"
+                      >
+                        <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-[var(--app-text-muted)] uppercase">Disparos já feitos</th>
                   <th class="px-4 py-3 text-right text-xs font-semibold text-[var(--app-text-muted)] uppercase">Ação</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-[var(--app-border)]">
-                <tr *ngFor="let m of matchesFiltrados" class="hover:bg-[var(--app-nav-hover-bg)]">
-                  <td class="px-4 py-3">
-                    <div class="font-semibold text-[var(--app-text)]">{{ m.titulo }}</div>
-                    <div class="text-xs text-[var(--app-text-muted)]">{{ m.nome_grupo || 'Público' }} · {{ m.data_limite_aposta | date:'dd/MM/yyyy HH:mm' }}</div>
+                <tr *ngIf="matches.length > 0 && matchesFiltrados.length === 0">
+                  <td [attr.colspan]="tipoAtivo === 'EVENTO' ? 8 : 7" class="px-6 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                    Nenhum BID corresponde aos filtros.
                   </td>
-                  <td class="px-4 py-3 text-center">
+                </tr>
+                <tr *ngFor="let m of matchesFiltrados" class="hover:bg-[var(--app-nav-hover-bg)]">
+                  <td *ngIf="tipoAtivo === 'EVENTO'" class="w-10 px-2 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500 disabled:opacity-40"
+                      [checked]="isBidSelecionado(m.id)"
+                      [disabled]="!podeDisparar(m)"
+                      (change)="toggleBidSelecionado(m.id, $event)"
+                      [attr.aria-label]="'Selecionar ' + m.titulo"
+                    />
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="font-semibold text-[var(--app-text)] truncate" [title]="m.titulo">{{ m.titulo }}</div>
+                  </td>
+                  <td class="px-3 py-3 text-center text-[var(--app-text-muted)] whitespace-nowrap tabular-nums">
+                    {{ m.data_jogo ? (m.data_jogo | date:'dd/MM/yyyy HH:mm') : '—' }}
+                  </td>
+                  <td class="px-3 py-3 text-center text-[var(--app-text-muted)]">
+                    {{ m.setor_evento_nome || '—' }}
+                  </td>
+                  <td class="px-3 py-3 text-center">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      {{ m.nome_grupo || 'Público' }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-3 text-center">
                     <span
                       [ngClass]="{
                         'bg-emerald-500/10 text-emerald-700': m.status === 'ABERTA',
@@ -245,6 +468,16 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                       >
                         Ganhadores {{ m.email_ganhadores_em ? '✓' : '—' }}
                       </span>
+                      <span
+                        [title]="m.email_evento_em ? ('Enviado em ' + (m.email_evento_em | date:'dd/MM HH:mm')) : 'Não enviado'"
+                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                        [class.bg-emerald-100]="m.email_evento_em"
+                        [class.text-emerald-700]="m.email_evento_em"
+                        [class.bg-[var(--color-bg-surface-alt)]]="!m.email_evento_em"
+                        [class.text-[var(--app-text-muted)]]="!m.email_evento_em"
+                      >
+                        Evento {{ m.email_evento_em ? '✓' : '—' }}
+                      </span>
                     </div>
                   </td>
                   <td class="px-4 py-3 text-right">
@@ -283,6 +516,70 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div
+            *ngIf="menuFiltroGrupoAberto"
+            #grupoFiltroPanel
+            class="fixed z-[200] max-h-56 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+            [style.top.px]="grupoFiltroPanelTop"
+            [style.left.px]="grupoFiltroPanelLeft"
+            [style.minWidth.px]="grupoFiltroPanelMinWidth"
+            role="menu"
+          >
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroGrupoId === null" (click)="selectGrupoFiltro(null)">Todos os grupos</button>
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroGrupoId === 'PUBLICO'" (click)="selectGrupoFiltro('PUBLICO')">Público</button>
+            <button *ngFor="let g of groups" type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroGrupoId === g.id" (click)="selectGrupoFiltro(g.id)">{{ g.nome }}</button>
+          </div>
+          <div
+            *ngIf="menuFiltroDataAberto"
+            #dataFiltroPanel
+            class="fixed z-[200] rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+            [style.top.px]="dataFiltroPanelTop"
+            [style.left.px]="dataFiltroPanelLeft"
+            [style.minWidth.px]="dataFiltroPanelMinWidth"
+            role="menu"
+          >
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="!filtroDataEvento" (click)="limparFiltroData()">Todas as datas</button>
+            <div class="px-3 py-2 border-t border-[var(--app-border)]">
+              <label class="block text-[10px] font-semibold uppercase text-[var(--app-text-muted)] mb-1.5">Data do evento</label>
+              <input
+                type="date"
+                name="filtroDataEventoDisparo"
+                class="w-full rounded-md border border-[var(--app-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm text-[var(--app-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border)]"
+                [(ngModel)]="filtroDataEvento"
+                (ngModelChange)="selectDataEventoFiltro($event)"
+                (change)="selectDataEventoFiltro(filtroDataEvento)"
+                (click)="$event.stopPropagation()"
+              />
+            </div>
+          </div>
+          <div
+            *ngIf="menuFiltroSetorAberto"
+            #setorFiltroPanel
+            class="fixed z-[200] max-h-56 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+            [style.top.px]="setorFiltroPanelTop"
+            [style.left.px]="setorFiltroPanelLeft"
+            [style.minWidth.px]="setorFiltroPanelMinWidth"
+            role="menu"
+          >
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroSetorId === null" (click)="selectSetorFiltro(null)">Todos os setores</button>
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroSetorId === 'SEM_SETOR'" (click)="selectSetorFiltro('SEM_SETOR')">Sem setor</button>
+            <button *ngFor="let s of setoresEvento" type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroSetorId === s.id" (click)="selectSetorFiltro(s.id)">{{ s.nome }}</button>
+          </div>
+          <div
+            *ngIf="menuFiltroStatusAberto"
+            #statusFiltroPanel
+            class="fixed z-[200] rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-surface)] py-1 text-left shadow-lg"
+            [style.top.px]="statusFiltroPanelTop"
+            [style.left.px]="statusFiltroPanelLeft"
+            [style.minWidth.px]="statusFiltroPanelMinWidth"
+            role="menu"
+          >
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="!filtroStatus" (click)="selectStatusFiltro('')">Todos</button>
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroStatus === 'ABERTA'" (click)="selectStatusFiltro('ABERTA')">Aberta</button>
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroStatus === 'ENCERRADA'" (click)="selectStatusFiltro('ENCERRADA')">Encerrada</button>
+            <button type="button" role="menuitem" class="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--app-text)] hover:bg-[var(--app-nav-hover-bg)]" [class.font-semibold]="filtroStatus === 'FINALIZADA'" (click)="selectStatusFiltro('FINALIZADA')">Finalizada</button>
           </div>
         </div>
       </div>
@@ -381,15 +678,32 @@ type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
   `,
 })
 export class DisparoEmailsComponent implements OnInit {
+  @ViewChild('statusFiltroHost', { read: ElementRef }) statusFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('statusFiltroPanel', { read: ElementRef }) statusFiltroPanel?: ElementRef<HTMLElement>;
+  @ViewChild('grupoFiltroHost', { read: ElementRef }) grupoFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('grupoFiltroPanel', { read: ElementRef }) grupoFiltroPanel?: ElementRef<HTMLElement>;
+  @ViewChild('dataFiltroHost', { read: ElementRef }) dataFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('dataFiltroPanel', { read: ElementRef }) dataFiltroPanel?: ElementRef<HTMLElement>;
+  @ViewChild('setorFiltroHost', { read: ElementRef }) setorFiltroHost?: ElementRef<HTMLElement>;
+  @ViewChild('setorFiltroPanel', { read: ElementRef }) setorFiltroPanel?: ElementRef<HTMLElement>;
+
   abaAtual: 'disparo' | 'templates' | 'listas' = 'disparo';
   matches: any[] = [];
+  groups: any[] = [];
+  setoresEvento: any[] = [];
   loading = false;
   tipoAtivo: TipoDisparo = 'BID_ABERTO';
+  abaPeriodoBids: 'atuais' | 'anteriores' = 'atuais';
+  bidsSelecionados = new Set<number>();
 
   setTipoAtivo(value: string): void {
     if (value === 'BID_ENCERRADO') this.tipoAtivo = 'BID_ENCERRADO';
     else if (value === 'GANHADORES') this.tipoAtivo = 'GANHADORES';
+    else if (value === 'EVENTO') this.tipoAtivo = 'EVENTO';
     else this.tipoAtivo = 'BID_ABERTO';
+    if (this.tipoAtivo !== 'EVENTO') {
+      this.limparSelecaoBids();
+    }
   }
 
   currentUser: any = {};
@@ -400,9 +714,41 @@ export class DisparoEmailsComponent implements OnInit {
   listasEmail: ListaEmail[] = [];
   listasEmailLoading = false;
   pdfLoadingPartidaId: number | null = null;
-  filtroDisparo = '';
+  filtroBusca = '';
+  filtroStatus = '';
+  filtroGrupoId: FiltroGrupoMatch = null;
+  filtroDataEvento = '';
+  filtroSetorId: FiltroSetorMatch = null;
+  menuFiltroStatusAberto = false;
+  menuFiltroGrupoAberto = false;
+  menuFiltroDataAberto = false;
+  menuFiltroSetorAberto = false;
+  statusFiltroPanelTop = 0;
+  statusFiltroPanelLeft = 0;
+  statusFiltroPanelMinWidth = 168;
+  grupoFiltroPanelTop = 0;
+  grupoFiltroPanelLeft = 0;
+  grupoFiltroPanelMinWidth = 168;
+  dataFiltroPanelTop = 0;
+  dataFiltroPanelLeft = 0;
+  dataFiltroPanelMinWidth = 220;
+  setorFiltroPanelTop = 0;
+  setorFiltroPanelLeft = 0;
+  setorFiltroPanelMinWidth = 168;
   filtroTemplates = '';
   filtroListas = '';
+
+  get filtroGrupoAtivo(): boolean {
+    return this.filtroGrupoId !== null;
+  }
+
+  get filtroDataAtivo(): boolean {
+    return !!this.filtroDataEvento;
+  }
+
+  get filtroSetorAtivo(): boolean {
+    return this.filtroSetorId !== null;
+  }
 
   get descricaoTipo(): string {
     switch (this.tipoAtivo) {
@@ -412,29 +758,46 @@ export class DisparoEmailsComponent implements OnInit {
         return 'Enviar e-mail com o resultado (apostas realizadas). Inclui PDF com nome e aposta. Apenas para BIDs já encerrados.';
       case 'GANHADORES':
         return 'Enviar e-mail apenas para os usuários vencedores do BID. Apenas para BIDs já finalizados com sorteio.';
+      case 'EVENTO':
+        return 'Comunicação geral sobre um ou mais eventos/BIDs. Selecione um ou mais BIDs na tabela e use «Disparar selecionados». Destinatários: participantes do grupo, lista ou envio personalizado.';
       default:
         return '';
     }
   }
 
+  get matchesNaAba(): any[] {
+    return this.matches.filter((m) =>
+      this.abaPeriodoBids === 'anteriores' ? this.isMatchAnterior(m) : this.isMatchAtual(m),
+    );
+  }
+
+  get matchesAtuaisCount(): number {
+    return this.matches.filter((m) => this.isMatchAtual(m)).length;
+  }
+
+  get matchesAnterioresCount(): number {
+    return this.matches.filter((m) => this.isMatchAnterior(m)).length;
+  }
+
   get matchesFiltrados(): any[] {
-    const termo = this.normalizeText(this.filtroDisparo);
-    return [...this.matches]
-      .sort((a, b) => this.getTimestamp(b?.data_jogo || b?.data_limite_aposta || b?.id) - this.getTimestamp(a?.data_jogo || a?.data_limite_aposta || a?.id))
-      .filter((m) => {
-        if (!termo) return true;
-        const texto = [
-          m?.id,
-          m?.titulo,
-          m?.nome_grupo,
-          m?.status,
-          m?.data_jogo,
-          m?.data_inicio_apostas,
-          m?.data_limite_aposta,
-          m?.data_apuracao,
-        ].map((v) => this.normalizeText(v)).join(' ');
-        return texto.includes(termo);
-      });
+    let result = [...this.matchesNaAba].sort((a, b) => this.compareByDataEvento(a, b));
+    const q = (this.filtroBusca || '').trim().toLowerCase();
+    if (q) {
+      result = result.filter((m) => this.textoBuscaBid(m).includes(q));
+    }
+    if (this.filtroGrupoId !== null) {
+      result = result.filter((m) => this.matchMatchesGrupoFiltro(m));
+    }
+    if (this.filtroDataEvento) {
+      result = result.filter((m) => this.matchMatchesDataEventoFiltro(m));
+    }
+    if (this.filtroStatus) {
+      result = result.filter((m) => String(m?.status || '').toUpperCase() === this.filtroStatus);
+    }
+    if (this.filtroSetorId !== null) {
+      result = result.filter((m) => this.matchMatchesSetorFiltro(m));
+    }
+    return result;
   }
 
   get templatesFiltrados(): TemplateEmail[] {
@@ -476,6 +839,16 @@ export class DisparoEmailsComponent implements OnInit {
   ngOnInit(): void {
     this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     this.carregarMatches();
+    this.matchService.getGroups().subscribe({
+      next: (data) => {
+        this.groups = data || [];
+      },
+    });
+    this.matchService.getSetoresEvento().subscribe({
+      next: (data) => {
+        this.setoresEvento = data || [];
+      },
+    });
     this.route.queryParams.subscribe((params) => {
       const aba = params['aba'];
       if (aba === 'templates') {
@@ -497,6 +870,31 @@ export class DisparoEmailsComponent implements OnInit {
       this.abaAtual = 'disparo';
       this.router.navigate([], { relativeTo: this.route, queryParams: { aba: null }, queryParamsHandling: 'merge' });
     }
+  }
+
+  setAbaPeriodoBids(value: string): void {
+    this.abaPeriodoBids = value === 'anteriores' ? 'anteriores' : 'atuais';
+    this.fecharOutrosFiltroMenus();
+  }
+
+  private get hojeInicio(): Date {
+    const h = new Date();
+    h.setHours(0, 0, 0, 0);
+    return h;
+  }
+
+  private isMatchAtual(m: any): boolean {
+    if (!m.data_jogo) return true;
+    const d = new Date(m.data_jogo);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() >= this.hojeInicio.getTime();
+  }
+
+  private isMatchAnterior(m: any): boolean {
+    if (!m.data_jogo) return false;
+    const d = new Date(m.data_jogo);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() < this.hojeInicio.getTime();
   }
 
   irAbaListas(): void {
@@ -1062,13 +1460,302 @@ export class DisparoEmailsComponent implements OnInit {
       });
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    const t = ev.target as Node;
+    if (this.menuFiltroStatusAberto) {
+      if (this.statusFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.statusFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroStatusAberto = false;
+    }
+    if (this.menuFiltroGrupoAberto) {
+      if (this.grupoFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.grupoFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroGrupoAberto = false;
+    }
+    if (this.menuFiltroDataAberto) {
+      if (this.dataFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.dataFiltroPanel?.nativeElement?.contains(t)) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement && active.type === 'date') return;
+      setTimeout(() => {
+        if (!this.menuFiltroDataAberto) return;
+        const focused = document.activeElement;
+        if (focused instanceof HTMLInputElement && focused.type === 'date') return;
+        this.menuFiltroDataAberto = false;
+        this.cdr.markForCheck();
+      }, 0);
+    }
+    if (this.menuFiltroSetorAberto) {
+      if (this.setorFiltroHost?.nativeElement?.contains(t)) return;
+      if (this.setorFiltroPanel?.nativeElement?.contains(t)) return;
+      this.menuFiltroSetorAberto = false;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.menuFiltroStatusAberto) this.updateStatusFiltroMenuPosition();
+    if (this.menuFiltroGrupoAberto) this.updateGrupoFiltroMenuPosition();
+    if (this.menuFiltroDataAberto) this.updateDataFiltroMenuPosition();
+    if (this.menuFiltroSetorAberto) this.updateSetorFiltroMenuPosition();
+  }
+
+  private fecharOutrosFiltroMenus(exceto?: 'status' | 'grupo' | 'data' | 'setor'): void {
+    if (exceto !== 'status') this.menuFiltroStatusAberto = false;
+    if (exceto !== 'grupo') this.menuFiltroGrupoAberto = false;
+    if (exceto !== 'data') this.menuFiltroDataAberto = false;
+    if (exceto !== 'setor') this.menuFiltroSetorAberto = false;
+  }
+
+  toggleFiltroStatusMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('status');
+    this.menuFiltroStatusAberto = !this.menuFiltroStatusAberto;
+    if (this.menuFiltroStatusAberto) {
+      requestAnimationFrame(() => this.updateStatusFiltroMenuPosition());
+    }
+  }
+
+  toggleFiltroGrupoMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('grupo');
+    this.menuFiltroGrupoAberto = !this.menuFiltroGrupoAberto;
+    if (this.menuFiltroGrupoAberto) {
+      requestAnimationFrame(() => this.updateGrupoFiltroMenuPosition());
+    }
+  }
+
+  toggleFiltroDataMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('data');
+    this.menuFiltroDataAberto = !this.menuFiltroDataAberto;
+    if (this.menuFiltroDataAberto) {
+      requestAnimationFrame(() => this.updateDataFiltroMenuPosition());
+    }
+  }
+
+  toggleFiltroSetorMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.fecharOutrosFiltroMenus('setor');
+    this.menuFiltroSetorAberto = !this.menuFiltroSetorAberto;
+    if (this.menuFiltroSetorAberto) {
+      requestAnimationFrame(() => this.updateSetorFiltroMenuPosition());
+    }
+  }
+
+  private updateStatusFiltroMenuPosition(): void {
+    this.posicionarFiltroMenu(this.statusFiltroHost?.nativeElement, 'status', this.statusFiltroPanelMinWidth);
+  }
+
+  private updateGrupoFiltroMenuPosition(): void {
+    this.posicionarFiltroMenu(this.grupoFiltroHost?.nativeElement, 'grupo', this.grupoFiltroPanelMinWidth);
+  }
+
+  private updateDataFiltroMenuPosition(): void {
+    this.posicionarFiltroMenu(this.dataFiltroHost?.nativeElement, 'data', this.dataFiltroPanelMinWidth);
+  }
+
+  private updateSetorFiltroMenuPosition(): void {
+    this.posicionarFiltroMenu(this.setorFiltroHost?.nativeElement, 'setor', this.setorFiltroPanelMinWidth);
+  }
+
+  private posicionarFiltroMenu(
+    hostEl: HTMLElement | undefined,
+    alvo: 'status' | 'grupo' | 'data' | 'setor',
+    minW: number,
+  ): void {
+    if (!hostEl) return;
+    const r = hostEl.getBoundingClientRect();
+    const gap = 4;
+    let left = r.left + r.width / 2 - minW / 2;
+    const top = r.bottom + gap;
+    const pad = 8;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    if (left < pad) left = pad;
+    if (left + minW > vw - pad) left = Math.max(pad, vw - pad - minW);
+    if (alvo === 'status') {
+      this.statusFiltroPanelTop = top;
+      this.statusFiltroPanelLeft = left;
+      this.statusFiltroPanelMinWidth = minW;
+    } else if (alvo === 'grupo') {
+      this.grupoFiltroPanelTop = top;
+      this.grupoFiltroPanelLeft = left;
+      this.grupoFiltroPanelMinWidth = minW;
+    } else if (alvo === 'data') {
+      this.dataFiltroPanelTop = top;
+      this.dataFiltroPanelLeft = left;
+      this.dataFiltroPanelMinWidth = minW;
+    } else {
+      this.setorFiltroPanelTop = top;
+      this.setorFiltroPanelLeft = left;
+      this.setorFiltroPanelMinWidth = minW;
+    }
+    this.cdr.markForCheck();
+  }
+
+  selectStatusFiltro(val: string): void {
+    this.filtroStatus = val;
+    this.menuFiltroStatusAberto = false;
+  }
+
+  selectGrupoFiltro(grupoId: FiltroGrupoMatch): void {
+    this.filtroGrupoId = grupoId;
+    this.menuFiltroGrupoAberto = false;
+  }
+
+  selectSetorFiltro(setorId: FiltroSetorMatch): void {
+    this.filtroSetorId = setorId;
+    this.menuFiltroSetorAberto = false;
+  }
+
+  selectDataEventoFiltro(val: string): void {
+    this.filtroDataEvento = (val || '').trim();
+    this.cdr.markForCheck();
+  }
+
+  limparFiltroData(): void {
+    this.filtroDataEvento = '';
+    this.menuFiltroDataAberto = false;
+    this.cdr.markForCheck();
+  }
+
+  private matchMatchesGrupoFiltro(m: any): boolean {
+    if (this.filtroGrupoId === 'PUBLICO') return m.grupo_id == null;
+    return Number(m.grupo_id) === this.filtroGrupoId;
+  }
+
+  private matchMatchesDataEventoFiltro(m: any): boolean {
+    const key = this.dataJogoParaChave(m);
+    if (!key) return false;
+    return key === this.filtroDataEvento;
+  }
+
+  private matchMatchesSetorFiltro(m: any): boolean {
+    if (this.filtroSetorId === 'SEM_SETOR') return m.setor_evento_id == null;
+    return Number(m.setor_evento_id) === this.filtroSetorId;
+  }
+
+  private dataJogoParaChave(m: any): string | null {
+    const local = this.formatIsoParaDatetimeLocal(m?.data_jogo);
+    const key = this.dataJogoParaApenasData(local);
+    return key || null;
+  }
+
+  private formatIsoParaDatetimeLocal(iso: string | null | undefined): string {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch {
+      return '';
+    }
+  }
+
+  private dataJogoParaApenasData(dataJogoLocal: string): string {
+    if (!dataJogoLocal) return '';
+    const part = dataJogoLocal.trim().split('T')[0];
+    return /^\d{4}-\d{2}-\d{2}$/.test(part) ? part : '';
+  }
+
+  private compareByDataEvento(a: any, b: any): number {
+    const da = this.parseDate(a?.data_jogo)?.getTime();
+    const db = this.parseDate(b?.data_jogo)?.getTime();
+    if (da != null && db != null) return da - db;
+    if (da != null) return -1;
+    if (db != null) return 1;
+    return String(a?.titulo || '').localeCompare(String(b?.titulo || ''), 'pt-BR');
+  }
+
+  private parseDate(value: unknown): Date | null {
+    if (!value) return null;
+    const d = new Date(value as string);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  private textoBuscaBid(m: any): string {
+    const fmt = (d: unknown): string => {
+      if (d == null || d === '') return '';
+      try {
+        const date = new Date(d as string);
+        if (Number.isNaN(date.getTime())) return String(d).toLowerCase();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      } catch {
+        return String(d).toLowerCase();
+      }
+    };
+    const parts = [
+      m.titulo,
+      m.nome_grupo,
+      m.local,
+      m.setor_evento_nome,
+      m.status,
+      fmt(m.data_jogo),
+      fmt(m.data_inicio_apostas),
+      fmt(m.data_limite_aposta),
+      fmt(m.data_apuracao),
+      m.id != null ? String(m.id) : '',
+    ];
+    return parts
+      .filter((x) => x != null && String(x).length > 0)
+      .map((x) => String(x).toLowerCase())
+      .join(' ');
+  }
+
   podeDisparar(m: any): boolean {
-    if (this.tipoAtivo === 'BID_ABERTO') return true;
+    if (this.tipoAtivo === 'BID_ABERTO' || this.tipoAtivo === 'EVENTO') return true;
     const status = (m.status || '').toUpperCase();
     if (this.tipoAtivo === 'BID_ENCERRADO' || this.tipoAtivo === 'GANHADORES') {
       return status === 'ENCERRADA' || status === 'FINALIZADA';
     }
     return true;
+  }
+
+  get matchesDisparaveisFiltrados(): any[] {
+    return this.matchesFiltrados.filter((m) => this.podeDisparar(m));
+  }
+
+  get quantidadeSelecionados(): number {
+    return this.bidsSelecionados.size;
+  }
+
+  get todosDisparaveisSelecionados(): boolean {
+    const disparaveis = this.matchesDisparaveisFiltrados;
+    if (disparaveis.length === 0) return false;
+    return disparaveis.every((m) => this.bidsSelecionados.has(m.id));
+  }
+
+  get selecaoParcial(): boolean {
+    const disparaveis = this.matchesDisparaveisFiltrados;
+    if (disparaveis.length === 0) return false;
+    const selected = disparaveis.filter((m) => this.bidsSelecionados.has(m.id)).length;
+    return selected > 0 && selected < disparaveis.length;
+  }
+
+  isBidSelecionado(id: number): boolean {
+    return this.bidsSelecionados.has(id);
+  }
+
+  toggleBidSelecionado(id: number, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) this.bidsSelecionados.add(id);
+    else this.bidsSelecionados.delete(id);
+  }
+
+  toggleSelecionarTodos(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const disparaveis = this.matchesDisparaveisFiltrados;
+    if (checked) {
+      disparaveis.forEach((m) => this.bidsSelecionados.add(m.id));
+    } else {
+      disparaveis.forEach((m) => this.bidsSelecionados.delete(m.id));
+    }
+  }
+
+  limparSelecaoBids(): void {
+    this.bidsSelecionados.clear();
   }
 
   private escapeHtml(s: string): string {
@@ -1110,6 +1797,7 @@ export class DisparoEmailsComponent implements OnInit {
           if (t === 'BID_ABERTO') return 'Bid Aberto';
           if (t === 'BID_ENCERRADO') return 'Bid Encerrado';
           if (t === 'GANHADORES') return 'Ganhadores';
+          if (t === 'EVENTO') return 'Evento';
           if (t === 'USUARIO_CRIADO') return 'Criação de utilizador';
           if (t === 'WT_PASS_PROMOVIDO_FILA') return 'WT Pass — vaga na fila';
           return t || '—';
@@ -1260,7 +1948,7 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   abrirModalDisparo(match: any): void {
-    if (this.tipoAtivo !== 'BID_ABERTO' && (match.status || '').toUpperCase() !== 'ENCERRADA' && (match.status || '').toUpperCase() !== 'FINALIZADA') {
+    if (this.tipoAtivo !== 'BID_ABERTO' && this.tipoAtivo !== 'EVENTO' && (match.status || '').toUpperCase() !== 'ENCERRADA' && (match.status || '').toUpperCase() !== 'FINALIZADA') {
       Swal.fire('Atenção', 'Este disparo só é permitido para BID já encerrado ou finalizado.', 'warning');
       return;
     }
@@ -1272,8 +1960,6 @@ export class DisparoEmailsComponent implements OnInit {
       next: ({ listas, templates }) => {
         this.listas = listas || [];
         const all = templates || [];
-        // Mostrar apenas templates cujo tipo é exatamente o selecionado (BID_ABERTO, BID_ENCERRADO ou GANHADORES).
-        // Templates com tipo "Qualquer" (null/vazio) não aparecem quando um tipo específico está selecionado.
         this.templates = all.filter((t) => t.tipo_disparo === this.tipoAtivo);
         this.mostrarModalDisparo(match);
       },
@@ -1281,8 +1967,29 @@ export class DisparoEmailsComponent implements OnInit {
     });
   }
 
+  abrirModalDisparoLote(): void {
+    if (this.bidsSelecionados.size < 1) {
+      Swal.fire('Atenção', 'Selecione ao menos um evento na tabela.', 'warning');
+      return;
+    }
+
+    const matches = this.matches.filter((m) => this.bidsSelecionados.has(m.id));
+    forkJoin({
+      listas: this.emailService.getLists(),
+      templates: this.emailService.getTemplates(),
+    }).subscribe({
+      next: ({ listas, templates }) => {
+        this.listas = listas || [];
+        const all = templates || [];
+        this.templates = all.filter((t) => t.tipo_disparo === 'EVENTO');
+        this.mostrarModalDisparoLote(matches);
+      },
+      error: () => Swal.fire('Erro', 'Falha ao carregar listas ou templates.', 'error'),
+    });
+  }
+
   private mostrarModalDisparo(match: any): void {
-    const usaLista = this.tipoAtivo === 'BID_ABERTO' || this.tipoAtivo === 'BID_ENCERRADO';
+    const usaLista = this.tipoAtivo === 'BID_ABERTO' || this.tipoAtivo === 'BID_ENCERRADO' || this.tipoAtivo === 'EVENTO';
     const listasOptions =
       this.listas.length > 0
         ? this.listas.map((l) => `<option value="${l.id}">${l.nome}</option>`).join('')
@@ -1301,6 +2008,9 @@ export class DisparoEmailsComponent implements OnInit {
       <p class="text-left text-xs text-gray-500 mb-3">Tipo: <strong>${this.getLabelTipo(this.tipoAtivo)}</strong></p>
       <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Template</label>
       <select id="swal-template" class="swal2-input w-full m-0 mb-1">${templatesOptions}</select>
+      <button type="button" id="swal-preview" class="mt-2 mb-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition">
+        👁 Pré-visualizar e-mail
+      </button>
       ${hintSemTemplate}
     `;
 
@@ -1334,6 +2044,30 @@ export class DisparoEmailsComponent implements OnInit {
         const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
         const wrapLista = popup?.querySelector('#swal-lista-wrap');
         const wrapPersonalizado = popup?.querySelector('#swal-personalizado-wrap');
+        popup?.querySelector('#swal-preview')?.addEventListener('click', () => {
+          const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
+          const templateId = templateEl ? Number(templateEl.value) : 0;
+          if (!templateId) {
+            Swal.fire('Atenção', 'Selecione o template para pré-visualizar.', 'warning');
+            return;
+          }
+          this.emailService.previewTemplate(templateId, match.id).subscribe({
+            next: (res) => {
+              const pdfNote =
+                this.tipoAtivo === 'BID_ENCERRADO'
+                  ? '<p class="text-xs text-amber-600 mt-2 mb-2">O PDF de ganhadores é anexado apenas no envio real.</p>'
+                  : '';
+              Swal.fire({
+                title: res.assunto || 'Pré-visualização',
+                html: `${pdfNote}<div class="text-left max-h-[60vh] overflow-auto border border-gray-200 rounded-lg p-4 bg-white">${res.html || ''}</div>`,
+                width: '700px',
+                showConfirmButton: true,
+                confirmButtonText: 'Fechar',
+              });
+            },
+            error: (err) => Swal.fire('Erro', err.error?.error || 'Não foi possível carregar a pré-visualização.', 'error'),
+          });
+        });
         if (dest) {
           dest.value = 'grupo';
           const updateVisibility = () => {
@@ -1427,6 +2161,227 @@ export class DisparoEmailsComponent implements OnInit {
     });
   }
 
+  private mostrarModalDisparoLote(matches: any[]): void {
+    const previewMatch = matches[0];
+    const listasOptions =
+      this.listas.length > 0
+        ? this.listas.map((l) => `<option value="${l.id}">${l.nome}</option>`).join('')
+        : '<option value="">— Nenhuma lista —</option>';
+    const templatesOptions =
+      this.templates.length > 0
+        ? this.templates.map((t) => `<option value="${t.id}">${t.nome} – ${t.assunto}</option>`).join('')
+        : '<option value="">— Nenhum template para este tipo —</option>';
+    const hintSemTemplate =
+      this.templates.length === 0
+        ? `<p class="text-left text-xs text-amber-600 mt-1 mb-2">Atribua o tipo "<strong>${this.getLabelTipo('EVENTO')}</strong>" aos templates em Configurações → Templates de e-mail para que apareçam aqui.</p>`
+        : '';
+
+    const maxShow = 5;
+    const titulos = matches.map((m) => m.titulo);
+    let resumoEventos = `<p class="text-left text-sm text-gray-600 mb-2">Serão disparados <strong>${matches.length}</strong> evento(s):</p>`;
+    if (titulos.length <= maxShow) {
+      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-3 list-disc pl-5">${titulos.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
+    } else {
+      const shown = titulos.slice(0, maxShow);
+      const rest = titulos.length - maxShow;
+      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-1 list-disc pl-5">${shown.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
+      resumoEventos += `<p class="text-left text-xs text-gray-500 mb-3">… e mais ${rest} evento(s)</p>`;
+    }
+
+    let html = `
+      ${resumoEventos}
+      <p class="text-left text-xs text-gray-500 mb-3">Tipo: <strong>${this.getLabelTipo('EVENTO')}</strong></p>
+      <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Template</label>
+      <select id="swal-template" class="swal2-input w-full m-0 mb-1">${templatesOptions}</select>
+      <button type="button" id="swal-preview" class="mt-2 mb-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition">
+        👁 Pré-visualizar e-mail
+      </button>
+      <p class="text-left text-xs text-gray-400 mb-2">A pré-visualização usa o primeiro evento selecionado.</p>
+      ${hintSemTemplate}
+      <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Destinatários</label>
+      <select id="swal-dest" class="swal2-input w-full m-0 mb-2">
+        <option value="grupo" selected>Participantes do grupo</option>
+        <option value="lista">Lista de e-mails</option>
+        <option value="personalizado">Envio personalizado</option>
+      </select>
+      <div id="swal-lista-wrap" class="hidden">
+        <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Lista</label>
+        <select id="swal-lista" class="swal2-input w-full m-0">${listasOptions}</select>
+      </div>
+      <div id="swal-personalizado-wrap" class="hidden mt-2">
+        <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">E-mails (um por linha ou separados por vírgula)</label>
+        <textarea id="swal-emails-personalizado" class="swal2-textarea w-full m-0 text-sm" rows="4" placeholder="email1@exemplo.com&#10;email2@exemplo.com"></textarea>
+      </div>
+    `;
+
+    Swal.fire({
+      title: 'Disparar e-mails em lote',
+      html,
+      showCancelButton: true,
+      confirmButtonText: 'Disparar selecionados',
+      confirmButtonColor: '#4f46e5',
+      didOpen: () => {
+        const popup = Swal.getPopup();
+        const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
+        const wrapLista = popup?.querySelector('#swal-lista-wrap');
+        const wrapPersonalizado = popup?.querySelector('#swal-personalizado-wrap');
+        popup?.querySelector('#swal-preview')?.addEventListener('click', () => {
+          const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
+          const templateId = templateEl ? Number(templateEl.value) : 0;
+          if (!templateId) {
+            Swal.fire('Atenção', 'Selecione o template para pré-visualizar.', 'warning');
+            return;
+          }
+          this.emailService.previewTemplate(templateId, previewMatch.id).subscribe({
+            next: (res) => {
+              Swal.fire({
+                title: res.assunto || 'Pré-visualização',
+                html: `<div class="text-left max-h-[60vh] overflow-auto border border-gray-200 rounded-lg p-4 bg-white">${res.html || ''}</div>`,
+                width: '700px',
+                showConfirmButton: true,
+                confirmButtonText: 'Fechar',
+              });
+            },
+            error: (err) => Swal.fire('Erro', err.error?.error || 'Não foi possível carregar a pré-visualização.', 'error'),
+          });
+        });
+        if (dest) {
+          dest.value = 'grupo';
+          const updateVisibility = () => {
+            if (wrapLista) (wrapLista as HTMLElement).classList.toggle('hidden', dest.value !== 'lista');
+            if (wrapPersonalizado) (wrapPersonalizado as HTMLElement).classList.toggle('hidden', dest.value !== 'personalizado');
+          };
+          dest.addEventListener('change', updateVisibility);
+          updateVisibility();
+        }
+      },
+      preConfirm: () => {
+        const popup = Swal.getPopup();
+        const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
+        const templateId = templateEl ? Number(templateEl.value) : 0;
+        if (!templateId) {
+          Swal.showValidationMessage('Selecione o template.');
+          return null;
+        }
+        let listaId: number | undefined;
+        let usarGrupo = false;
+        let emailsPersonalizados: string[] | undefined;
+        const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
+        const destValue = (dest?.value ?? 'grupo').trim() || 'grupo';
+        if (destValue === 'lista') {
+          const listaEl = popup?.querySelector('#swal-lista') as HTMLSelectElement | null;
+          listaId = listaEl ? Number(listaEl.value) : undefined;
+          if (!listaId) {
+            Swal.showValidationMessage('Selecione a lista de e-mails.');
+            return null;
+          }
+        } else if (destValue === 'personalizado') {
+          const textarea = popup?.querySelector('#swal-emails-personalizado') as HTMLTextAreaElement | null;
+          const raw = (textarea?.value ?? '').trim();
+          const list = raw
+            .split(/[\n,;]+/)
+            .map((e) => e.trim().toLowerCase())
+            .filter((e) => e.length > 0);
+          const valid = list.filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+          if (valid.length === 0) {
+            Swal.showValidationMessage('Informe ao menos um e-mail válido no envio personalizado.');
+            return null;
+          }
+          emailsPersonalizados = valid;
+        } else {
+          usarGrupo = true;
+        }
+        return { templateId, listaId, usarGrupo, emailsPersonalizados };
+      },
+    }).then(async (result) => {
+      if (result.isConfirmed && result.value) {
+        const { templateId, listaId, usarGrupo, emailsPersonalizados } = result.value!;
+        await this.executarDisparoLote(matches, templateId, { listaId, usarGrupo, emailsPersonalizados });
+      }
+    });
+  }
+
+  private async executarDisparoLote(
+    matches: any[],
+    templateId: number,
+    opcoes: { listaId?: number; usarGrupo: boolean; emailsPersonalizados?: string[] }
+  ): Promise<void> {
+    openDisparoProgressModal();
+    const totalEventos = matches.length;
+    const aggregate: SendEmailsResponse = {
+      enviados: 0,
+      total: 0,
+      destinatarios: [],
+      erros: [],
+    };
+
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      let progressState: DisparoProgressState = {
+        total: 0,
+        enviados: 0,
+        processados: 0,
+        recentItems: [],
+        eventoIndice: i + 1,
+        totalEventos,
+        tituloEvento: match.titulo,
+      };
+      updateDisparoProgressModal(progressState);
+
+      try {
+        const res = await this.emailService.sendStream(
+          match.id,
+          templateId,
+          this.currentUser?.id,
+          { ...opcoes, tipoDisparo: 'EVENTO' },
+          {
+            onInit: ({ total }) => {
+              progressState = {
+                ...progressState,
+                total,
+                enviados: 0,
+                processados: 0,
+                recentItems: [],
+              };
+              updateDisparoProgressModal(progressState);
+            },
+            onProgress: (progress) => {
+              progressState = appendProgressItem(progressState, progress);
+              updateDisparoProgressModal(progressState);
+            },
+          }
+        );
+        aggregate.enviados += res.enviados;
+        aggregate.total += res.total;
+        if (res.destinatarios?.length) aggregate.destinatarios!.push(...res.destinatarios);
+        if (res.erros?.length) aggregate.erros!.push(...res.erros);
+      } catch (err: unknown) {
+        const partial =
+          (err as { partial?: SendEmailsResponse })?.partial ?? buildPartialFromProgress(progressState);
+        if (partial) {
+          aggregate.enviados += partial.enviados;
+          aggregate.total += partial.total;
+          if (partial.destinatarios?.length) aggregate.destinatarios!.push(...partial.destinatarios);
+          if (partial.erros?.length) aggregate.erros!.push(...partial.erros);
+        }
+        const message = err instanceof Error ? err.message : `Falha no evento "${match.titulo}".`;
+        aggregate.erros!.push(message);
+      }
+    }
+
+    Swal.close();
+    const errosLista = aggregate.erros?.filter(Boolean) ?? [];
+    const resFinal: SendEmailsResponse = {
+      enviados: aggregate.enviados,
+      total: aggregate.total,
+      destinatarios: aggregate.destinatarios,
+      erros: errosLista.length ? errosLista : undefined,
+    };
+    await showDisparoResultModal(resFinal, `${totalEventos} evento(s) processado(s).`);
+    this.limparSelecaoBids();
+    this.carregarMatches();
+  }
+
   private getLabelTipo(t: TipoDisparo): string {
     switch (t) {
       case 'BID_ABERTO':
@@ -1435,6 +2390,8 @@ export class DisparoEmailsComponent implements OnInit {
         return '2 – Bid Encerrado';
       case 'GANHADORES':
         return '3 – Ganhadores';
+      case 'EVENTO':
+        return '4 – Evento (agrupar)';
       default:
         return t;
     }
@@ -1449,6 +2406,8 @@ export class DisparoEmailsComponent implements OnInit {
         return 'Bid encerrado';
       case 'GANHADORES':
         return 'Ganhadores';
+      case 'EVENTO':
+        return 'Evento';
       case 'USUARIO_CRIADO':
         return 'Criação de utilizador';
       case 'WT_PASS_PROMOVIDO_FILA':
