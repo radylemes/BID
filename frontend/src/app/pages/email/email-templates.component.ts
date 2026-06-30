@@ -21,6 +21,11 @@ const TAGS_DISPONIVEIS = [
   { tag: '{{usuario.senha}}', desc: 'Senha inicial (só no e-mail de criação de utilizador)' },
   { tag: '{{senha}}', desc: 'Senha inicial — atalho (só no e-mail de criação de utilizador)' },
   { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
+  { tag: '{{resumo.total_ingressos}}', desc: 'Total de ingressos sorteados (Área de Ingressos)' },
+  { tag: '{{resumo.qtd_eventos}}', desc: 'Quantidade de eventos selecionados' },
+  { tag: '{{resumo.eventos_titulos}}', desc: 'Títulos dos eventos selecionados' },
+  { tag: '{{resumo.setores_tabela}}', desc: 'Tabela HTML com ingressos por setor' },
+  { tag: '{{resumo.setores_lista}}', desc: 'Lista texto com ingressos por setor' },
 ];
 
 @Component({
@@ -170,7 +175,7 @@ export class EmailTemplatesComponent implements OnInit {
               <option value="BID_ABERTO" ${t?.tipo_disparo === 'BID_ABERTO' ? 'selected' : ''}>Bid aberto</option>
               <option value="BID_ENCERRADO" ${t?.tipo_disparo === 'BID_ENCERRADO' ? 'selected' : ''}>Bid encerrado</option>
               <option value="GANHADORES" ${t?.tipo_disparo === 'GANHADORES' ? 'selected' : ''}>Ganhadores</option>
-              <option value="EVENTO" ${t?.tipo_disparo === 'EVENTO' ? 'selected' : ''}>Evento</option>
+              <option value="AREA_INGRESSOS" ${t?.tipo_disparo === 'AREA_INGRESSOS' ? 'selected' : ''}>Área de Ingressos</option>
               <option value="USUARIO_CRIADO" ${t?.tipo_disparo === 'USUARIO_CRIADO' ? 'selected' : ''}>Criação de utilizador</option>
               <option value="WT_PASS_PROMOVIDO_FILA" ${t?.tipo_disparo === 'WT_PASS_PROMOVIDO_FILA' ? 'selected' : ''}>WT Pass — vaga na fila</option>
             </select>

@@ -33,6 +33,11 @@ router.get("/partida/:partidaId/pdf-ganhadores", authMiddleware, authorizeRoles(
 router.post("/send", authMiddleware, authorizeRoles("ADMIN"), emailController.sendEmails);
 router.post("/send-stream", authMiddleware, authorizeRoles("ADMIN"), emailController.sendEmailsStream);
 
+// Área de Ingressos (ADMIN)
+router.post("/area-ingressos/preview", authMiddleware, authorizeRoles("ADMIN"), emailController.previewAreaIngressos);
+router.post("/area-ingressos/send", authMiddleware, authorizeRoles("ADMIN"), emailController.sendAreaIngressos);
+router.post("/area-ingressos/send-stream", authMiddleware, authorizeRoles("ADMIN"), emailController.sendAreaIngressosStream);
+
 // Teste SMTP (ADMIN)
 router.post("/test", authMiddleware, authorizeRoles("ADMIN"), emailController.testSmtp);
 

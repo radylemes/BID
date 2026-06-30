@@ -693,9 +693,7 @@ async function finalizarDisparo(prepared, resultados, adminId) {
         ? "email_bid_encerrado_em"
         : tipoDisparo === "GANHADORES"
           ? "email_ganhadores_em"
-          : tipoDisparo === "EVENTO"
-            ? "email_evento_em"
-            : null;
+          : null;
   if (colunaDisparo && enviados > 0) {
     await db.query(`UPDATE partidas SET ${colunaDisparo} = NOW() WHERE id = ?`, [partidaId]);
   }
@@ -1011,7 +1009,7 @@ const TIPOS_DISPARO_VALIDOS = [
   "BID_ABERTO",
   "BID_ENCERRADO",
   "GANHADORES",
-  "EVENTO",
+  "AREA_INGRESSOS",
   "USUARIO_CRIADO",
   "WT_PASS_PROMOVIDO_FILA",
 ];
@@ -1061,7 +1059,7 @@ exports.createTemplate = async (req, res) => {
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
       return res.status(400).json({
         error:
-          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, EVENTO, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, AREA_INGRESSOS, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
       });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
@@ -1107,7 +1105,7 @@ exports.updateTemplate = async (req, res) => {
     if (tipo_disparo != null && tipo_disparo !== "" && !TIPOS_DISPARO_VALIDOS.includes(String(tipo_disparo))) {
       return res.status(400).json({
         error:
-          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, EVENTO, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
+          "tipo_disparo deve ser BID_ABERTO, BID_ENCERRADO, GANHADORES, AREA_INGRESSOS, USUARIO_CRIADO ou WT_PASS_PROMOVIDO_FILA.",
       });
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
@@ -1864,6 +1862,395 @@ exports.getPdfGanhadores = async (req, res) => {
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_GET_PDF_GANHADORES", error);
     res.status(500).json({ error: "Erro ao gerar PDF." });
+  }
+};
+
+// ==================== ÁREA DE INGRESSOS ====================
+
+function normalizePartidaIds(raw) {
+  if (!Array.isArray(raw)) return [];
+  return [
+    ...new Set(
+      raw.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+    ),
+  ];
+}
+
+async function buildResumoAreaIngressos(partidaIds) {
+  if (!partidaIds.length) {
+    return { error: "Informe ao menos um evento (partidaIds).", status: 400 };
+  }
+
+  const placeholders = partidaIds.map(() => "?").join(",");
+
+  const [partidas] = await db.query(
+    `SELECT p.id, p.titulo, p.data_jogo, p.local, p.status,
+            se.nome AS setor_evento_nome
+     FROM partidas p
+     LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+     WHERE p.id IN (${placeholders})
+     ORDER BY p.data_jogo ASC, p.titulo ASC`,
+    partidaIds
+  );
+
+  if (partidas.length === 0) {
+    return { error: "Nenhuma partida encontrada.", status: 404 };
+  }
+
+  const foundIds = new Set(partidas.map((p) => p.id));
+  const missing = partidaIds.filter((id) => !foundIds.has(id));
+  if (missing.length > 0) {
+    return { error: `Partida(s) não encontrada(s): ${missing.join(", ")}.`, status: 404 };
+  }
+
+  const [setoresRows] = await db.query(
+    `SELECT
+       COALESCE(se.id, 0) AS setor_evento_id,
+       COALESCE(se.nome, 'Sem setor') AS setor_nome,
+       COUNT(i.id) AS qtd_ingressos
+     FROM partidas p
+     LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+     LEFT JOIN apostas a ON a.partida_id = p.id
+     LEFT JOIN ingressos i ON i.aposta_id = a.id
+     WHERE p.id IN (${placeholders})
+     GROUP BY se.id, se.nome
+     ORDER BY se.nome`,
+    partidaIds
+  );
+
+  const setores = setoresRows.map((r) => ({
+    setor_evento_id: r.setor_evento_id,
+    setor_nome: r.setor_nome,
+    qtd_ingressos: Number(r.qtd_ingressos || 0),
+  }));
+
+  const totalIngressos = setores.reduce((sum, s) => sum + s.qtd_ingressos, 0);
+  const eventosTitulos = partidas.map((p) => (p.titulo || `BID #${p.id}`).trim()).join(", ");
+
+  const setoresLista = setores.map((s) => `${s.setor_nome}: ${s.qtd_ingressos}`).join("\n");
+
+  const rowsHtml = setores
+    .map(
+      (s) =>
+        `<tr><td style="padding:8px 12px;border:1px solid #e2e8f0;">${escapeHtmlPdf(s.setor_nome)}</td><td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;">${s.qtd_ingressos}</td></tr>`
+    )
+    .join("");
+
+  const setoresTabela = `<table style="border-collapse:collapse;width:100%;max-width:480px;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
+<thead><tr style="background-color:#f1f5f9;">
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Setor</th>
+<th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;">Ingressos</th>
+</tr></thead>
+<tbody>${rowsHtml}
+<tr style="background-color:#f8fafc;font-weight:bold;">
+<td style="padding:8px 12px;border:1px solid #e2e8f0;">Total</td>
+<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;">${totalIngressos}</td>
+</tr></tbody></table>`;
+
+  const resumo = {
+    total_ingressos: String(totalIngressos),
+    qtd_eventos: String(partidas.length),
+    eventos_titulos: eventosTitulos,
+    setores_tabela: setoresTabela,
+    setores_lista: setoresLista,
+  };
+
+  return { resumo, partidas, setores, partidaIds };
+}
+
+async function prepareAreaIngressosDisparo(body, req) {
+  const { partidaIds: rawIds, listaId, templateId, emailsPersonalizados } = body;
+  const partidaIds = normalizePartidaIds(rawIds);
+
+  if (!partidaIds.length) {
+    return { error: "Informe ao menos um evento (partidaIds).", status: 400 };
+  }
+  if (!templateId) {
+    return { error: "templateId é obrigatório.", status: 400 };
+  }
+
+  const listaPersonalizada =
+    Array.isArray(emailsPersonalizados) && emailsPersonalizados.length > 0
+      ? emailsPersonalizados
+          .filter((e) => typeof e === "string" && e.trim().length > 0)
+          .map((e) => String(e).trim().toLowerCase())
+      : null;
+
+  if (!listaId && !listaPersonalizada?.length) {
+    return {
+      error: "Informe a lista de e-mails ou use envio personalizado.",
+      status: 400,
+    };
+  }
+
+  const mailSender = await getMailSender();
+  if (!mailSender) {
+    return { error: NOT_CONFIGURED_MSG, status: 400 };
+  }
+
+  const built = await buildResumoAreaIngressos(partidaIds);
+  if (built.error) return built;
+
+  const [templates] = await db.query(
+    "SELECT id, assunto, corpo_html FROM templates_email WHERE id = ?",
+    [templateId]
+  );
+  if (templates.length === 0) {
+    return { error: "Template não encontrado.", status: 404 };
+  }
+  const template = templates[0];
+
+  let itens;
+  if (listaPersonalizada?.length) {
+    itens = listaPersonalizada.map((email) => ({
+      id: null,
+      email,
+      nome_opcional: null,
+    }));
+  } else {
+    const [itensRows] = await db.query(
+      "SELECT id, email, nome_opcional FROM listas_email_itens WHERE lista_id = ?",
+      [listaId]
+    );
+    itens = itensRows;
+    if (itens.length === 0) {
+      return { error: "A lista não possui destinatários.", status: 400 };
+    }
+  }
+
+  const itensValidos = itens.filter((item) => String(item.email || "").trim());
+
+  return {
+    partidaIds,
+    listaId,
+    templateId,
+    mailSender,
+    emailFrom: mailSender.from,
+    resumo: built.resumo,
+    setores: built.setores,
+    partidas: built.partidas,
+    template,
+    itensValidos,
+    adminId: body.adminId || req.user?.id,
+    evento: { ...DEFAULT_EVENTO, titulo: built.resumo.eventos_titulos },
+  };
+}
+
+function createAreaIngressosSendFn(prepared) {
+  const { emailFrom, resumo, template, evento } = prepared;
+
+  const sendOne = async (mailOptions) => {
+    try {
+      await prepared.mailSender.sendMail(mailOptions);
+      return { ok: true };
+    } catch (err) {
+      if (prepared.mailSender.provider === "smtp" && isSmtpConnectionError(err)) {
+        try {
+          const fresh = await refreshSmtpMailSender();
+          if (fresh) {
+            prepared.mailSender = fresh;
+            await fresh.sendMail(mailOptions);
+            return { ok: true };
+          }
+        } catch (retryErr) {
+          await logErro("EMAIL_AREA_INGRESSOS_SEND_RETRY", retryErr);
+          err = retryErr;
+        }
+      }
+      throw err;
+    }
+  };
+
+  return async (item) => {
+    const email = String(item.email).trim();
+    try {
+      let nome = item.nome_opcional && String(item.nome_opcional).trim();
+      const [users] = await db.query(
+        "SELECT nome_completo FROM usuarios WHERE email = ? LIMIT 1",
+        [email]
+      );
+      if (users.length > 0 && !nome) nome = users[0].nome_completo || email;
+      if (!nome) nome = email;
+
+      const usuario = { nome, email, ingressos_ganhos: "0" };
+      const context = { evento, usuario, resumo };
+      const assunto = replaceTemplateTags(template.assunto, context);
+      const html = replaceTemplateTags(template.corpo_html, context);
+
+      return await sendOne({
+        from: emailFrom,
+        to: email,
+        subject: assunto,
+        html,
+      });
+    } catch (err) {
+      await logErro("EMAIL_AREA_INGRESSOS_SEND_ONE", err);
+      const msg = err.message || "Erro ao enviar";
+      return { ok: false, erro: `${email}: ${msg}` };
+    }
+  };
+}
+
+async function finalizarAreaIngressosDisparo(prepared, resultados, adminId) {
+  const { partidaIds, listaId, templateId, itensValidos, resumo, setores } = prepared;
+  const { enviados, erros, destinatarios } = resultados;
+
+  await gravarAuditoria(db, adminId, "EMAIL", "DISPARO", partidaIds[0] || null, {
+    partidaIds,
+    listaId: listaId || null,
+    templateId,
+    tipoDisparo: "AREA_INGRESSOS",
+    totalDestinatarios: itensValidos.length,
+    enviados,
+    erros: erros.length,
+    errosLista: erros.slice(0, 50),
+    destinatarios,
+    resumo,
+    setores,
+  });
+}
+
+exports.previewAreaIngressos = async (req, res) => {
+  try {
+    const { partidaIds: rawIds, templateId } = req.body || {};
+    const partidaIds = normalizePartidaIds(rawIds);
+    if (!partidaIds.length) {
+      return res.status(400).json({ error: "Informe ao menos um evento (partidaIds)." });
+    }
+    if (!templateId) {
+      return res.status(400).json({ error: "templateId é obrigatório." });
+    }
+
+    const built = await buildResumoAreaIngressos(partidaIds);
+    if (built.error) {
+      return res.status(built.status || 400).json({ error: built.error });
+    }
+
+    const [templates] = await db.query(
+      "SELECT assunto, corpo_html FROM templates_email WHERE id = ?",
+      [templateId]
+    );
+    if (templates.length === 0) {
+      return res.status(404).json({ error: "Template não encontrado." });
+    }
+    const template = templates[0];
+
+    const evento = { ...DEFAULT_EVENTO, titulo: built.resumo.eventos_titulos };
+    const usuario = { ...DEFAULT_USUARIO };
+    const context = { evento, usuario, resumo: built.resumo };
+
+    res.json({
+      assunto: replaceTemplateTags(template.assunto, context),
+      html: replaceTemplateTags(template.corpo_html, context),
+      resumo: built.resumo,
+      setores: built.setores,
+    });
+  } catch (error) {
+    await logErro("EMAIL_CONTROLLER_PREVIEW_AREA_INGRESSOS", error);
+    res.status(500).json({ error: "Erro ao gerar pré-visualização." });
+  }
+};
+
+exports.sendAreaIngressos = async (req, res) => {
+  let prepared = null;
+  let resultados = { enviados: 0, erros: [], destinatarios: [] };
+  let fatalError = null;
+
+  try {
+    console.log("[EMAIL AREA INGRESSOS] body:", req.body);
+    const prep = await prepareAreaIngressosDisparo(req.body, req);
+    if (prep.error) {
+      return res.status(prep.status || 400).json({ error: prep.error });
+    }
+    prepared = prep;
+    const disparoOpts = await getDisparoOpts(prepared.mailSender);
+    resultados = await enviarEmBlocos(
+      prepared.itensValidos,
+      createAreaIngressosSendFn(prepared),
+      disparoOpts
+    );
+  } catch (error) {
+    await logErro("EMAIL_CONTROLLER_SEND_AREA_INGRESSOS", error);
+    fatalError = error;
+  } finally {
+    if (prepared) {
+      try {
+        await finalizarAreaIngressosDisparo(prepared, resultados, prepared.adminId);
+      } catch (e) {
+        await logErro("EMAIL_CONTROLLER_SEND_AREA_INGRESSOS_FINALIZE", e);
+      }
+    }
+  }
+
+  if (!prepared) return;
+  if (fatalError) {
+    return res.status(500).json({
+      error: "Erro ao enviar e-mails.",
+      enviados: resultados.enviados,
+      total: prepared.itensValidos.length,
+      erros: resultados.erros.length > 0 ? resultados.erros : undefined,
+      destinatarios: resultados.destinatarios,
+    });
+  }
+
+  res.json({
+    enviados: resultados.enviados,
+    total: prepared.itensValidos.length,
+    erros: resultados.erros.length > 0 ? resultados.erros : undefined,
+    destinatarios: resultados.destinatarios,
+  });
+};
+
+exports.sendAreaIngressosStream = async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") {
+    res.flushHeaders();
+  }
+
+  let prepared = null;
+  let resultados = { enviados: 0, erros: [], destinatarios: [] };
+
+  try {
+    console.log("[EMAIL AREA INGRESSOS STREAM] body:", req.body);
+    const prep = await prepareAreaIngressosDisparo(req.body, req);
+    if (prep.error) {
+      sseWrite(res, "fatal", { error: prep.error });
+      return;
+    }
+    prepared = prep;
+
+    sseWrite(res, "init", { total: prepared.itensValidos.length });
+
+    const disparoOptsStream = await getDisparoOpts(prepared.mailSender);
+    resultados = await enviarEmBlocos(prepared.itensValidos, createAreaIngressosSendFn(prepared), {
+      ...disparoOptsStream,
+      onProgress: (progress) => {
+        sseWrite(res, "progress", progress);
+      },
+    });
+  } catch (error) {
+    await logErro("EMAIL_CONTROLLER_SEND_AREA_INGRESSOS_STREAM", error);
+    sseWrite(res, "fatal", { error: error.message || "Erro ao enviar e-mails." });
+  } finally {
+    if (prepared) {
+      try {
+        await finalizarAreaIngressosDisparo(prepared, resultados, prepared.adminId);
+      } catch (e) {
+        await logErro("EMAIL_CONTROLLER_SEND_AREA_INGRESSOS_STREAM_FINALIZE", e);
+      }
+      sseWrite(res, "done", {
+        enviados: resultados.enviados,
+        total: prepared.itensValidos.length,
+        erros: resultados.erros.length > 0 ? resultados.erros : undefined,
+        destinatarios: resultados.destinatarios,
+      });
+    }
+    if (!res.writableEnded) {
+      res.end();
+    }
   }
 };
 

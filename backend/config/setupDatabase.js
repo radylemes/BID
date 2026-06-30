@@ -1010,6 +1010,66 @@ async function initializeDatabase() {
       console.error("Migration template WT_PASS_PROMOVIDO_FILA:", e);
     }
 
+    const AREA_INGRESSOS_CORPO_HTML = `<table style="background-color: #f0f2f5;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="padding: 30px 10px;" align="center">
+<table style="max-width: 600px; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);" role="presentation" border="0" width="600" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="background-color: #1a2e4a; padding: 28px 25px;" align="center">
+<h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; color: #ffffff; font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">Área de Ingressos</h1>
+<p style="margin: 10px 0 0; color: #e2e8f0; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">Resumo de ingressos sorteados por setor</p>
+</td>
+</tr>
+<tr>
+<td style="background-color: #ffffff; padding: 30px 28px; font-family: Arial, Helvetica, sans-serif;">
+<p style="margin: 0 0 12px; color: #333333; font-size: 15px; line-height: 1.6;">Olá, <strong>{{usuario.nome}}</strong>,</p>
+<p style="margin: 0 0 16px; color: #333333; font-size: 14px; line-height: 1.6;">Segue o consolidado de <strong>{{resumo.qtd_eventos}}</strong> evento(s) com total de <strong>{{resumo.total_ingressos}}</strong> ingresso(s) sorteado(s):</p>
+<p style="margin: 0 0 8px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Eventos</p>
+<p style="margin: 0 0 20px; color: #333333; font-size: 13px; line-height: 1.5;">{{resumo.eventos_titulos}}</p>
+<p style="margin: 0 0 8px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Ingressos por setor</p>
+{{resumo.setores_tabela}}
+<p style="margin: 20px 0 0; color: #64748b; font-size: 12px; line-height: 1.5;">Este e-mail foi gerado automaticamente pelo sistema BID.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>`;
+
+    try {
+      const nomeTplArea = "Área de Ingressos — resumo por setor";
+      const assuntoTplArea = "Ingressos por setor — {{resumo.qtd_eventos}} evento(s)";
+      const [tplArea] = await connection.query(
+        "SELECT id FROM templates_email WHERE tipo_disparo = 'AREA_INGRESSOS' LIMIT 1"
+      );
+      if (tplArea.length === 0) {
+        await connection.execute(
+          "INSERT INTO templates_email (nome, assunto, corpo_html, tipo_disparo) VALUES (?, ?, ?, 'AREA_INGRESSOS')",
+          [nomeTplArea, assuntoTplArea, AREA_INGRESSOS_CORPO_HTML]
+        );
+        console.log("✨ Template de e-mail AREA_INGRESSOS inserido.");
+      }
+    } catch (e) {
+      console.error("Migration template AREA_INGRESSOS:", e);
+    }
+
+    try {
+      const [tplEventoRemovido] = await connection.query(
+        "UPDATE templates_email SET tipo_disparo = NULL WHERE tipo_disparo = 'EVENTO'"
+      );
+      if (tplEventoRemovido.affectedRows > 0) {
+        console.log(
+          `✨ Migration: ${tplEventoRemovido.affectedRows} template(s) com tipo EVENTO redefinido(s) para Qualquer.`
+        );
+      }
+    } catch (e) {
+      console.error("Migration templates EVENTO -> NULL:", e);
+    }
+
     // População Básica se estiver vazio
     const [users] = await connection.query("SELECT * FROM usuarios LIMIT 1");
     if (users.length === 0) {

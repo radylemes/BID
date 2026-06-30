@@ -19,7 +19,8 @@ import {
 } from './email-disparo-progress.util';
 import Swal from 'sweetalert2';
 
-type TipoDisparo = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
+type TipoDisparoIndividual = 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+type TipoDisparo = TipoDisparoIndividual | 'AREA_INGRESSOS';
 type FiltroGrupoMatch = number | 'PUBLICO' | null;
 type FiltroSetorMatch = number | 'SEM_SETOR' | null;
 
@@ -115,7 +116,7 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
               <option value="BID_ABERTO">1 – Bid Aberto</option>
               <option value="BID_ENCERRADO">2 – Bid Encerrado</option>
               <option value="GANHADORES">3 – Ganhadores</option>
-              <option value="EVENTO">4 – Evento (agrupar)</option>
+              <option value="AREA_INGRESSOS">4 – Área de Ingressos</option>
             </select>
           </div>
           <ul class="hidden sm:flex text-sm font-medium text-center -space-x-px" role="tablist">
@@ -171,16 +172,16 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
               <button
                 type="button"
                 role="tab"
-                [attr.aria-current]="tipoAtivo === 'EVENTO' ? 'page' : null"
-                (click)="setTipoAtivo('EVENTO')"
+                [attr.aria-current]="tipoAtivo === 'AREA_INGRESSOS' ? 'page' : null"
+                (click)="setTipoAtivo('AREA_INGRESSOS')"
                 [ngClass]="{
-                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'EVENTO',
-                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'EVENTO'
+                  'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)] font-semibold border-[var(--app-border)]': tipoAtivo === 'AREA_INGRESSOS',
+                  'bg-[var(--color-bg-surface)] text-[var(--app-text-muted)] hover:bg-[var(--color-bg-surface-alt)] hover:text-[var(--app-text)] border-transparent hover:border-[var(--app-border)]': tipoAtivo !== 'AREA_INGRESSOS'
                 }"
                 class="inline-flex items-center justify-center w-full border rounded-r-lg font-medium leading-5 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
               >
-                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                4 – Evento (agrupar)
+                <svg class="w-4 h-4 me-1.5 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
+                4 – Área de Ingressos
               </button>
             </li>
           </ul>
@@ -273,18 +274,19 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
           </div>
 
           <div
-            *ngIf="tipoAtivo === 'EVENTO' && quantidadeSelecionados > 0"
+            *ngIf="usaSelecaoMultipla && quantidadeSelecionados > 0"
             class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50/60 px-4 py-3"
           >
             <span class="text-sm font-medium text-indigo-900">
               <strong>{{ quantidadeSelecionados }}</strong> evento(s) selecionado(s)
             </span>
             <button
+              *ngIf="tipoAtivo === 'AREA_INGRESSOS'"
               type="button"
-              (click)="abrirModalDisparoLote()"
+              (click)="abrirModalAreaIngressos()"
               class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition"
             >
-              Disparar selecionados
+              Disparar para Área de Ingressos
             </button>
             <button
               type="button"
@@ -293,6 +295,25 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
             >
               Limpar seleção
             </button>
+          </div>
+
+          <div
+            *ngIf="tipoAtivo === 'AREA_INGRESSOS' && quantidadeSelecionados > 0"
+            class="mb-4 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3"
+          >
+            <p class="text-sm font-semibold text-amber-900 mb-2">Resumo de ingressos por setor</p>
+            <div class="flex flex-wrap gap-2 mb-2">
+              <span
+                *ngFor="let r of resumoSetoresSelecionados"
+                class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-amber-800 border border-amber-200"
+              >
+                {{ r.setor }}: <strong class="ml-1">{{ r.qtd }}</strong>
+              </span>
+            </div>
+            <p class="text-xs text-amber-800">
+              Total: <strong>{{ totalIngressosSelecionados }}</strong> ingresso(s) sorteado(s) em
+              <strong>{{ quantidadeSelecionados }}</strong> evento(s)
+            </p>
           </div>
 
           <div *ngIf="loading" class="py-8 text-center text-[var(--app-text-muted)]">
@@ -307,7 +328,7 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
             <table class="min-w-[980px] w-full text-sm">
               <thead>
                 <tr class="bg-[var(--color-bg-surface-alt)] border-b border-[var(--app-border)]">
-                  <th *ngIf="tipoAtivo === 'EVENTO'" class="w-10 px-2 py-3 text-center">
+                  <th *ngIf="usaSelecaoMultipla" class="w-10 px-2 py-3 text-center">
                     <input
                       type="checkbox"
                       class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
@@ -396,12 +417,12 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
               </thead>
               <tbody class="divide-y divide-[var(--app-border)]">
                 <tr *ngIf="matches.length > 0 && matchesFiltrados.length === 0">
-                  <td [attr.colspan]="tipoAtivo === 'EVENTO' ? 8 : 7" class="px-6 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  <td [attr.colspan]="usaSelecaoMultipla ? 8 : 7" class="px-6 py-12 text-center text-sm text-[var(--app-text-muted)]">
                     Nenhum BID corresponde aos filtros.
                   </td>
                 </tr>
                 <tr *ngFor="let m of matchesFiltrados" class="hover:bg-[var(--app-nav-hover-bg)]">
-                  <td *ngIf="tipoAtivo === 'EVENTO'" class="w-10 px-2 py-3 text-center">
+                  <td *ngIf="usaSelecaoMultipla" class="w-10 px-2 py-3 text-center">
                     <input
                       type="checkbox"
                       class="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500 disabled:opacity-40"
@@ -467,16 +488,6 @@ type FiltroSetorMatch = number | 'SEM_SETOR' | null;
                         [class.text-[var(--app-text-muted)]]="!m.email_ganhadores_em"
                       >
                         Ganhadores {{ m.email_ganhadores_em ? '✓' : '—' }}
-                      </span>
-                      <span
-                        [title]="m.email_evento_em ? ('Enviado em ' + (m.email_evento_em | date:'dd/MM HH:mm')) : 'Não enviado'"
-                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                        [class.bg-emerald-100]="m.email_evento_em"
-                        [class.text-emerald-700]="m.email_evento_em"
-                        [class.bg-[var(--color-bg-surface-alt)]]="!m.email_evento_em"
-                        [class.text-[var(--app-text-muted)]]="!m.email_evento_em"
-                      >
-                        Evento {{ m.email_evento_em ? '✓' : '—' }}
                       </span>
                     </div>
                   </td>
@@ -699,11 +710,15 @@ export class DisparoEmailsComponent implements OnInit {
   setTipoAtivo(value: string): void {
     if (value === 'BID_ENCERRADO') this.tipoAtivo = 'BID_ENCERRADO';
     else if (value === 'GANHADORES') this.tipoAtivo = 'GANHADORES';
-    else if (value === 'EVENTO') this.tipoAtivo = 'EVENTO';
+    else if (value === 'AREA_INGRESSOS') this.tipoAtivo = 'AREA_INGRESSOS';
     else this.tipoAtivo = 'BID_ABERTO';
-    if (this.tipoAtivo !== 'EVENTO') {
+    if (this.tipoAtivo !== 'AREA_INGRESSOS') {
       this.limparSelecaoBids();
     }
+  }
+
+  get usaSelecaoMultipla(): boolean {
+    return this.tipoAtivo === 'AREA_INGRESSOS';
   }
 
   currentUser: any = {};
@@ -758,8 +773,8 @@ export class DisparoEmailsComponent implements OnInit {
         return 'Enviar e-mail com o resultado (apostas realizadas). Inclui PDF com nome e aposta. Apenas para BIDs já encerrados.';
       case 'GANHADORES':
         return 'Enviar e-mail apenas para os usuários vencedores do BID. Apenas para BIDs já finalizados com sorteio.';
-      case 'EVENTO':
-        return 'Comunicação geral sobre um ou mais eventos/BIDs. Selecione um ou mais BIDs na tabela e use «Disparar selecionados». Destinatários: participantes do grupo, lista ou envio personalizado.';
+      case 'AREA_INGRESSOS':
+        return 'Informar a área de ingressos sobre a quantidade de ingressos sorteados, somados por setor do evento. Selecione BIDs finalizados com ingressos e envie um único e-mail consolidado para lista ou destinatários personalizados.';
       default:
         return '';
     }
@@ -1705,7 +1720,12 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   podeDisparar(m: any): boolean {
-    if (this.tipoAtivo === 'BID_ABERTO' || this.tipoAtivo === 'EVENTO') return true;
+    if (this.tipoAtivo === 'BID_ABERTO') return true;
+    if (this.tipoAtivo === 'AREA_INGRESSOS') {
+      const status = (m.status || '').toUpperCase();
+      const sorteados = Number(m.ingressos_sorteados ?? 0);
+      return (status === 'ENCERRADA' || status === 'FINALIZADA') && sorteados > 0;
+    }
     const status = (m.status || '').toUpperCase();
     if (this.tipoAtivo === 'BID_ENCERRADO' || this.tipoAtivo === 'GANHADORES') {
       return status === 'ENCERRADA' || status === 'FINALIZADA';
@@ -1719,6 +1739,26 @@ export class DisparoEmailsComponent implements OnInit {
 
   get quantidadeSelecionados(): number {
     return this.bidsSelecionados.size;
+  }
+
+  get matchesSelecionados(): any[] {
+    return this.matches.filter((m) => this.bidsSelecionados.has(m.id));
+  }
+
+  get resumoSetoresSelecionados(): { setor: string; qtd: number }[] {
+    const mapa = new Map<string, number>();
+    for (const m of this.matchesSelecionados) {
+      const setor = (m.setor_evento_nome || 'Sem setor').trim() || 'Sem setor';
+      const qtd = Number(m.ingressos_sorteados ?? 0);
+      mapa.set(setor, (mapa.get(setor) || 0) + qtd);
+    }
+    return Array.from(mapa.entries())
+      .map(([setor, qtd]) => ({ setor, qtd }))
+      .sort((a, b) => a.setor.localeCompare(b.setor, 'pt-BR'));
+  }
+
+  get totalIngressosSelecionados(): number {
+    return this.resumoSetoresSelecionados.reduce((sum, r) => sum + r.qtd, 0);
   }
 
   get todosDisparaveisSelecionados(): boolean {
@@ -1798,6 +1838,7 @@ export class DisparoEmailsComponent implements OnInit {
           if (t === 'BID_ENCERRADO') return 'Bid Encerrado';
           if (t === 'GANHADORES') return 'Ganhadores';
           if (t === 'EVENTO') return 'Evento';
+          if (t === 'AREA_INGRESSOS') return 'Área de Ingressos';
           if (t === 'USUARIO_CRIADO') return 'Criação de utilizador';
           if (t === 'WT_PASS_PROMOVIDO_FILA') return 'WT Pass — vaga na fila';
           return t || '—';
@@ -1948,7 +1989,7 @@ export class DisparoEmailsComponent implements OnInit {
   }
 
   abrirModalDisparo(match: any): void {
-    if (this.tipoAtivo !== 'BID_ABERTO' && this.tipoAtivo !== 'EVENTO' && (match.status || '').toUpperCase() !== 'ENCERRADA' && (match.status || '').toUpperCase() !== 'FINALIZADA') {
+    if (this.tipoAtivo !== 'BID_ABERTO' && (match.status || '').toUpperCase() !== 'ENCERRADA' && (match.status || '').toUpperCase() !== 'FINALIZADA') {
       Swal.fire('Atenção', 'Este disparo só é permitido para BID já encerrado ou finalizado.', 'warning');
       return;
     }
@@ -1967,13 +2008,13 @@ export class DisparoEmailsComponent implements OnInit {
     });
   }
 
-  abrirModalDisparoLote(): void {
+  abrirModalAreaIngressos(): void {
     if (this.bidsSelecionados.size < 1) {
       Swal.fire('Atenção', 'Selecione ao menos um evento na tabela.', 'warning');
       return;
     }
 
-    const matches = this.matches.filter((m) => this.bidsSelecionados.has(m.id));
+    const matches = this.matchesSelecionados;
     forkJoin({
       listas: this.emailService.getLists(),
       templates: this.emailService.getTemplates(),
@@ -1981,15 +2022,215 @@ export class DisparoEmailsComponent implements OnInit {
       next: ({ listas, templates }) => {
         this.listas = listas || [];
         const all = templates || [];
-        this.templates = all.filter((t) => t.tipo_disparo === 'EVENTO');
-        this.mostrarModalDisparoLote(matches);
+        this.templates = all.filter((t) => t.tipo_disparo === 'AREA_INGRESSOS');
+        this.mostrarModalAreaIngressos(matches);
       },
       error: () => Swal.fire('Erro', 'Falha ao carregar listas ou templates.', 'error'),
     });
   }
 
+  private mostrarModalAreaIngressos(matches: any[]): void {
+    const partidaIds = matches.map((m) => m.id);
+    const listasOptions =
+      this.listas.length > 0
+        ? this.listas.map((l) => `<option value="${l.id}">${l.nome}</option>`).join('')
+        : '<option value="">— Nenhuma lista —</option>';
+    const templatesOptions =
+      this.templates.length > 0
+        ? this.templates.map((t) => `<option value="${t.id}">${t.nome} – ${t.assunto}</option>`).join('')
+        : '<option value="">— Nenhum template para este tipo —</option>';
+    const hintSemTemplate =
+      this.templates.length === 0
+        ? `<p class="text-left text-xs text-amber-600 mt-1 mb-2">Atribua o tipo "<strong>${this.getLabelTipo('AREA_INGRESSOS')}</strong>" aos templates em Configurações → Templates de e-mail para que apareçam aqui.</p>`
+        : '';
+
+    const resumoSetoresHtml = this.resumoSetoresSelecionados
+      .map(
+        (r) =>
+          `<tr><td class="px-3 py-1.5 border border-gray-200 text-left">${this.escapeHtml(r.setor)}</td><td class="px-3 py-1.5 border border-gray-200 text-center font-semibold">${r.qtd}</td></tr>`
+      )
+      .join('');
+
+    const maxShow = 5;
+    const titulos = matches.map((m) => m.titulo);
+    let resumoEventos = `<p class="text-left text-sm text-gray-600 mb-2"><strong>${matches.length}</strong> evento(s) selecionado(s):</p>`;
+    if (titulos.length <= maxShow) {
+      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-3 list-disc pl-5">${titulos.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
+    } else {
+      const shown = titulos.slice(0, maxShow);
+      const rest = titulos.length - maxShow;
+      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-1 list-disc pl-5">${shown.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
+      resumoEventos += `<p class="text-left text-xs text-gray-500 mb-3">… e mais ${rest} evento(s)</p>`;
+    }
+
+    const tabelaResumo = `<table class="w-full text-sm border-collapse mb-3"><thead><tr class="bg-gray-100"><th class="px-3 py-1.5 border border-gray-200 text-left text-xs uppercase">Setor</th><th class="px-3 py-1.5 border border-gray-200 text-center text-xs uppercase">Ingressos</th></tr></thead><tbody>${resumoSetoresHtml}<tr class="bg-gray-50 font-bold"><td class="px-3 py-1.5 border border-gray-200">Total</td><td class="px-3 py-1.5 border border-gray-200 text-center">${this.totalIngressosSelecionados}</td></tr></tbody></table>`;
+
+    let html = `
+      ${resumoEventos}
+      <p class="text-left text-xs font-bold text-gray-500 uppercase mb-1">Resumo por setor</p>
+      ${tabelaResumo}
+      <p class="text-left text-xs text-gray-500 mb-3">Tipo: <strong>${this.getLabelTipo('AREA_INGRESSOS')}</strong> — um único e-mail consolidado será enviado.</p>
+      <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Template</label>
+      <select id="swal-template" class="swal2-input w-full m-0 mb-1">${templatesOptions}</select>
+      <button type="button" id="swal-preview" class="mt-2 mb-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition">
+        👁 Pré-visualizar e-mail
+      </button>
+      ${hintSemTemplate}
+      <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Destinatários</label>
+      <select id="swal-dest" class="swal2-input w-full m-0 mb-2">
+        <option value="lista" selected>Lista de e-mails</option>
+        <option value="personalizado">Envio personalizado</option>
+      </select>
+      <div id="swal-lista-wrap">
+        <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Lista</label>
+        <select id="swal-lista" class="swal2-input w-full m-0">${listasOptions}</select>
+      </div>
+      <div id="swal-personalizado-wrap" class="hidden mt-2">
+        <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">E-mails (um por linha ou separados por vírgula)</label>
+        <textarea id="swal-emails-personalizado" class="swal2-textarea w-full m-0 text-sm" rows="4" placeholder="email1@exemplo.com&#10;email2@exemplo.com"></textarea>
+      </div>
+    `;
+
+    Swal.fire({
+      title: 'Disparar para Área de Ingressos',
+      html,
+      showCancelButton: true,
+      confirmButtonText: 'Disparar',
+      confirmButtonColor: '#4f46e5',
+      width: '640px',
+      didOpen: () => {
+        const popup = Swal.getPopup();
+        const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
+        const wrapLista = popup?.querySelector('#swal-lista-wrap');
+        const wrapPersonalizado = popup?.querySelector('#swal-personalizado-wrap');
+        popup?.querySelector('#swal-preview')?.addEventListener('click', () => {
+          const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
+          const templateId = templateEl ? Number(templateEl.value) : 0;
+          if (!templateId) {
+            Swal.fire('Atenção', 'Selecione o template para pré-visualizar.', 'warning');
+            return;
+          }
+          this.emailService.previewAreaIngressos(partidaIds, templateId).subscribe({
+            next: (res) => {
+              Swal.fire({
+                title: res.assunto || 'Pré-visualização',
+                html: `<div class="text-left max-h-[60vh] overflow-auto border border-gray-200 rounded-lg p-4 bg-white">${res.html || ''}</div>`,
+                width: '700px',
+                showConfirmButton: true,
+                confirmButtonText: 'Fechar',
+              });
+            },
+            error: (err) => Swal.fire('Erro', err.error?.error || 'Não foi possível carregar a pré-visualização.', 'error'),
+          });
+        });
+        if (dest) {
+          const updateVisibility = () => {
+            if (wrapLista) (wrapLista as HTMLElement).classList.toggle('hidden', dest.value !== 'lista');
+            if (wrapPersonalizado) (wrapPersonalizado as HTMLElement).classList.toggle('hidden', dest.value !== 'personalizado');
+          };
+          dest.addEventListener('change', updateVisibility);
+          updateVisibility();
+        }
+      },
+      preConfirm: () => {
+        const popup = Swal.getPopup();
+        const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
+        const templateId = templateEl ? Number(templateEl.value) : 0;
+        if (!templateId) {
+          Swal.showValidationMessage('Selecione o template.');
+          return null;
+        }
+        let listaId: number | undefined;
+        let emailsPersonalizados: string[] | undefined;
+        const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
+        const destValue = (dest?.value ?? 'lista').trim() || 'lista';
+        if (destValue === 'lista') {
+          const listaEl = popup?.querySelector('#swal-lista') as HTMLSelectElement | null;
+          listaId = listaEl ? Number(listaEl.value) : undefined;
+          if (!listaId) {
+            Swal.showValidationMessage('Selecione a lista de e-mails.');
+            return null;
+          }
+        } else {
+          const textarea = popup?.querySelector('#swal-emails-personalizado') as HTMLTextAreaElement | null;
+          const raw = (textarea?.value ?? '').trim();
+          const list = raw
+            .split(/[\n,;]+/)
+            .map((e) => e.trim().toLowerCase())
+            .filter((e) => e.length > 0);
+          const valid = list.filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+          if (valid.length === 0) {
+            Swal.showValidationMessage('Informe ao menos um e-mail válido no envio personalizado.');
+            return null;
+          }
+          emailsPersonalizados = valid;
+        }
+        return { templateId, listaId, emailsPersonalizados };
+      },
+    }).then(async (result) => {
+      if (result.isConfirmed && result.value) {
+        const { templateId, listaId, emailsPersonalizados } = result.value!;
+        await this.executarDisparoAreaIngressos(partidaIds, templateId, { listaId, emailsPersonalizados });
+      }
+    });
+  }
+
+  private async executarDisparoAreaIngressos(
+    partidaIds: number[],
+    templateId: number,
+    opcoes: { listaId?: number; emailsPersonalizados?: string[] }
+  ): Promise<void> {
+    openDisparoProgressModal();
+    let progressState: DisparoProgressState = {
+      total: 0,
+      enviados: 0,
+      processados: 0,
+      recentItems: [],
+      tituloEvento: 'Área de Ingressos',
+    };
+
+    try {
+      const res = await this.emailService.sendAreaIngressosStream(
+        partidaIds,
+        templateId,
+        this.currentUser?.id,
+        opcoes,
+        {
+          onInit: ({ total }) => {
+            progressState = { ...progressState, total, enviados: 0, processados: 0, recentItems: [] };
+            updateDisparoProgressModal(progressState);
+          },
+          onProgress: (progress) => {
+            progressState = appendProgressItem(progressState, progress);
+            updateDisparoProgressModal(progressState);
+          },
+        }
+      );
+      Swal.close();
+      await showDisparoResultModal(res, 'E-mail consolidado enviado para a Área de Ingressos.');
+    } catch (err: unknown) {
+      const partial =
+        (err as { partial?: SendEmailsResponse })?.partial ?? buildPartialFromProgress(progressState);
+      Swal.close();
+      if (partial && (partial.enviados > 0 || partial.destinatarios?.length)) {
+        await showDisparoPartialErrorModal(
+          err instanceof Error ? err.message : 'Falha parcial no envio.',
+          partial
+        );
+      } else {
+        await Swal.fire(
+          'Erro',
+          err instanceof Error ? err.message : 'Falha ao enviar e-mail para a Área de Ingressos.',
+          'error'
+        );
+      }
+    }
+    this.limparSelecaoBids();
+    this.carregarMatches();
+  }
+
   private mostrarModalDisparo(match: any): void {
-    const usaLista = this.tipoAtivo === 'BID_ABERTO' || this.tipoAtivo === 'BID_ENCERRADO' || this.tipoAtivo === 'EVENTO';
+    const usaLista = this.tipoAtivo === 'BID_ABERTO' || this.tipoAtivo === 'BID_ENCERRADO';
     const listasOptions =
       this.listas.length > 0
         ? this.listas.map((l) => `<option value="${l.id}">${l.nome}</option>`).join('')
@@ -2133,7 +2374,7 @@ export class DisparoEmailsComponent implements OnInit {
             match.id,
             templateId,
             this.currentUser?.id,
-            { listaId, usarGrupo, emailsPersonalizados, tipoDisparo: this.tipoAtivo },
+            { listaId, usarGrupo, emailsPersonalizados, tipoDisparo: this.tipoAtivo as TipoDisparoIndividual },
             {
               onInit: ({ total }) => {
                 progressState = { ...progressState, total };
@@ -2161,227 +2402,6 @@ export class DisparoEmailsComponent implements OnInit {
     });
   }
 
-  private mostrarModalDisparoLote(matches: any[]): void {
-    const previewMatch = matches[0];
-    const listasOptions =
-      this.listas.length > 0
-        ? this.listas.map((l) => `<option value="${l.id}">${l.nome}</option>`).join('')
-        : '<option value="">— Nenhuma lista —</option>';
-    const templatesOptions =
-      this.templates.length > 0
-        ? this.templates.map((t) => `<option value="${t.id}">${t.nome} – ${t.assunto}</option>`).join('')
-        : '<option value="">— Nenhum template para este tipo —</option>';
-    const hintSemTemplate =
-      this.templates.length === 0
-        ? `<p class="text-left text-xs text-amber-600 mt-1 mb-2">Atribua o tipo "<strong>${this.getLabelTipo('EVENTO')}</strong>" aos templates em Configurações → Templates de e-mail para que apareçam aqui.</p>`
-        : '';
-
-    const maxShow = 5;
-    const titulos = matches.map((m) => m.titulo);
-    let resumoEventos = `<p class="text-left text-sm text-gray-600 mb-2">Serão disparados <strong>${matches.length}</strong> evento(s):</p>`;
-    if (titulos.length <= maxShow) {
-      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-3 list-disc pl-5">${titulos.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
-    } else {
-      const shown = titulos.slice(0, maxShow);
-      const rest = titulos.length - maxShow;
-      resumoEventos += `<ul class="text-left text-sm text-gray-600 mb-1 list-disc pl-5">${shown.map((t) => `<li>${this.escapeHtml(t)}</li>`).join('')}</ul>`;
-      resumoEventos += `<p class="text-left text-xs text-gray-500 mb-3">… e mais ${rest} evento(s)</p>`;
-    }
-
-    let html = `
-      ${resumoEventos}
-      <p class="text-left text-xs text-gray-500 mb-3">Tipo: <strong>${this.getLabelTipo('EVENTO')}</strong></p>
-      <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Template</label>
-      <select id="swal-template" class="swal2-input w-full m-0 mb-1">${templatesOptions}</select>
-      <button type="button" id="swal-preview" class="mt-2 mb-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition">
-        👁 Pré-visualizar e-mail
-      </button>
-      <p class="text-left text-xs text-gray-400 mb-2">A pré-visualização usa o primeiro evento selecionado.</p>
-      ${hintSemTemplate}
-      <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Destinatários</label>
-      <select id="swal-dest" class="swal2-input w-full m-0 mb-2">
-        <option value="grupo" selected>Participantes do grupo</option>
-        <option value="lista">Lista de e-mails</option>
-        <option value="personalizado">Envio personalizado</option>
-      </select>
-      <div id="swal-lista-wrap" class="hidden">
-        <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">Lista</label>
-        <select id="swal-lista" class="swal2-input w-full m-0">${listasOptions}</select>
-      </div>
-      <div id="swal-personalizado-wrap" class="hidden mt-2">
-        <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">E-mails (um por linha ou separados por vírgula)</label>
-        <textarea id="swal-emails-personalizado" class="swal2-textarea w-full m-0 text-sm" rows="4" placeholder="email1@exemplo.com&#10;email2@exemplo.com"></textarea>
-      </div>
-    `;
-
-    Swal.fire({
-      title: 'Disparar e-mails em lote',
-      html,
-      showCancelButton: true,
-      confirmButtonText: 'Disparar selecionados',
-      confirmButtonColor: '#4f46e5',
-      didOpen: () => {
-        const popup = Swal.getPopup();
-        const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
-        const wrapLista = popup?.querySelector('#swal-lista-wrap');
-        const wrapPersonalizado = popup?.querySelector('#swal-personalizado-wrap');
-        popup?.querySelector('#swal-preview')?.addEventListener('click', () => {
-          const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
-          const templateId = templateEl ? Number(templateEl.value) : 0;
-          if (!templateId) {
-            Swal.fire('Atenção', 'Selecione o template para pré-visualizar.', 'warning');
-            return;
-          }
-          this.emailService.previewTemplate(templateId, previewMatch.id).subscribe({
-            next: (res) => {
-              Swal.fire({
-                title: res.assunto || 'Pré-visualização',
-                html: `<div class="text-left max-h-[60vh] overflow-auto border border-gray-200 rounded-lg p-4 bg-white">${res.html || ''}</div>`,
-                width: '700px',
-                showConfirmButton: true,
-                confirmButtonText: 'Fechar',
-              });
-            },
-            error: (err) => Swal.fire('Erro', err.error?.error || 'Não foi possível carregar a pré-visualização.', 'error'),
-          });
-        });
-        if (dest) {
-          dest.value = 'grupo';
-          const updateVisibility = () => {
-            if (wrapLista) (wrapLista as HTMLElement).classList.toggle('hidden', dest.value !== 'lista');
-            if (wrapPersonalizado) (wrapPersonalizado as HTMLElement).classList.toggle('hidden', dest.value !== 'personalizado');
-          };
-          dest.addEventListener('change', updateVisibility);
-          updateVisibility();
-        }
-      },
-      preConfirm: () => {
-        const popup = Swal.getPopup();
-        const templateEl = popup?.querySelector('#swal-template') as HTMLSelectElement | null;
-        const templateId = templateEl ? Number(templateEl.value) : 0;
-        if (!templateId) {
-          Swal.showValidationMessage('Selecione o template.');
-          return null;
-        }
-        let listaId: number | undefined;
-        let usarGrupo = false;
-        let emailsPersonalizados: string[] | undefined;
-        const dest = popup?.querySelector('#swal-dest') as HTMLSelectElement | null;
-        const destValue = (dest?.value ?? 'grupo').trim() || 'grupo';
-        if (destValue === 'lista') {
-          const listaEl = popup?.querySelector('#swal-lista') as HTMLSelectElement | null;
-          listaId = listaEl ? Number(listaEl.value) : undefined;
-          if (!listaId) {
-            Swal.showValidationMessage('Selecione a lista de e-mails.');
-            return null;
-          }
-        } else if (destValue === 'personalizado') {
-          const textarea = popup?.querySelector('#swal-emails-personalizado') as HTMLTextAreaElement | null;
-          const raw = (textarea?.value ?? '').trim();
-          const list = raw
-            .split(/[\n,;]+/)
-            .map((e) => e.trim().toLowerCase())
-            .filter((e) => e.length > 0);
-          const valid = list.filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-          if (valid.length === 0) {
-            Swal.showValidationMessage('Informe ao menos um e-mail válido no envio personalizado.');
-            return null;
-          }
-          emailsPersonalizados = valid;
-        } else {
-          usarGrupo = true;
-        }
-        return { templateId, listaId, usarGrupo, emailsPersonalizados };
-      },
-    }).then(async (result) => {
-      if (result.isConfirmed && result.value) {
-        const { templateId, listaId, usarGrupo, emailsPersonalizados } = result.value!;
-        await this.executarDisparoLote(matches, templateId, { listaId, usarGrupo, emailsPersonalizados });
-      }
-    });
-  }
-
-  private async executarDisparoLote(
-    matches: any[],
-    templateId: number,
-    opcoes: { listaId?: number; usarGrupo: boolean; emailsPersonalizados?: string[] }
-  ): Promise<void> {
-    openDisparoProgressModal();
-    const totalEventos = matches.length;
-    const aggregate: SendEmailsResponse = {
-      enviados: 0,
-      total: 0,
-      destinatarios: [],
-      erros: [],
-    };
-
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i];
-      let progressState: DisparoProgressState = {
-        total: 0,
-        enviados: 0,
-        processados: 0,
-        recentItems: [],
-        eventoIndice: i + 1,
-        totalEventos,
-        tituloEvento: match.titulo,
-      };
-      updateDisparoProgressModal(progressState);
-
-      try {
-        const res = await this.emailService.sendStream(
-          match.id,
-          templateId,
-          this.currentUser?.id,
-          { ...opcoes, tipoDisparo: 'EVENTO' },
-          {
-            onInit: ({ total }) => {
-              progressState = {
-                ...progressState,
-                total,
-                enviados: 0,
-                processados: 0,
-                recentItems: [],
-              };
-              updateDisparoProgressModal(progressState);
-            },
-            onProgress: (progress) => {
-              progressState = appendProgressItem(progressState, progress);
-              updateDisparoProgressModal(progressState);
-            },
-          }
-        );
-        aggregate.enviados += res.enviados;
-        aggregate.total += res.total;
-        if (res.destinatarios?.length) aggregate.destinatarios!.push(...res.destinatarios);
-        if (res.erros?.length) aggregate.erros!.push(...res.erros);
-      } catch (err: unknown) {
-        const partial =
-          (err as { partial?: SendEmailsResponse })?.partial ?? buildPartialFromProgress(progressState);
-        if (partial) {
-          aggregate.enviados += partial.enviados;
-          aggregate.total += partial.total;
-          if (partial.destinatarios?.length) aggregate.destinatarios!.push(...partial.destinatarios);
-          if (partial.erros?.length) aggregate.erros!.push(...partial.erros);
-        }
-        const message = err instanceof Error ? err.message : `Falha no evento "${match.titulo}".`;
-        aggregate.erros!.push(message);
-      }
-    }
-
-    Swal.close();
-    const errosLista = aggregate.erros?.filter(Boolean) ?? [];
-    const resFinal: SendEmailsResponse = {
-      enviados: aggregate.enviados,
-      total: aggregate.total,
-      destinatarios: aggregate.destinatarios,
-      erros: errosLista.length ? errosLista : undefined,
-    };
-    await showDisparoResultModal(resFinal, `${totalEventos} evento(s) processado(s).`);
-    this.limparSelecaoBids();
-    this.carregarMatches();
-  }
-
   private getLabelTipo(t: TipoDisparo): string {
     switch (t) {
       case 'BID_ABERTO':
@@ -2390,8 +2410,8 @@ export class DisparoEmailsComponent implements OnInit {
         return '2 – Bid Encerrado';
       case 'GANHADORES':
         return '3 – Ganhadores';
-      case 'EVENTO':
-        return '4 – Evento (agrupar)';
+      case 'AREA_INGRESSOS':
+        return '4 – Área de Ingressos';
       default:
         return t;
     }
@@ -2406,8 +2426,8 @@ export class DisparoEmailsComponent implements OnInit {
         return 'Bid encerrado';
       case 'GANHADORES':
         return 'Ganhadores';
-      case 'EVENTO':
-        return 'Evento';
+      case 'AREA_INGRESSOS':
+        return 'Área de Ingressos';
       case 'USUARIO_CRIADO':
         return 'Criação de utilizador';
       case 'WT_PASS_PROMOVIDO_FILA':

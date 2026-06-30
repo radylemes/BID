@@ -44,6 +44,11 @@ const TAGS_TEMPLATE_EMAIL = [
   { tag: '{{usuario.senha}}', desc: 'Senha inicial (só no e-mail de criação de utilizador)' },
   { tag: '{{senha}}', desc: 'Senha inicial — atalho (só no e-mail de criação de utilizador)' },
   { tag: '{{usuario.ingressos_ganhos}}', desc: 'Número de ingressos ganhos no evento' },
+  { tag: '{{resumo.total_ingressos}}', desc: 'Total de ingressos sorteados (Área de Ingressos)' },
+  { tag: '{{resumo.qtd_eventos}}', desc: 'Quantidade de eventos selecionados' },
+  { tag: '{{resumo.eventos_titulos}}', desc: 'Títulos dos eventos selecionados' },
+  { tag: '{{resumo.setores_tabela}}', desc: 'Tabela HTML com ingressos por setor' },
+  { tag: '{{resumo.setores_lista}}', desc: 'Lista texto com ingressos por setor' },
 ];
 
 const TINYMCE_EDITOR_ID = 'email-template-tinymce';
@@ -185,7 +190,7 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
       'BID_ABERTO',
       'BID_ENCERRADO',
       'GANHADORES',
-      'EVENTO',
+      'AREA_INGRESSOS',
       'USUARIO_CRIADO',
       'WT_PASS_PROMOVIDO_FILA',
     ]);

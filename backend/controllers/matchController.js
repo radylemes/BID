@@ -206,7 +206,6 @@ exports.getMatches = async (req, res) => {
         email_bid_aberto_em: dbUtcToISO(row.email_bid_aberto_em),
         email_bid_encerrado_em: dbUtcToISO(row.email_bid_encerrado_em),
         email_ganhadores_em: dbUtcToISO(row.email_ganhadores_em),
-        email_evento_em: dbUtcToISO(row.email_evento_em),
         titulo: row.titulo || "Evento sem título",
         quantidade_premios: qtdPremios,
         quantidade_premios_efetiva: qtdPremiosEfetiva,

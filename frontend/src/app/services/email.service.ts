@@ -33,6 +33,17 @@ export interface PreviewTemplateResponse {
   html: string;
 }
 
+export interface PreviewAreaIngressosResponse extends PreviewTemplateResponse {
+  resumo?: {
+    total_ingressos: string;
+    qtd_eventos: string;
+    eventos_titulos: string;
+    setores_tabela: string;
+    setores_lista: string;
+  };
+  setores?: { setor_evento_id: number; setor_nome: string; qtd_ingressos: number }[];
+}
+
 export interface SendEmailsResponse {
   enviados: number;
   total: number;
@@ -242,7 +253,7 @@ export class EmailService {
       listaId?: number | null;
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
-      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
     }
   ): Observable<SendEmailsResponse> {
     return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, this.buildSendBody(partidaId, templateId, adminId, options));
@@ -257,7 +268,7 @@ export class EmailService {
       listaId?: number | null;
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
-      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
     },
     callbacks?: SendStreamCallbacks
   ): Promise<SendEmailsResponse> {
@@ -299,7 +310,7 @@ export class EmailService {
       listaId?: number | null;
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
-      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES' | 'EVENTO';
+      tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
     }
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {
@@ -447,5 +458,68 @@ export class EmailService {
     }
 
     throw new Error('Conexão encerrada antes da conclusão do disparo.');
+  }
+
+  previewAreaIngressos(
+    partidaIds: number[],
+    templateId: number
+  ): Observable<PreviewAreaIngressosResponse> {
+    return this.http.post<PreviewAreaIngressosResponse>(`${this.apiUrl}/area-ingressos/preview`, {
+      partidaIds,
+      templateId,
+    });
+  }
+
+  /** Disparo consolidado para Área de Ingressos com SSE. */
+  async sendAreaIngressosStream(
+    partidaIds: number[],
+    templateId: number,
+    adminId?: number,
+    options?: {
+      listaId?: number | null;
+      emailsPersonalizados?: string[];
+    },
+    callbacks?: SendStreamCallbacks
+  ): Promise<SendEmailsResponse> {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const body: Record<string, unknown> = {
+      partidaIds,
+      templateId,
+      adminId,
+    };
+    if (options?.listaId != null) {
+      body['listaId'] = options.listaId;
+    }
+    if (options?.emailsPersonalizados?.length) {
+      body['emailsPersonalizados'] = options.emailsPersonalizados;
+    }
+
+    const response = await fetch(`${this.apiUrl}/area-ingressos/send-stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok && !contentType.includes('text/event-stream')) {
+      if (contentType.includes('application/json')) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error((errBody as { error?: string }).error || 'Falha ao enviar e-mails.');
+      }
+      throw new Error('Falha ao enviar e-mails.');
+    }
+    if (!response.body) {
+      throw new Error('Resposta de streaming indisponível.');
+    }
+
+    return this.parseSendStream(response.body, callbacks);
   }
 }
