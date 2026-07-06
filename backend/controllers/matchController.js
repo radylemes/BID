@@ -2,6 +2,7 @@ const db = require("../config/db");
 const fs = require("fs");
 const path = require("path");
 const logErro = require("../utils/errorLogger");
+const { compressMulterUpload } = require("../utils/imageCompress");
 
 function normalizeUploadPath(filePath) {
   const norm = path.normalize(filePath).replace(/\\/g, "/");
@@ -321,6 +322,8 @@ exports.createMatch = async (req, res) => {
     const inicioFormatado = data_inicio_apostas
       ? formatarDataLocal(data_inicio_apostas)
       : formatarDataLocal(new Date());
+    await compressMulterUpload(req, "banner_file", "bid-banner");
+    await compressMulterUpload(req, "link_extra_file", "bid-banner");
     const bannerVal = resolveBidImageField(req, "banner", "banner_file");
     const linkExtraVal = resolveBidImageField(req, "link_extra", "link_extra_file");
 
@@ -430,6 +433,8 @@ exports.updateMatch = async (req, res) => {
       }
     }
 
+    await compressMulterUpload(req, "banner_file", "bid-banner");
+    await compressMulterUpload(req, "link_extra_file", "bid-banner");
     const bannerVal = resolveBidImageField(req, "banner", "banner_file");
     const subtituloVal = subtitulo && String(subtitulo).trim() ? String(subtitulo).trim() : null;
     const informacoesExtrasVal = informacoes_extras && String(informacoes_extras).trim() ? String(informacoes_extras).trim() : null;
@@ -1178,7 +1183,8 @@ exports.getMatchWinnersReport = async (req, res) => {
     const [rows] = await db.execute(
       `
       SELECT u.nome_completo AS titular_nome, s.nome AS titular_setor, a.valor_pago AS lance_pago,
-             c.nome_completo AS retirante_nome, c.cpf AS retirante_cpf, i.checkin, i.data_checkin
+             c.nome_completo AS retirante_nome, c.cpf AS retirante_cpf, i.checkin, i.data_checkin,
+             i.convidado_indicado_em
       FROM apostas a
       JOIN ingressos i ON i.aposta_id = a.id
       JOIN usuarios u ON a.usuario_id = u.id
@@ -1202,6 +1208,7 @@ exports.getMatchWinnersReport = async (req, res) => {
       retirante_cpf: row.retirante_cpf,
       checkin: row.checkin,
       data_checkin: dbUtcToISO(row.data_checkin),
+      convidado_indicado_em: dbUtcToISO(row.convidado_indicado_em),
     }));
     res.json(results);
   } catch (error) {

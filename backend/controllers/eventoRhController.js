@@ -2,6 +2,7 @@ const db = require("../config/db");
 const fs = require("fs");
 const path = require("path");
 const logErro = require("../utils/errorLogger");
+const { compressMulterUpload } = require("../utils/imageCompress");
 
 function normalizeUploadPath(filePath) {
   const norm = path.normalize(filePath).replace(/\\/g, "/");
@@ -638,6 +639,7 @@ exports.createEvento = async (req, res) => {
     const inicioFormatado = data_inicio_inscricao
       ? formatarDataLocal(data_inicio_inscricao)
       : formatarDataLocal(new Date());
+    await compressMulterUpload(req, "banner_file", "bid-banner");
     const bannerUrl = resolveBidImageField(req, "banner", "banner_file");
     const listaEspera = permitir_lista_espera === false ? 0 : 1;
     /** Por padrão o auto-encerramento fica ativo (admin pode desligar no formulário). */
@@ -734,6 +736,7 @@ exports.updateEvento = async (req, res) => {
     }
     let bannerUrl;
     if (req.files?.banner_file?.[0]) {
+      await compressMulterUpload(req, "banner_file", "bid-banner");
       bannerUrl = normalizeUploadPath(req.files.banner_file[0].path);
     } else if (banner !== undefined) {
       bannerUrl = banner && String(banner).trim() ? String(banner).trim() : null;

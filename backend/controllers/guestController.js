@@ -342,7 +342,7 @@ exports.assignGuestToTicket = async (req, res) => {
       const guestName = guestOwned[0].nome_completo;
 
       await connection.execute(
-        "UPDATE ingressos SET convidado_id = ? WHERE id = ?",
+        "UPDATE ingressos SET convidado_id = ?, convidado_indicado_em = UTC_TIMESTAMP() WHERE id = ?",
         [convidado_id, ingressoId],
       );
 

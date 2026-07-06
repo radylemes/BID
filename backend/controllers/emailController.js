@@ -9,6 +9,9 @@ const {
   sendEmail,
   isSmtpConnectionError,
   NOT_CONFIGURED_MSG,
+  htmlToPlainText,
+  assertAcsPayloadWithinLimit,
+  estimateAcsDisparoPayload,
 } = require("../utils/emailSender");
 
 /** Diretório gravável pelo utilizador do processo (www) para cache/profile do Chromium. */
@@ -282,6 +285,15 @@ function resolveBidBannerUrl(banner, partidaId, baseUrl) {
   return baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
 }
 
+/** Garante URL curta para {{evento.imagem}} — nunca data URI no HTML do e-mail. */
+function sanitizeEventoImagemUrl(imagemUrl, partidaId, baseUrl) {
+  const s = String(imagemUrl || "").trim();
+  if (!s || s.startsWith("data:") || s.length > 2048) {
+    return baseUrl ? `${baseUrl}/api/matches/${partidaId}/banner` : "";
+  }
+  return s;
+}
+
 /**
  * Substitui tags {{evento.campo}} e {{usuario.campo}} no texto pelos valores do contexto.
  * @param {string} text - Texto com tags
@@ -474,7 +486,11 @@ async function prepareDisparo(body, req) {
   }
   const p = partidas[0];
   const baseUrl = await getBaseUrl();
-  const imagemUrl = resolveBidBannerUrl(p.banner, partidaId, baseUrl);
+  const imagemUrl = sanitizeEventoImagemUrl(
+    resolveBidBannerUrl(p.banner, partidaId, baseUrl),
+    partidaId,
+    baseUrl,
+  );
   const linkExtraUrl = resolvePublicAssetUrl(p.link_extra, baseUrl);
   const partesJogo = extrairPartesData(p.data_jogo);
   const partesInicio = extrairPartesData(p.data_inicio_apostas);
@@ -584,7 +600,39 @@ async function prepareDisparo(body, req) {
     }
   }
 
+
   const itensValidos = itens.filter((item) => String(item.email || "").trim());
+
+  if (mailSender.provider === "acs" && itensValidos.length > 0) {
+    const sampleEmail = String(itensValidos[0].email).trim();
+    const sampleUsuario = {
+      nome: (itensValidos[0].nome_opcional && String(itensValidos[0].nome_opcional).trim()) || sampleEmail,
+      email: sampleEmail,
+      ingressos_ganhos: 0,
+    };
+    const sampleCtx = { evento, usuario: sampleUsuario, app: { base_url: baseUrl } };
+    const sampleHtml = replaceTemplateTags(template.corpo_html, sampleCtx);
+    const sampleSubject = replaceTemplateTags(template.assunto, sampleCtx);
+    try {
+      const estimate = await estimateAcsDisparoPayload({
+        subject: sampleSubject,
+        html: sampleHtml,
+        attachments: pdfAttachment && pdfFilename
+          ? [{ filename: pdfFilename, content: pdfAttachment }]
+          : undefined,
+        acsInlineBannerPartidaId: partidaId,
+        acsBannerSrcUrl: evento.imagem,
+      });
+      assertAcsPayloadWithinLimit({
+        subject: sampleSubject,
+        html: estimate.html,
+        text: estimate.plainText,
+        attachments: estimate.attachments,
+      });
+    } catch (preflightErr) {
+      return { error: preflightErr.message || "E-mail excede o limite do Azure.", status: 400 };
+    }
+  }
 
   return {
     partidaId,
@@ -662,6 +710,8 @@ function createSendFn(prepared) {
         to: email,
         subject: assunto,
         html,
+        acsInlineBannerPartidaId: partidaId,
+        acsBannerSrcUrl: evento.imagem,
       };
       if (pdfAttachment && pdfFilename) {
         mailOptions.attachments = [{ filename: pdfFilename, content: pdfAttachment }];

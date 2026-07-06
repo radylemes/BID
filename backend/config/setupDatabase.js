@@ -301,6 +301,7 @@ async function initializeDatabase() {
         recebedor_nome VARCHAR(255) NULL,
         recebedor_cpf VARCHAR(20) NULL,
         data_checkin DATETIME NULL,
+        convidado_indicado_em DATETIME NULL,
         FOREIGN KEY (aposta_id) REFERENCES apostas(id) ON DELETE CASCADE,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
         FOREIGN KEY (convidado_id) REFERENCES convidados(id) ON DELETE SET NULL
@@ -757,7 +758,30 @@ async function initializeDatabase() {
       { nome: "recebedor_nome", tipo: "VARCHAR(255) NULL" },
       { nome: "recebedor_cpf", tipo: "VARCHAR(20) NULL" },
       { nome: "data_checkin", tipo: "DATETIME NULL" },
+      { nome: "convidado_indicado_em", tipo: "DATETIME NULL" },
     ]);
+
+    // Backfill: data da última indicação de convidado a partir da auditoria
+    try {
+      const [backfillResult] = await connection.query(`
+        UPDATE ingressos i
+        INNER JOIN (
+          SELECT registro_id, MAX(criado_em) AS ultima_indicacao
+          FROM auditoria
+          WHERE modulo = 'BIDS' AND acao = 'ASSIGN_TICKET' AND registro_id IS NOT NULL
+          GROUP BY registro_id
+        ) a ON a.registro_id = i.id
+        SET i.convidado_indicado_em = a.ultima_indicacao
+        WHERE i.convidado_id IS NOT NULL AND i.convidado_indicado_em IS NULL
+      `);
+      if (backfillResult?.affectedRows > 0) {
+        console.log(
+          `✅ Backfill convidado_indicado_em: ${backfillResult.affectedRows} ingresso(s) atualizado(s).`,
+        );
+      }
+    } catch (e) {
+      console.warn("Aviso backfill convidado_indicado_em:", e.message);
+    }
 
     await ensureColumns("eventos_rh", [
       { nome: "titulo", tipo: "VARCHAR(255) NULL" },

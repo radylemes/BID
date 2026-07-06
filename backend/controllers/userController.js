@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const qs = require("qs");
 const fs = require("fs");
 const logErro = require("../utils/errorLogger");
+const { compressImageAtPath } = require("../utils/imageCompress");
 const { sendNovoUsuarioEmail } = require("./emailController");
 const {
   safeAuditoriaDetalhes,
@@ -1158,6 +1159,14 @@ exports.uploadAvatar = async (req, res) => {
     const role = String(req.user?.role || "").toUpperCase();
     if (role !== "ADMIN" && requesterId !== targetUserId) {
       return res.status(403).json({ error: "Só pode atualizar a sua própria foto." });
+    }
+    try {
+      const compressedPath = await compressImageAtPath(req.file.path, "avatar");
+      req.file.path = compressedPath;
+    } catch (compressErr) {
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
+      const status = compressErr.statusCode || 400;
+      return res.status(status).json({ error: compressErr.message || "Não foi possível processar a imagem." });
     }
     // Caminho relativo `uploads/avatars/…` para URLs estáticas e para não depender do cwd absoluto
     const norm = path.normalize(req.file.path).replace(/\\/g, "/");

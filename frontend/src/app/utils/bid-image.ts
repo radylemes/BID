@@ -1,5 +1,5 @@
 /** Teto para banners BID (e-mail ~600px de largura). */
-const MAX_BYTES = 1 * 1024 * 1024;
+const MAX_BYTES = 800 * 1024;
 /** Maior lado em px — suficiente para banners de e-mail com boa qualidade. */
 const MAX_SIDE = 1600;
 
@@ -57,7 +57,7 @@ export async function compressImageForBid(file: File): Promise<File> {
     }
 
     if (blob.size > MAX_BYTES) {
-      throw new Error('Não foi possível reduzir a imagem abaixo de 1MB.');
+      throw new Error('Não foi possível reduzir a imagem abaixo de 800 KB.');
     }
 
     const baseName = file.name.replace(/\.[^.]+$/, '') || 'bid-image';

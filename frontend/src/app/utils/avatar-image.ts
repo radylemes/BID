@@ -1,5 +1,5 @@
 /** Teto alinhado ao backend e à validação do perfil (2MB). */
-const MAX_BYTES = 2 * 1024 * 1024;
+const MAX_BYTES = 400 * 1024;
 /** Maior lado em px — suficiente para avatar em ecrãs comuns. */
 const MAX_SIDE = 1280;
 
@@ -14,7 +14,7 @@ function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<B
 }
 
 /**
- * Redimensiona e comprime para JPEG, mantendo o ficheiro final ≤ 2MB quando possível.
+ * Redimensiona e comprime para JPEG, mantendo o ficheiro final ≤ 400 KB quando possível.
  */
 export async function compressImageForAvatar(file: File): Promise<File> {
   let bitmap: ImageBitmap;
@@ -57,7 +57,7 @@ export async function compressImageForAvatar(file: File): Promise<File> {
     }
 
     if (blob.size > MAX_BYTES) {
-      throw new Error('Não foi possível reduzir a imagem abaixo de 2MB.');
+      throw new Error('Não foi possível reduzir a imagem abaixo de 400 KB.');
     }
 
     return new File([blob], 'avatar.jpg', { type: 'image/jpeg', lastModified: Date.now() });

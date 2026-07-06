@@ -44,7 +44,9 @@
                 "output": "/tinymce"
               }
             ],
-            "styles": ["src/styles.scss"]
+            "styles": [
+              "src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {
@@ -72,8 +74,11 @@
         },
         "serve": {
           "options": {
-            "allowedHosts": ["bid.allianzparque.com.br"]
-         },
+            "allowedHosts": [
+              "bid.allianzparque.com.br",
+              "bid.nubankparque.com"
+            ]
+          },
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {

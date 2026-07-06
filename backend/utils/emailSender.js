@@ -1,6 +1,12 @@
 const db = require("../config/db");
 const nodemailer = require("nodemailer");
 const { EmailClient } = require("@azure/communication-email");
+const fs = require("fs");
+const path = require("path");
+const { compressBuffer } = require("./imageCompress");
+
+const ACS_MAX_PAYLOAD_BYTES = 9 * 1024 * 1024;
+const EVENTO_BANNER_CID = "evento-banner";
 
 const CONFIG_KEYS = [
   "email_provider",
@@ -175,17 +181,149 @@ function guessContentType(filename) {
 
 function mapAttachmentsForAcs(attachments) {
   if (!Array.isArray(attachments) || attachments.length === 0) return undefined;
-  return attachments.map((attachment) => ({
-    name: attachment.filename || attachment.name || "attachment",
-    contentType:
-      attachment.contentType ||
-      guessContentType(attachment.filename || attachment.name) ||
-      "application/octet-stream",
-    contentInBase64: toBase64(attachment.content),
-  }));
+  return attachments.map((attachment) => {
+    const entry = {
+      name: attachment.filename || attachment.name || "attachment",
+      contentType:
+        attachment.contentType ||
+        guessContentType(attachment.filename || attachment.name) ||
+        "application/octet-stream",
+      contentInBase64: toBase64(attachment.content),
+    };
+    if (attachment.contentId) entry.contentId = attachment.contentId;
+    return entry;
+  });
 }
 
-async function sendViaAcs(cfg, { to, bcc, subject, html, text, attachments }) {
+function estimateAcsPayloadBytes({ subject, html, text, attachments } = {}) {
+  let size = 0;
+  size += Buffer.byteLength(String(subject || ""), "utf8");
+  size += Buffer.byteLength(String(html || ""), "utf8");
+  size += Buffer.byteLength(String(text || ""), "utf8");
+  if (Array.isArray(attachments)) {
+    for (const attachment of attachments) {
+      size += Buffer.byteLength(toBase64(attachment.content), "utf8");
+      size += Buffer.byteLength(String(attachment.filename || attachment.name || ""), "utf8");
+      size += 256;
+    }
+  }
+  return size + 1024;
+}
+
+function assertAcsPayloadWithinLimit(payload) {
+  const bytes = estimateAcsPayloadBytes(payload);
+  if (bytes > ACS_MAX_PAYLOAD_BYTES) {
+    const mb = (bytes / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `E-mail excede o limite de 10 MB do Azure (estimado: ${mb} MB). Reduza imagens no template ou no banner do evento.`,
+    );
+  }
+  return bytes;
+}
+
+async function loadPartidaBannerBuffer(partidaId) {
+  const [rows] = await db.query(
+    "SELECT banner, banner_data FROM partidas WHERE id = ? LIMIT 1",
+    [partidaId],
+  );
+  if (!rows.length) return null;
+  const p = rows[0];
+  const raw = p.banner_data;
+  if (raw) {
+    if (Buffer.isBuffer(raw)) return raw;
+    if (Array.isArray(raw)) return Buffer.from(raw);
+    if (raw && typeof raw === "object" && raw.type === "Buffer" && raw.data) {
+      return Buffer.from(raw.data);
+    }
+  }
+  const b = p.banner && String(p.banner).trim();
+  if (!b || b.startsWith("http") || b === "db" || b.startsWith("data:")) return null;
+  const bannerPath = path.isAbsolute(b) ? b : path.join(process.cwd(), b.replace(/^\/+/, ""));
+  if (!fs.existsSync(bannerPath)) return null;
+  return fs.readFileSync(bannerPath);
+}
+
+async function applyAcsInlineEventBanner(html, attachments, { partidaId, bannerSrcUrl } = {}) {
+  if (!partidaId || !html) return { html, attachments: attachments || [] };
+  const raw = await loadPartidaBannerBuffer(partidaId);
+  if (!raw || !raw.length) return { html, attachments: attachments || [] };
+
+  const { buffer } = await compressBuffer(raw, "email-inline");
+  const merged = [...(attachments || [])];
+  merged.push({
+    filename: "evento-banner.jpg",
+    content: buffer,
+    contentType: "image/jpeg",
+    contentId: EVENTO_BANNER_CID,
+  });
+
+  let outHtml = String(html);
+  const src = bannerSrcUrl && String(bannerSrcUrl).trim();
+  if (src) {
+    const escaped = src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    outHtml = outHtml.replace(new RegExp(escaped, "g"), `cid:${EVENTO_BANNER_CID}`);
+  }
+  if (!outHtml.includes(`cid:${EVENTO_BANNER_CID}`)) {
+    outHtml = outHtml.replace(
+      /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']*)(["'][^>]*>)/i,
+      `$1cid:${EVENTO_BANNER_CID}$3`,
+    );
+  }
+  return { html: outHtml, attachments: merged };
+}
+
+
+async function estimateAcsDisparoPayload({
+  subject,
+  html,
+  text,
+  attachments,
+  acsInlineBannerPartidaId,
+  acsBannerSrcUrl,
+} = {}) {
+  let finalHtml = html;
+  let finalAttachments = attachments;
+  if (acsInlineBannerPartidaId) {
+    const inlined = await applyAcsInlineEventBanner(html, attachments, {
+      partidaId: acsInlineBannerPartidaId,
+      bannerSrcUrl: acsBannerSrcUrl,
+    });
+    finalHtml = inlined.html;
+    finalAttachments = inlined.attachments;
+  }
+  const plainText = text || htmlToPlainText(finalHtml) || subject || "";
+  const bytes = estimateAcsPayloadBytes({
+    subject,
+    html: finalHtml,
+    text: plainText,
+    attachments: finalAttachments,
+  });
+  return { bytes, html: finalHtml, plainText, attachments: finalAttachments };
+}
+
+async function sendViaAcs(
+  cfg,
+  { to, bcc, subject, html, text, attachments, acsInlineBannerPartidaId, acsBannerSrcUrl },
+) {
+  let finalHtml = html;
+  let finalAttachments = attachments;
+  if (acsInlineBannerPartidaId) {
+    const inlined = await applyAcsInlineEventBanner(html, attachments, {
+      partidaId: acsInlineBannerPartidaId,
+      bannerSrcUrl: acsBannerSrcUrl,
+    });
+    finalHtml = inlined.html;
+    finalAttachments = inlined.attachments;
+  }
+
+  const plainText = text || htmlToPlainText(finalHtml) || subject || "";
+  assertAcsPayloadWithinLimit({
+    subject,
+    html: finalHtml,
+    text: plainText,
+    attachments: finalAttachments,
+  });
+
   const client = new EmailClient(cfg.acsConnectionString);
   const recipients = {
     to: [{ address: String(to).trim() }],
@@ -200,13 +338,13 @@ async function sendViaAcs(cfg, { to, bcc, subject, html, text, attachments }) {
     senderAddress: cfg.acsSender,
     content: {
       subject: subject || "",
-      html: html || undefined,
-      plainText: text || htmlToPlainText(html) || subject || "",
+      html: finalHtml || undefined,
+      plainText,
     },
     recipients,
   };
 
-  const acsAttachments = mapAttachmentsForAcs(attachments);
+  const acsAttachments = mapAttachmentsForAcs(finalAttachments);
   if (acsAttachments?.length) {
     message.attachments = acsAttachments;
   }
@@ -248,6 +386,8 @@ function buildAcsSender(cfg) {
         html: finalOpts.html,
         text: finalOpts.text,
         attachments: finalOpts.attachments,
+        acsInlineBannerPartidaId: finalOpts.acsInlineBannerPartidaId,
+        acsBannerSrcUrl: finalOpts.acsBannerSrcUrl,
       });
     },
   };
@@ -383,4 +523,8 @@ module.exports = {
   acsRateLimit,
   applyHiddenToRecipients,
   htmlToPlainText,
+  estimateAcsPayloadBytes,
+  assertAcsPayloadWithinLimit,
+  estimateAcsDisparoPayload,
+  ACS_MAX_PAYLOAD_BYTES,
 };

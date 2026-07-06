@@ -471,6 +471,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                       <th class="px-2 py-2">Setor (titular)</th>
                       <th class="px-2 py-2">Data da retirada</th>
                       <th class="px-2 py-2">Retirante</th>
+                      <th class="px-2 py-2">Indicação em</th>
                       <th class="px-2 py-2">Check-in</th>
                     </tr>
                   </thead>
@@ -480,6 +481,7 @@ type AbaRelatorio = 'wt_pass' | 'bids' | 'usuarios';
                       <td class="px-2 py-1.5">{{ g.titular_setor || '—' }}</td>
                       <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataHora(g.data_checkin) }}</td>
                       <td class="px-2 py-1.5">{{ g.retirante_nome || '—' }}</td>
+                      <td class="px-2 py-1.5 whitespace-nowrap">{{ formatarDataHora(g.convidado_indicado_em) }}</td>
                       <td class="px-2 py-1.5">{{ g.checkin != null ? g.checkin : '—' }}</td>
                     </tr>
                   </tbody>
@@ -988,13 +990,14 @@ export class RelatoriosComponent implements OnInit {
     ]);
     const wsAp = XLSX.utils.aoa_to_sheet([...metaAp, headAp, ...linhasAp]);
 
-    const headGa = ['Titular', 'Setor (titular)', 'Data da retirada', 'Retirante', 'CPF retirante', 'Check-in'];
+    const headGa = ['Titular', 'Setor (titular)', 'Data da retirada', 'Retirante', 'CPF retirante', 'Indicação em', 'Check-in'];
     const linhasGa = (this.bidGanhadores || []).map((g: any) => [
       g.titular_nome ?? '',
       g.titular_setor ?? '',
       this.fmtDataExcel(g.data_checkin),
       g.retirante_nome ?? '',
       g.retirante_cpf ?? '',
+      this.fmtDataExcel(g.convidado_indicado_em),
       g.checkin != null ? String(g.checkin) : '',
     ]);
     const wsGa = XLSX.utils.aoa_to_sheet([headGa, ...linhasGa]);
