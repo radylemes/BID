@@ -46,6 +46,7 @@ O **BID** permite:
 | **ADMIN** | Acesso total: usuários, grupos, BIDs, WT Pass, configurações, e-mail, auditoria, relatórios, **Supervisor Portaria** |
 | **USER** | Dashboard, apostas, perfil, convidados, WT Pass, histórico, políticas de acesso |
 | **PORTARIA** | App de portaria (check-in) e lista de confirmados; sem menu de apostas |
+| **SUPERVISOR_RH** | Início, WT Pass, perfil, BIDs, histórico, App Portaria e Supervisor Portaria; sem administração |
 
 ---
 
@@ -58,7 +59,7 @@ O **BID** permite:
 | Login local | E-mail/senha com JWT |
 | Login Microsoft | Azure AD via MSAL (frontend) + Passport OAuth Bearer (backend) |
 | Logout | Encerramento de sessão no cliente |
-| Guard de rotas | `AuthGuard` com controle por perfil (`ADMIN`, `USER`, `PORTARIA`) |
+| Guard de rotas | `AuthGuard` com controle por perfil (`ADMIN`, `USER`, `PORTARIA`, `SUPERVISOR_RH`) |
 | Interceptor JWT | Token enviado automaticamente nas requisições à API |
 
 ### Dashboard (Início)
@@ -118,7 +119,7 @@ O **BID** permite:
 | Normalização de textos | Nomes, empresas e setores exibidos em formato título (ex.: "Ana Paula") |
 | Debug (dev) | `GET /reception/debug` para diagnóstico |
 
-### Supervisor Portaria (ADMIN)
+### Supervisor Portaria (ADMIN, SUPERVISOR_RH)
 
 | Função | Descrição |
 |--------|-----------|
@@ -134,7 +135,7 @@ O **BID** permite:
 |--------|-----------|
 | CRUD | Criar, editar, excluir usuários |
 | Avatar | Upload de foto de perfil (compressão no frontend) |
-| Perfil | `ADMIN`, `USER`, `PORTARIA` |
+| Perfil | `ADMIN`, `USER`, `PORTARIA`, `SUPERVISOR_RH` |
 | Pontos | Ajuste manual e histórico de movimentações |
 | Grupo / setor / empresa | Vínculo ao organograma |
 | Ativar / desativar | Toggle de status |
@@ -232,12 +233,12 @@ Base: `http://localhost:4201` (dev) ou URL de produção.
 | Rota | Componente | Perfis |
 |------|------------|--------|
 | `/login` | Login | Público |
-| `/dashboard` | Início | ADMIN, USER |
-| `/eventos-rh` | WT Pass (lista) | ADMIN, USER |
+| `/dashboard` | Início | ADMIN, USER, SUPERVISOR_RH |
+| `/eventos-rh` | WT Pass (lista) | ADMIN, USER, SUPERVISOR_RH |
 | `/eventos-rh/manage` | Gerenciar WT Pass | ADMIN |
-| `/minhas-apostas` | Meus BIDs | ADMIN, USER |
-| `/profile` | Meu perfil | ADMIN, USER |
-| `/historico` | Histórico | ADMIN, USER |
+| `/minhas-apostas` | Meus BIDs | ADMIN, USER, SUPERVISOR_RH |
+| `/profile` | Meu perfil | ADMIN, USER, SUPERVISOR_RH |
+| `/historico` | Histórico | ADMIN, USER, SUPERVISOR_RH |
 | `/users` | Usuários | ADMIN |
 | `/groups` | Grupos | ADMIN |
 | `/matches/manage` | Gerenciar BIDs | ADMIN |
@@ -249,11 +250,11 @@ Base: `http://localhost:4201` (dev) ou URL de produção.
 | `/auditoria` | Auditoria | ADMIN |
 | `/monitor` | Monitor (também em Configurações) | ADMIN |
 | `/tenants-status` | Status Azure (também em Configurações) | ADMIN |
-| `/reception` | App Portaria | ADMIN, PORTARIA |
-| `/reception/confirmados` | Confirmados | ADMIN, PORTARIA |
-| `/portaria-supervisor` | Supervisor Portaria | ADMIN |
-| `/politica-acesso` | Política BIDs | ADMIN, USER |
-| `/politica-acesso-wt-pass` | Política WT Pass | ADMIN, USER |
+| `/reception` | App Portaria | ADMIN, PORTARIA, SUPERVISOR_RH |
+| `/reception/confirmados` | Confirmados | ADMIN, PORTARIA, SUPERVISOR_RH |
+| `/portaria-supervisor` | Supervisor Portaria | ADMIN, SUPERVISOR_RH |
+| `/politica-acesso` | Política BIDs | ADMIN, USER, SUPERVISOR_RH |
+| `/politica-acesso-wt-pass` | Política WT Pass | ADMIN, USER, SUPERVISOR_RH |
 
 ---
 
@@ -434,7 +435,7 @@ Uploads estáticos: `http://localhost:3005/api/uploads/...` ou `http://localhost
 | GET | `/:id` | Obter por ID | — |
 | PUT | `/:id` | Atualizar usuário | — |
 | DELETE | `/:id` | Excluir usuário | — |
-| PUT | `/:id/perfil` | Alterar perfil (ADMIN/USER/PORTARIA) | — |
+| PUT | `/:id/perfil` | Alterar perfil (ADMIN/USER/PORTARIA/SUPERVISOR_RH) | — |
 | PUT | `/:id/pontos` | Ajustar pontos | — |
 | PUT | `/:id/status` | Ativar/desativar | — |
 | PUT | `/:id/grupo` | Alterar grupo | — |
@@ -492,19 +493,19 @@ Uploads estáticos: `http://localhost:3005/api/uploads/...` ou `http://localhost
 
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
-| GET | `/debug` | Diagnóstico (dev) | ADMIN, PORTARIA |
-| GET | `/events/today` | Eventos por data (`?date=YYYY-MM-DD`; passado permitido) | ADMIN, PORTARIA |
-| GET | `/events/dates` | Datas com eventos no intervalo (`?from=&to=`) | ADMIN, PORTARIA |
-| GET | `/events/:eventId/guests` | Convidados do evento (`?tipo=BID\|WT_PASS`) | ADMIN, PORTARIA |
-| POST | `/checkin` | Check-in (BID ou WT Pass) | ADMIN, PORTARIA |
+| GET | `/debug` | Diagnóstico (dev) | ADMIN, PORTARIA, SUPERVISOR_RH |
+| GET | `/events/today` | Eventos por data (`?date=YYYY-MM-DD`; passado permitido) | ADMIN, PORTARIA, SUPERVISOR_RH |
+| GET | `/events/dates` | Datas com eventos no intervalo (`?from=&to=`) | ADMIN, PORTARIA, SUPERVISOR_RH |
+| GET | `/events/:eventId/guests` | Convidados do evento (`?tipo=BID\|WT_PASS`) | ADMIN, PORTARIA, SUPERVISOR_RH |
+| POST | `/checkin` | Check-in (BID ou WT Pass) | ADMIN, PORTARIA, SUPERVISOR_RH |
 
 ### Supervisor Portaria — `/api/reception/supervisor`
 
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
-| GET | `/acessos` | Lista de acessos (`from`, `to`, `tipo`, `status`, `q`) | ADMIN |
-| GET | `/acessos/:tipo/:id` | Detalhe (`tipo`: `BID` ou `WT_PASS`) | ADMIN |
-| POST | `/acessos/:tipo/:id/cancelar` | Cancelar liberação (`motivo` obrigatório) | ADMIN |
+| GET | `/acessos` | Lista de acessos (`from`, `to`, `tipo`, `status`, `q`) | ADMIN, SUPERVISOR_RH |
+| GET | `/acessos/:tipo/:id` | Detalhe (`tipo`: `BID` ou `WT_PASS`) | ADMIN, SUPERVISOR_RH |
+| POST | `/acessos/:tipo/:id/cancelar` | Cancelar liberação (`motivo` obrigatório) | ADMIN, SUPERVISOR_RH |
 
 ### Configurações — `/api/settings`
 

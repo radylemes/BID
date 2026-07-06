@@ -7,8 +7,8 @@ if (!receptionController) {
   console.error("ERRO CRÍTICO: receptionController não foi carregado.");
 }
 
-// Apenas usuários autenticados com perfil adequado (ADMIN ou PORTARIA)
-router.use(authMiddleware, authorizeRoles("ADMIN", "PORTARIA"));
+// Apenas usuários autenticados com perfil adequado (ADMIN, PORTARIA ou SUPERVISOR_RH)
+router.use(authMiddleware, authorizeRoles("ADMIN", "PORTARIA", "SUPERVISOR_RH"));
 
 if (receptionController.debugEvents) {
   router.get("/debug", receptionController.debugEvents);

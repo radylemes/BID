@@ -32,7 +32,7 @@ const createUserSchema = Joi.object({
       if (!validarCpf(d)) return helpers.error('any.invalid');
       return d;
     }),
-  perfil: Joi.string().valid('ADMIN', 'USER', 'PORTARIA').optional(),
+  perfil: Joi.string().valid('ADMIN', 'USER', 'PORTARIA', 'SUPERVISOR_RH').optional(),
   empresa_id: Joi.alternatives().try(Joi.number().integer(), Joi.string().valid('null', '')).optional(),
   setor_id: Joi.alternatives().try(Joi.number().integer(), Joi.string().valid('null', '')).optional(),
   grupo_id: Joi.alternatives().try(Joi.number().integer(), Joi.string().valid('null', '')).optional(),

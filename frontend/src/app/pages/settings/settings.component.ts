@@ -1941,6 +1941,7 @@ export class SettingsComponent implements OnInit {
       <option value="USER" ${regraExistente && regraExistente.perfil_alvo === 'USER' ? 'selected' : ''}>👤 Apenas USER (Colaborador)</option>
       <option value="ADMIN" ${regraExistente && regraExistente.perfil_alvo === 'ADMIN' ? 'selected' : ''}>⭐ Apenas ADMIN</option>
       <option value="PORTARIA" ${regraExistente && regraExistente.perfil_alvo === 'PORTARIA' ? 'selected' : ''}>🛡️ Apenas PORTARIA</option>
+      <option value="SUPERVISOR_RH" ${regraExistente && regraExistente.perfil_alvo === 'SUPERVISOR_RH' ? 'selected' : ''}>👔 Apenas SUPERVISOR_RH</option>
     `;
 
     const { value: formValues } = await Swal.fire({

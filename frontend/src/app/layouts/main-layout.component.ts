@@ -120,12 +120,21 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
           </a>
 
           <a
-            *ngIf="isAdmin || isPortaria"
+            *ngIf="isAdmin || isPortaria || isSupervisorRh"
             routerLink="/reception"
             routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
             class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
           >
             <span class="mr-3 text-lg">📱</span> App Portaria
+          </a>
+
+          <a
+            *ngIf="isAdmin || isSupervisorRh"
+            routerLink="/portaria-supervisor"
+            routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
+            class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
+          >
+            <span class="mr-3 text-lg">📱</span> Supervisor Portaria
           </a>
 
           <div *ngIf="isAdmin">
@@ -167,13 +176,6 @@ import { uploadsPublicUrl } from '../utils/uploads-public-url';
               class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
             >
               <span class="mr-3 text-lg">📊</span> Relatórios
-            </a>
-            <a
-              routerLink="/portaria-supervisor"
-              routerLinkActive="bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] border-l-2 border-[var(--color-primary-light)] pl-2.5"
-              class="flex items-center px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--app-nav-hover-bg)] hover:text-[var(--app-nav-active-text)] transition-colors group"
-            >
-              <span class="mr-3 text-lg">📱</span> Supervisor Portaria
             </a>
             <a
               *ngIf="isAdmin"
@@ -277,6 +279,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   fotoUrlCompleta: string | null = null;
   isAdmin: boolean = false;
   isPortaria: boolean = false;
+  isSupervisorRh: boolean = false;
   userRole: string = '';
 
   // Variáveis para a Carteira do Menu
@@ -363,6 +366,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
       this.userRole = String(u.role || u.perfil || '').toUpperCase();
       this.isAdmin = this.userRole === 'ADMIN';
       this.isPortaria = this.userRole === 'PORTARIA';
+      this.isSupervisorRh = this.userRole === 'SUPERVISOR_RH';
       this.saldo = u.pontos || 0;
 
       if (u.foto) {

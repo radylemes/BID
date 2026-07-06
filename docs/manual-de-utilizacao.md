@@ -16,7 +16,8 @@ O sistema possui perfis de acesso com permissões específicas:
 
 - `ADMIN`: administração completa;
 - `USER`: apostas, histórico e perfil;
-- `PORTARIA`: operação de check-in na entrada de eventos.
+- `PORTARIA`: operação de check-in na entrada de eventos;
+- `SUPERVISOR_RH`: módulos de colaborador (Início, WT Pass, perfil, BIDs, histórico) e portaria (App Portaria e Supervisor Portaria).
 
 ---
 

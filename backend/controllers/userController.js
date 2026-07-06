@@ -634,6 +634,7 @@ exports.bulkUpdate = async (req, res) => {
       let perfilFinal = "USER";
       if (perfilNormalizado === "ADMIN") perfilFinal = "ADMIN";
       else if (perfilNormalizado === "PORTARIA") perfilFinal = "PORTARIA";
+      else if (perfilNormalizado === "SUPERVISOR_RH") perfilFinal = "SUPERVISOR_RH";
       const { empId, setId } = await getOrCreateEmpresaSetor(
         connection,
         item.empresa,

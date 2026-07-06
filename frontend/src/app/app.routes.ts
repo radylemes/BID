@@ -41,13 +41,13 @@ export const routes: Routes = [
     path: 'reception/confirmados',
     component: ReceptionConfirmedComponent,
     canActivate: [AuthGuard],
-    data: { roles: ['ADMIN', 'PORTARIA'] },
+    data: { roles: ['ADMIN', 'PORTARIA', 'SUPERVISOR_RH'] },
   },
   {
     path: 'reception',
     component: ReceptionComponent,
     canActivate: [AuthGuard],
-    data: { roles: ['ADMIN', 'PORTARIA'] },
+    data: { roles: ['ADMIN', 'PORTARIA', 'SUPERVISOR_RH'] },
   },
 
   // Política de acesso (lances): tela simples sem menu/header do painel
@@ -55,13 +55,13 @@ export const routes: Routes = [
     path: 'politica-acesso',
     component: PolicyAccessComponent,
     canActivate: [AuthGuard],
-    data: { roles: ['ADMIN', 'USER'], policyScope: 'bids' },
+    data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'], policyScope: 'bids' },
   },
   {
     path: 'politica-acesso-wt-pass',
     component: PolicyAccessComponent,
     canActivate: [AuthGuard],
-    data: { roles: ['ADMIN', 'USER'], policyScope: 'wtPass' },
+    data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'], policyScope: 'wtPass' },
   },
 
   // ==========================================
@@ -75,23 +75,23 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
 
       // Tela Inicial (Usuário vê stats e aposta)
-      { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
-      { path: 'eventos-rh', component: EventoRhListComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
+      { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'] } },
+      { path: 'eventos-rh', component: EventoRhListComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'] } },
       { path: 'eventos-rh/manage', component: EventoRhManagerComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
-      { path: 'minhas-apostas', component: MyBetsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
-      { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
+      { path: 'minhas-apostas', component: MyBetsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'] } },
+      { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'] } },
 
       // Rotas de Administração
       { path: 'users', component: UserListComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'groups', component: GroupManagerComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'matches/manage', component: MatchManagerComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
-      { path: 'historico', component: HistoryComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER'] } },
+      { path: 'historico', component: HistoryComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'USER', 'SUPERVISOR_RH'] } },
       { path: 'settings/templates-email/edit/:id', component: EmailTemplateEditorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'settings/templates-email/new', component: EmailTemplateEditorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'email/disparo', component: DisparoEmailsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'relatorios', component: RelatoriosComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
-      { path: 'portaria-supervisor', component: ReceptionSupervisorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
+      { path: 'portaria-supervisor', component: ReceptionSupervisorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN', 'SUPERVISOR_RH'] } },
       { path: 'auditoria', component: AuditComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'monitor', component: SystemMonitorComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },
       { path: 'tenants-status', component: TenantsStatusComponent, canActivate: [AuthGuard], data: { roles: ['ADMIN'] } },

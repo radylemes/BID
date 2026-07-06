@@ -1040,7 +1040,7 @@ export class UserListComponent implements OnInit {
                 <div class="flex min-w-0 flex-col gap-1">
                     <label class="text-xs font-bold text-gray-500 uppercase leading-none">Perfil</label>
                     <select id="swal-perfil" class="swal2-select !m-0 box-border flex h-10 w-full items-center">
-                        <option value="USER">Usuário</option><option value="ADMIN">Admin</option><option value="PORTARIA">Portaria</option>
+                        <option value="USER">Usuário</option><option value="ADMIN">Admin</option><option value="PORTARIA">Portaria</option><option value="SUPERVISOR_RH">Supervisor RH</option>
                     </select>
                 </div>
             </div>

@@ -99,7 +99,7 @@ async function initializeDatabase() {
         senha_hash VARCHAR(255) NULL,
         is_ad_user TINYINT(1) DEFAULT 1,
         pontos INT DEFAULT 0,
-        perfil ENUM('ADMIN', 'USER', 'PORTARIA') DEFAULT 'USER',
+        perfil ENUM('ADMIN', 'USER', 'PORTARIA', 'SUPERVISOR_RH') DEFAULT 'USER',
         
         empresa_id INT NULL,  -- Veio do AD
         setor_id INT NULL,    -- Veio do AD
@@ -162,6 +162,16 @@ async function initializeDatabase() {
       }
     } catch (e) {
       console.warn("Aviso ao migrar usuarios.desativado_manual:", e.message);
+    }
+
+    // Migração: perfil SUPERVISOR_RH no ENUM
+    try {
+      await connection.query(
+        "ALTER TABLE usuarios MODIFY perfil ENUM('ADMIN', 'USER', 'PORTARIA', 'SUPERVISOR_RH') DEFAULT 'USER'",
+      );
+      console.log("✅ ENUM usuarios.perfil atualizado (SUPERVISOR_RH).");
+    } catch (e) {
+      console.warn("Aviso ao migrar usuarios.perfil ENUM:", e.message);
     }
 
     // ============================================================
