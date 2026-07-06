@@ -7,6 +7,7 @@ import { GuestService } from '../../services/guest.service';
 import { SettingsService } from '../../services/settings.service';
 import { EventoRhService } from '../../services/evento-rh.service';
 import Swal from 'sweetalert2';
+import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { uploadsPublicUrl } from '../../utils/uploads-public-url';
 import {
@@ -15,6 +16,7 @@ import {
   DEFAULT_LIMITE_INDICACAO_HORAS,
   DirecaoLimiteIndicacao,
 } from '../../utils/convidados-limite-indicacao';
+import { exibirErroAssignConvidado } from '../../utils/guest-assign-error';
 
 type FiltroGrupoDashboard = null | number | 'PUBLICO';
 
@@ -599,23 +601,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
 
       if (selecoes) {
-        const promises = selecoes.map((s: any) => {
-          return new Promise<void>((resolve, reject) => {
-            this.guestService
-              .assignTicket(s.ingressoId, {
-                convidado_id: s.convidadoId,
-                usuario_id: this.currentUser.id,
-              })
-              .subscribe({
-                next: () => resolve(),
-                error: (err) => reject(err),
-              });
-          });
-        });
-
-        if (promises.length > 0) {
+        if (selecoes.length > 0) {
           try {
-            await Promise.all(promises);
+            for (const s of selecoes) {
+              await firstValueFrom(
+                this.guestService.assignTicket(s.ingressoId, {
+                  convidado_id: s.convidadoId,
+                  usuario_id: this.currentUser.id,
+                }),
+              );
+            }
             Swal.fire({
               icon: 'success',
               title: 'Salvo!',
@@ -624,9 +619,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
               showConfirmButton: false,
             });
             this.carregarConfigLimiteIndicacao();
-    this.carregarDados();
+            this.carregarDados();
           } catch (e) {
-            Swal.fire('Erro', 'Ocorreu um erro ao salvar alguns convidados.', 'error');
+            exibirErroAssignConvidado(e);
           }
         }
       }

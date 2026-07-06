@@ -298,7 +298,7 @@ exports.assignGuestToTicket = async (req, res) => {
       }
 
       const [guestOwned] = await connection.execute(
-        "SELECT nome_completo FROM convidados WHERE id = ? AND usuario_id = ?",
+        "SELECT nome_completo, cpf FROM convidados WHERE id = ? AND usuario_id = ?",
         [convidado_id, usuario_id],
       );
       if (guestOwned.length === 0) {
@@ -309,26 +309,35 @@ exports.assignGuestToTicket = async (req, res) => {
         });
       }
 
-      const [dupOutroIngresso] = await connection.execute(
-        `SELECT i2.id FROM ingressos i2
-         INNER JOIN apostas a2 ON i2.aposta_id = a2.id
-         WHERE i2.convidado_id = ?
-           AND i2.id != ?
-           AND i2.usuario_id = ?
-           AND a2.partida_id = (
-             SELECT a.partida_id FROM ingressos i
-             INNER JOIN apostas a ON i.aposta_id = a.id
-             WHERE i.id = ?
-           )
+      const guestCpf = normalizarCpfDigits(guestOwned[0].cpf);
+      const [dupCpfEvento] = await connection.execute(
+        `SELECT u.nome_completo AS indicado_por, c.nome_completo AS convidado_nome
+         FROM ingressos i
+         INNER JOIN apostas a ON i.aposta_id = a.id
+         INNER JOIN convidados c ON i.convidado_id = c.id
+         INNER JOIN usuarios u ON i.usuario_id = u.id
+         WHERE a.partida_id = (
+           SELECT a2.partida_id FROM ingressos i2
+           INNER JOIN apostas a2 ON i2.aposta_id = a2.id
+           WHERE i2.id = ?
+         )
+         AND a.status = 'GANHOU'
+         AND i.convidado_id IS NOT NULL
+         AND REGEXP_REPLACE(IFNULL(c.cpf, ''), '[^0-9]', '') = ?
+         AND i.id != ?
          LIMIT 1`,
-        [convidado_id, ingressoId, usuario_id, ingressoId],
+        [ingressoId, guestCpf, ingressoId],
       );
-      if (dupOutroIngresso.length > 0) {
+      if (dupCpfEvento.length > 0) {
+        const indicadoPor = dupCpfEvento[0].indicado_por || "outro titular";
+        const convidadoNome = dupCpfEvento[0].convidado_nome || guestOwned[0].nome_completo;
         await connection.rollback();
         connection.release();
-        return res.status(400).json({
-          error:
-            "Cada convidado pode ser indicado em apenas um ingresso deste evento. Escolha outra pessoa ou remova a indicação duplicada.",
+        return res.status(409).json({
+          error: `Este convidado já foi indicado para este evento por ${indicadoPor}.`,
+          codigo: "CONVIDADO_JA_INDICADO",
+          indicado_por: indicadoPor,
+          convidado_nome: convidadoNome,
         });
       }
 
