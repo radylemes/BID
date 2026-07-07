@@ -62,6 +62,8 @@ function mapBidRow(row, baseUrl) {
     status: row.status || "ABERTA",
     quantidade_premios: Number(row.quantidade_premios) || 1,
     setor_evento_nome: row.setor_evento_nome || null,
+    grupo_id: row.grupo_id != null ? Number(row.grupo_id) : null,
+    nome_grupo: row.nome_grupo || null,
     total_apostas: Number(row.total_apostas) || 0,
     total_participantes: Number(row.total_participantes) || 0,
   };
@@ -86,18 +88,21 @@ function mapWtPassRow(row, baseUrl) {
     fila_count: filaCount,
     vagas_restantes: Math.max(0, vagas - ocupadas),
     partida_id: row.partida_id != null ? Number(row.partida_id) : null,
+    grupo_id: row.grupo_id != null ? Number(row.grupo_id) : null,
+    nome_grupo: row.nome_grupo || null,
   };
 }
 
 async function fetchBidsByStatus(status, baseUrl) {
   const [rows] = await db.execute(
     `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.data_jogo, p.data_inicio_apostas,
-            p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios,
-            se.nome AS setor_evento_nome,
+            p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios, p.grupo_id,
+            se.nome AS setor_evento_nome, g.nome AS nome_grupo,
             (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) AS total_apostas,
             (SELECT COUNT(DISTINCT a.usuario_id) FROM apostas a WHERE a.partida_id = p.id) AS total_participantes
      FROM partidas p
      LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+     LEFT JOIN grupos g ON p.grupo_id = g.id
      WHERE p.status = ?
      ORDER BY p.data_jogo DESC`,
     [status],
@@ -108,12 +113,13 @@ async function fetchBidsByStatus(status, baseUrl) {
 async function fetchBidWinners(baseUrl) {
   const [events] = await db.execute(
     `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.data_jogo, p.data_inicio_apostas,
-            p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios,
-            se.nome AS setor_evento_nome,
+            p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios, p.grupo_id,
+            se.nome AS setor_evento_nome, g.nome AS nome_grupo,
             (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) AS total_apostas,
             (SELECT COUNT(DISTINCT a.usuario_id) FROM apostas a WHERE a.partida_id = p.id) AS total_participantes
      FROM partidas p
      LEFT JOIN setores_evento se ON p.setor_evento_id = se.id
+     LEFT JOIN grupos g ON p.grupo_id = g.id
      WHERE p.status = 'FINALIZADA'
      ORDER BY p.data_jogo DESC`,
   );
@@ -158,10 +164,12 @@ async function fetchWtPassByStatus(statusList, baseUrl) {
   const [rows] = await db.execute(
     `SELECT e.id, e.titulo, e.subtitulo, e.banner, e.local,
             e.data_inicio_inscricao, e.data_limite_inscricao, e.data_evento,
-            e.vagas, e.status, e.partida_id,
+            e.vagas, e.status, e.partida_id, p.grupo_id, g.nome AS nome_grupo,
             COALESCE(s.ocupadas, 0) AS ocupadas,
             COALESCE(s.fila_count, 0) AS fila_count
      FROM eventos_rh e
+     LEFT JOIN partidas p ON e.partida_id = p.id
+     LEFT JOIN grupos g ON p.grupo_id = g.id
      LEFT JOIN (
        SELECT evento_id,
          SUM(status IN ('INSCRITO','PRESENTE','FALTOU')) AS ocupadas,
@@ -258,6 +266,8 @@ async function buildPortariaSummary(dateStr, baseUrl) {
       data_evento: dbUtcToISO(evento.data_evento),
       partida_id: evento.partida_id != null ? Number(evento.partida_id) : null,
       evento_rh_id: evento.evento_rh_id != null ? Number(evento.evento_rh_id) : null,
+      grupo_id: evento.grupo_id != null ? Number(evento.grupo_id) : null,
+      nome_grupo: evento.nome_grupo || null,
       totais: {
         liberados: totais.liberados,
         pendentes: totais.pendentes,
@@ -272,6 +282,52 @@ async function buildPortariaSummary(dateStr, baseUrl) {
     eventos: eventosComTotais,
   };
 }
+
+exports.getUsuarios = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT u.id, u.nome_completo, u.email, u.pontos, u.grupo_id, g.nome AS nome_grupo
+       FROM usuarios u
+       LEFT JOIN grupos g ON u.grupo_id = g.id
+       WHERE u.ativo = 1
+       ORDER BY u.nome_completo ASC`,
+    );
+
+    const [histSaldoRows] = await db.execute(`
+      SELECT h1.usuario_id, h1.pontos_depois
+      FROM historico_pontos h1
+      INNER JOIN (
+        SELECT usuario_id, MAX(id) AS max_id
+        FROM historico_pontos
+        WHERE NOT (pontos_antes = 0 AND pontos_depois = 0)
+        GROUP BY usuario_id
+      ) h2 ON h1.id = h2.max_id
+    `);
+    const saldoPorHistorico = new Map(
+      histSaldoRows.map((h) => [h.usuario_id, Number(h.pontos_depois) || 0]),
+    );
+
+    const usuarios = rows.map((r) => ({
+      id: Number(r.id),
+      nome_completo: r.nome_completo || "",
+      email: r.email || null,
+      pontos: saldoPorHistorico.has(r.id)
+        ? saldoPorHistorico.get(r.id)
+        : Number(r.pontos) || 0,
+      grupo_id: r.grupo_id != null ? Number(r.grupo_id) : null,
+      nome_grupo: r.nome_grupo || null,
+    }));
+
+    res.json({
+      usuarios,
+      total: usuarios.length,
+      gerado_em: new Date().toISOString(),
+    });
+  } catch (error) {
+    await logErro("INTEGRACAO_GET_USUARIOS", error);
+    res.status(500).json({ error: "Erro ao consultar usuários." });
+  }
+};
 
 exports.getEventos = async (req, res) => {
   try {

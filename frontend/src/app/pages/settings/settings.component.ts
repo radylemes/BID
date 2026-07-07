@@ -699,8 +699,8 @@ import {
             <div>
               <h3 class="text-xl font-black text-[var(--app-text)]">Integração API externa</h3>
               <p class="text-xs text-[var(--app-text-muted)] mt-1 max-w-2xl">
-                Permite que outra aplicação consulte BIDs e WT Pass (abertos, encerrados e vencedores)
-                via chave de API.
+                Permite que outra aplicação consulte BIDs, WT Pass, portaria e usuários ativos
+                (e-mail, pontos, grupo) via chave de API.
               </p>
             </div>
 
@@ -774,8 +774,18 @@ import {
               <div class="text-xs text-indigo-900/80 space-y-2 font-mono break-all">
                 <p><strong>GET</strong> {{ integracaoApiUrl }}</p>
                 <p><strong>GET</strong> {{ integracaoApiUrl }}?date=YYYY-MM-DD</p>
+                <p><strong>GET</strong> {{ integracaoApiUsuariosUrl }}</p>
                 <p><strong>Header:</strong> X-API-Key: &lt;sua-chave&gt;</p>
               </div>
+              <p class="text-[11px] text-indigo-900/70 leading-relaxed">
+                <code class="text-[10px]">GET /integracao/usuarios</code> retorna usuários
+                <strong>ativos</strong> com
+                <code class="text-[10px]">nome_completo</code>,
+                <code class="text-[10px]">email</code>,
+                <code class="text-[10px]">pontos</code>,
+                <code class="text-[10px]">grupo_id</code> e
+                <code class="text-[10px]">nome_grupo</code>.
+              </p>
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
                 A resposta inclui <code class="text-[10px]">bids</code> e
                 <code class="text-[10px]">wtpass</code> (listas
@@ -784,6 +794,14 @@ import {
                 <code class="text-[10px]">vencedores</code>) e
                 <code class="text-[10px]">portaria</code> do dia consultado
                 (parâmetro <code class="text-[10px]">date</code> opcional; padrão: hoje).
+              </p>
+              <p class="text-[11px] text-indigo-900/70 leading-relaxed">
+                Cada evento em <code class="text-[10px]">bids</code>,
+                <code class="text-[10px]">wtpass</code> e
+                <code class="text-[10px]">portaria</code> inclui
+                <code class="text-[10px]">grupo_id</code> e
+                <code class="text-[10px]">nome_grupo</code>
+                (grupo de apostas; <code class="text-[10px]">null</code> = público ou sem partida vinculada).
               </p>
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
                 Em <code class="text-[10px]">portaria.eventos</code>: título,
@@ -853,6 +871,7 @@ export class SettingsComponent implements OnInit {
   externalApiKeyPlain = '';
   salvandoExternalApi = false;
   integracaoApiUrl = `${environment.apiUri}/integracao/eventos`;
+  integracaoApiUsuariosUrl = `${environment.apiUri}/integracao/usuarios`;
 
   get externalApiKeyDisplay(): string {
     if (this.externalApiKeyPlain) return this.externalApiKeyPlain;

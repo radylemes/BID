@@ -70,8 +70,9 @@ async function fetchReceptionEventsForDate(executor, options = {}) {
   const futureWt = restrictToFutureOnly ? " AND DATE(ev.data_evento) >= CURDATE()" : "";
 
   const [rowsBid] = await executor.execute(
-    `SELECT p.id, p.titulo, p.banner, p.data_jogo AS data_evento
+    `SELECT p.id, p.titulo, p.banner, p.data_jogo AS data_evento, p.grupo_id, g.nome AS nome_grupo
      FROM partidas p
+     LEFT JOIN grupos g ON p.grupo_id = g.id
      WHERE EXISTS (
        SELECT 1
        FROM apostas a
@@ -87,9 +88,11 @@ async function fetchReceptionEventsForDate(executor, options = {}) {
 
   const [rowsWt] = await executor.execute(
     `SELECT ev.id AS evento_rh_id, ev.titulo, ev.banner, ev.data_evento, ev.partida_id,
-            p.titulo AS partida_titulo, p.banner AS partida_banner, p.data_jogo AS partida_data_jogo
+            p.titulo AS partida_titulo, p.banner AS partida_banner, p.data_jogo AS partida_data_jogo,
+            p.grupo_id, g.nome AS nome_grupo
        FROM eventos_rh ev
        LEFT JOIN partidas p ON p.id = ev.partida_id
+       LEFT JOIN grupos g ON p.grupo_id = g.id
       WHERE ev.status <> 'CANCELADO'
         AND DATE(ev.data_evento) = ${dateClause}${futureWt}
         AND EXISTS (
@@ -108,6 +111,8 @@ async function fetchReceptionEventsForDate(executor, options = {}) {
     data_evento: r.data_evento,
     partida_id: r.id,
     evento_rh_id: null,
+    grupo_id: r.grupo_id != null ? Number(r.grupo_id) : null,
+    nome_grupo: r.nome_grupo || null,
   }));
 
   for (const ev of rowsWt) {
@@ -122,6 +127,8 @@ async function fetchReceptionEventsForDate(executor, options = {}) {
       data_evento: ev.data_evento || ev.partida_data_jogo,
       partida_id: partidaId,
       evento_rh_id: ev.evento_rh_id,
+      grupo_id: ev.grupo_id != null ? Number(ev.grupo_id) : null,
+      nome_grupo: ev.nome_grupo || null,
     });
   }
 
