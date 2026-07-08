@@ -16,7 +16,7 @@ A API de integração permite que uma aplicação externa consulte:
 
 **Usuários** (`GET /api/integracao/usuarios`):
 
-- Lista de **usuários ativos** com nome, e-mail, pontos e grupo de apostas.
+- Lista de **usuários ativos** com `microsoft_id`, nome, e-mail, pontos e grupo de apostas.
 
 | Endpoint | Método | Rota |
 |----------|--------|------|
@@ -182,7 +182,7 @@ Estrutura principal:
 
 ## 6.1) Consulta de usuários
 
-Retorna todos os **usuários ativos** (`ativo = 1`) com dados para integração externa.
+Retorna todos os **usuários ativos** (`ativo = 1`) com dados para integração externa, incluindo `microsoft_id` (vínculo Azure AD).
 
 > **Atenção — dados pessoais:** este endpoint expõe **e-mails**. A mesma chave de API usada para eventos também autoriza esta consulta. Trate a chave como segredo de alto nível e restrinja o acesso.
 
@@ -202,6 +202,7 @@ Sem parâmetros de query.
   "usuarios": [
     {
       "id": 1,
+      "microsoft_id": "4d8daef2-2de1-47d6-8d58-434f6b3ce99a",
       "nome_completo": "João Silva",
       "email": "joao@empresa.com",
       "pontos": 150,
@@ -225,13 +226,14 @@ Sem parâmetros de query.
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `id` | number | ID do usuário |
+| `microsoft_id` | string \| null | Object ID (OID) no Azure AD; `null` se usuário local |
 | `nome_completo` | string | Nome completo |
 | `email` | string \| null | E-mail corporativo |
 | `pontos` | number | Saldo efetivo (último registro em `historico_pontos`, ou `usuarios.pontos`) |
 | `grupo_id` | number \| null | ID do grupo de apostas |
 | `nome_grupo` | string \| null | Nome do grupo; `null` = sem grupo |
 
-Usuários inativos **não** são incluídos. Campos sensíveis (CPF, senha, perfil, etc.) **não** são expostos.
+Usuários inativos **não** são incluídos. Usuários sincronizados via Microsoft/login AD possuem `microsoft_id` preenchido; usuários criados manualmente costumam ter `null`. Campos sensíveis (CPF, senha, perfil, etc.) **não** são expostos.
 
 ---
 
@@ -255,6 +257,7 @@ Cada item representa uma partida:
 | `status` | string | Ex.: `ABERTA`, `FINALIZADA` |
 | `quantidade_premios` | number | Quantidade de ingressos/prêmios |
 | `setor_evento_nome` | string \| null | Setor do evento |
+| `informacoes_extras` | string \| null | Texto/HTML com informações adicionais do evento |
 | `grupo_id` | number \| null | ID do grupo de apostas; `null` = evento público |
 | `nome_grupo` | string \| null | Nome do grupo de apostas; `null` = evento público |
 | `total_apostas` | number | Total de lances |
@@ -262,7 +265,7 @@ Cada item representa uma partida:
 
 ### 7.2) BID — lista `vencedores`
 
-Mesmos campos da seção 7.1 (incluindo `grupo_id` e `nome_grupo`), mais o array `vencedores`:
+Mesmos campos da seção 7.1 (incluindo `grupo_id`, `nome_grupo` e `informacoes_extras`), mais o array `vencedores`:
 
 | Campo (em `vencedores[]`) | Tipo | Descrição |
 |---------------------------|------|-----------|
@@ -273,6 +276,8 @@ Mesmos campos da seção 7.1 (incluindo `grupo_id` e `nome_grupo`), mais o array
 
 > Apenas partidas com status `FINALIZADA` entram em `vencedores`. Cada evento pode ter um ou mais ganhadores (conforme `quantidade_premios`).
 
+> O campo `informacoes_extras` pode conter HTML (editado via TinyMCE no admin). Consumidores externos devem sanitizar o conteúdo se for exibir na interface.
+
 ### 7.3) WT Pass — listas `abertos` e `encerrados`
 
 | Campo | Tipo | Descrição |
@@ -281,6 +286,7 @@ Mesmos campos da seção 7.1 (incluindo `grupo_id` e `nome_grupo`), mais o array
 | `titulo` | string | Título |
 | `subtitulo` | string \| null | Subtítulo |
 | `local` | string \| null | Local |
+| `informacoes_extras` | string \| null | Texto/HTML com informações adicionais (campo `descricao` no WT Pass) |
 | `imagem_url` | string \| null | URL do banner |
 | `data_evento` | string \| null | Data/hora do evento |
 | `data_inicio_inscricao` | string \| null | Início das inscrições |
@@ -409,7 +415,7 @@ X-API-Key: <chave-hex-64-chars>
 Accept: application/json
 ```
 
-Resposta: `bids` + `wtpass` + `portaria` + `gerado_em`.
+Resposta: `bids` + `wtpass` + `portaria` + `gerado_em`. Eventos em `bids` e `wtpass` incluem `informacoes_extras`.
 
 **Usuários:**
 
@@ -419,6 +425,6 @@ X-API-Key: <chave-hex-64-chars>
 Accept: application/json
 ```
 
-Resposta: `usuarios` + `total` + `gerado_em` (somente usuários ativos).
+Resposta: `usuarios` + `total` + `gerado_em` (somente usuários ativos; inclui `microsoft_id`).
 
 Configuração administrativa: **Configurações → Integração API externa** (perfil `ADMIN`).

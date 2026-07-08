@@ -780,6 +780,7 @@ import {
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
                 <code class="text-[10px]">GET /integracao/usuarios</code> retorna usuários
                 <strong>ativos</strong> com
+                <code class="text-[10px]">microsoft_id</code>,
                 <code class="text-[10px]">nome_completo</code>,
                 <code class="text-[10px]">email</code>,
                 <code class="text-[10px]">pontos</code>,
@@ -796,9 +797,9 @@ import {
                 (parâmetro <code class="text-[10px]">date</code> opcional; padrão: hoje).
               </p>
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
-                Cada evento em <code class="text-[10px]">bids</code>,
-                <code class="text-[10px]">wtpass</code> e
-                <code class="text-[10px]">portaria</code> inclui
+                Cada evento em <code class="text-[10px]">bids</code> e
+                <code class="text-[10px]">wtpass</code> inclui
+                <code class="text-[10px]">informacoes_extras</code>,
                 <code class="text-[10px]">grupo_id</code> e
                 <code class="text-[10px]">nome_grupo</code>
                 (grupo de apostas; <code class="text-[10px]">null</code> = público ou sem partida vinculada).

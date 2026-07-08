@@ -62,6 +62,7 @@ function mapBidRow(row, baseUrl) {
     status: row.status || "ABERTA",
     quantidade_premios: Number(row.quantidade_premios) || 1,
     setor_evento_nome: row.setor_evento_nome || null,
+    informacoes_extras: row.informacoes_extras || null,
     grupo_id: row.grupo_id != null ? Number(row.grupo_id) : null,
     nome_grupo: row.nome_grupo || null,
     total_apostas: Number(row.total_apostas) || 0,
@@ -78,6 +79,7 @@ function mapWtPassRow(row, baseUrl) {
     titulo: row.titulo || "Evento sem título",
     subtitulo: row.subtitulo || null,
     local: row.local || null,
+    informacoes_extras: row.descricao || null,
     imagem_url: resolveWtPassImagemUrl(row.banner, baseUrl) || null,
     data_evento: dbUtcToISO(row.data_evento),
     data_inicio_inscricao: dbUtcToISO(row.data_inicio_inscricao),
@@ -95,7 +97,7 @@ function mapWtPassRow(row, baseUrl) {
 
 async function fetchBidsByStatus(status, baseUrl) {
   const [rows] = await db.execute(
-    `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.data_jogo, p.data_inicio_apostas,
+    `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.informacoes_extras, p.data_jogo, p.data_inicio_apostas,
             p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios, p.grupo_id,
             se.nome AS setor_evento_nome, g.nome AS nome_grupo,
             (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) AS total_apostas,
@@ -112,7 +114,7 @@ async function fetchBidsByStatus(status, baseUrl) {
 
 async function fetchBidWinners(baseUrl) {
   const [events] = await db.execute(
-    `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.data_jogo, p.data_inicio_apostas,
+    `SELECT p.id, p.titulo, p.subtitulo, p.banner, p.local, p.informacoes_extras, p.data_jogo, p.data_inicio_apostas,
             p.data_limite_aposta, p.data_apuracao, p.status, p.quantidade_premios, p.grupo_id,
             se.nome AS setor_evento_nome, g.nome AS nome_grupo,
             (SELECT COUNT(*) FROM apostas a WHERE a.partida_id = p.id) AS total_apostas,
@@ -162,7 +164,7 @@ async function fetchBidWinners(baseUrl) {
 async function fetchWtPassByStatus(statusList, baseUrl) {
   const placeholders = statusList.map(() => "?").join(", ");
   const [rows] = await db.execute(
-    `SELECT e.id, e.titulo, e.subtitulo, e.banner, e.local,
+    `SELECT e.id, e.titulo, e.subtitulo, e.banner, e.local, e.descricao,
             e.data_inicio_inscricao, e.data_limite_inscricao, e.data_evento,
             e.vagas, e.status, e.partida_id, p.grupo_id, g.nome AS nome_grupo,
             COALESCE(s.ocupadas, 0) AS ocupadas,
@@ -286,7 +288,7 @@ async function buildPortariaSummary(dateStr, baseUrl) {
 exports.getUsuarios = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT u.id, u.nome_completo, u.email, u.pontos, u.grupo_id, g.nome AS nome_grupo
+      `SELECT u.id, u.microsoft_id, u.nome_completo, u.email, u.pontos, u.grupo_id, g.nome AS nome_grupo
        FROM usuarios u
        LEFT JOIN grupos g ON u.grupo_id = g.id
        WHERE u.ativo = 1
@@ -309,6 +311,7 @@ exports.getUsuarios = async (req, res) => {
 
     const usuarios = rows.map((r) => ({
       id: Number(r.id),
+      microsoft_id: r.microsoft_id || null,
       nome_completo: r.nome_completo || "",
       email: r.email || null,
       pontos: saldoPorHistorico.has(r.id)
