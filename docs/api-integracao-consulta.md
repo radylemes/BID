@@ -18,10 +18,15 @@ A API de integração permite que uma aplicação externa consulte:
 
 - Lista de **usuários ativos** com `microsoft_id`, nome, e-mail, pontos e grupo de apostas.
 
+**Lookup de usuário** (`GET /api/integracao/usuarios/lookup`):
+
+- Consulta **um único usuário ativo** por `microsoft_id` (OID Azure AD) — evita baixar a lista completa para cruzar ganhadores.
+
 | Endpoint | Método | Rota |
 |----------|--------|------|
 | Eventos | `GET` | `/api/integracao/eventos` |
-| Usuários | `GET` | `/api/integracao/usuarios` |
+| Usuários (lista) | `GET` | `/api/integracao/usuarios` |
+| Usuário (lookup) | `GET` | `/api/integracao/usuarios/lookup` |
 
 | Item | Valor |
 |------|-------|
@@ -33,6 +38,7 @@ A API de integração permite que uma aplicação externa consulte:
 ```
 http://localhost:3005/api/integracao/eventos
 http://localhost:3005/api/integracao/usuarios
+http://localhost:3005/api/integracao/usuarios/lookup?microsoft_id=SEU-OID-AZURE
 ```
 
 Em produção, substitua pelo domínio configurado em `app_base_url` ou pela URL pública da API.
@@ -237,6 +243,49 @@ Usuários inativos **não** são incluídos. Usuários sincronizados via Microso
 
 ---
 
+## 6.2) Lookup de usuário por `microsoft_id`
+
+Retorna **um** usuário ativo pelo Object ID (OID) do Azure AD. Use este endpoint em vez de `GET /usuarios` quando precisar resolver um ganhador ou validar um OID — resposta instantânea com 1 registro (ou `404`).
+
+### Requisição
+
+```bash
+curl -s -H "X-API-Key: SUA_CHAVE_AQUI" \
+  "http://localhost:3005/api/integracao/usuarios/lookup?microsoft_id=4d8daef2-2de1-47d6-8d58-434f6b3ce99a"
+```
+
+| Parâmetro | Obrigatório | Descrição |
+|-----------|-------------|-----------|
+| `microsoft_id` | Sim | OID do Azure AD (UUID) |
+
+### Resposta (HTTP 200)
+
+```json
+{
+  "usuario": {
+    "id": 42,
+    "microsoft_id": "4d8daef2-2de1-47d6-8d58-434f6b3ce99a",
+    "nome_completo": "João Silva",
+    "email": "joao@empresa.com",
+    "pontos": 150,
+    "grupo_id": 2,
+    "nome_grupo": "WTE"
+  },
+  "gerado_em": "2026-07-08T12:00:00.000Z"
+}
+```
+
+Mesmo formato de um item da lista em 6.1 (`GET /usuarios`).
+
+### Erros específicos
+
+| HTTP | Mensagem | Causa |
+|------|----------|-------|
+| `400` | `Parâmetro microsoft_id é obrigatório.` | Query param ausente ou vazio |
+| `404` | `Usuário não encontrado.` | OID inexistente ou usuário inativo |
+
+---
+
 ## 7) Estrutura dos objetos
 
 ### 7.1) BID — listas `abertos` e `encerrados`
@@ -269,10 +318,15 @@ Mesmos campos da seção 7.1 (incluindo `grupo_id`, `nome_grupo` e `informacoes_
 
 | Campo (em `vencedores[]`) | Tipo | Descrição |
 |---------------------------|------|-----------|
+| `usuario_id` | number | ID do usuário ganhador no BID |
+| `microsoft_id` | string \| null | OID Azure AD; `null` se usuário local |
+| `email` | string \| null | E-mail corporativo |
 | `nome` | string | Nome do ganhador |
 | `setor` | string \| null | Setor do colaborador |
 | `lance` | number | Valor pago na aposta vencedora |
 | `data_aposta` | string \| null | Data/hora do lance (ISO 8601 UTC) |
+
+> Use `usuario_id`, `microsoft_id` ou `email` para cruzar ganhadores com sistemas externos (ex.: lookup por OID em 6.2).
 
 > Apenas partidas com status `FINALIZADA` entram em `vencedores`. Cada evento pode ter um ou mais ganhadores (conforme `quantidade_premios`).
 
@@ -313,6 +367,9 @@ Mesmos campos de evento encerrado, mais `vencedores[]`:
 
 | Campo (em `vencedores[]`) | Tipo | Descrição |
 |---------------------------|------|-----------|
+| `usuario_id` | number | ID do inscrito |
+| `microsoft_id` | string \| null | OID Azure AD; `null` se usuário local |
+| `email` | string \| null | E-mail corporativo |
 | `nome` | string | Nome do inscrito |
 | `setor` | string \| null | Setor |
 | `posicao` | number \| null | Posição na inscrição |
@@ -379,11 +436,14 @@ Retorna eventos com data de jogo/evento na data consultada (`date`).
 | HTTP | Mensagem (`error`) | Causa provável |
 |------|-------------------|----------------|
 | `400` | `Formato de data inválido. Use YYYY-MM-DD.` | Parâmetro `date` em formato incorreto |
+| `400` | `Parâmetro microsoft_id é obrigatório.` | Lookup sem `microsoft_id` |
 | `401` | `Chave de API não fornecida.` | Header `X-API-Key` ou `Authorization` ausente |
 | `401` | `Chave de API inválida.` | Chave incorreta ou desatualizada |
+| `404` | `Usuário não encontrado.` | Lookup: OID inexistente ou usuário inativo |
 | `503` | `Integração externa desativada.` | API desligada nas configurações |
 | `500` | `Erro ao consultar eventos.` | Falha interna ao consultar eventos |
 | `500` | `Erro ao consultar usuários.` | Falha interna ao consultar usuários |
+| `500` | `Erro ao consultar usuário.` | Falha interna no lookup |
 
 Exemplo de resposta de erro:
 
@@ -399,9 +459,10 @@ Exemplo de resposta de erro:
 
 1. **Armazene a chave com segurança** — nunca a inclua em repositórios públicos ou no front-end. A chave dá acesso a eventos **e** e-mails de usuários.
 2. **Trate erros 401 e 503** — verifique se a integração continua ativa e se a chave não foi regenerada.
-3. **Use cache local** — a resposta consolida várias consultas internas; evite polling agressivo (ex.: intervalo mínimo de 1–5 minutos para dashboards).
-4. **Valide `gerado_em`** — útil para saber a idade dos dados exibidos.
-5. **Datas em UTC** — todos os campos de data/hora retornam ISO 8601 em UTC; converta no cliente conforme o fuso desejado.
+3. **Prefira lookup para um OID** — use `GET /usuarios/lookup?microsoft_id=` em vez de listar todos os usuários ao cruzar ganhadores.
+4. **Use cache local** — a resposta consolida várias consultas internas; evite polling agressivo (ex.: intervalo mínimo de 1–5 minutos para dashboards).
+5. **Valide `gerado_em`** — útil para saber a idade dos dados exibidos.
+6. **Datas em UTC** — todos os campos de data/hora retornam ISO 8601 em UTC; converta no cliente conforme o fuso desejado.
 
 ---
 
@@ -415,9 +476,9 @@ X-API-Key: <chave-hex-64-chars>
 Accept: application/json
 ```
 
-Resposta: `bids` + `wtpass` + `portaria` + `gerado_em`. Eventos em `bids` e `wtpass` incluem `informacoes_extras`.
+Resposta: `bids` + `wtpass` + `portaria` + `gerado_em`. Eventos em `bids` e `wtpass` incluem `informacoes_extras`. Em `vencedores[]`: `usuario_id`, `microsoft_id` e `email`.
 
-**Usuários:**
+**Usuários (lista):**
 
 ```http
 GET /api/integracao/usuarios
@@ -426,5 +487,15 @@ Accept: application/json
 ```
 
 Resposta: `usuarios` + `total` + `gerado_em` (somente usuários ativos; inclui `microsoft_id`).
+
+**Usuário (lookup):**
+
+```http
+GET /api/integracao/usuarios/lookup?microsoft_id=<oid-azure>
+X-API-Key: <chave-hex-64-chars>
+Accept: application/json
+```
+
+Resposta: `usuario` + `gerado_em` (1 registro) ou HTTP 404.
 
 Configuração administrativa: **Configurações → Integração API externa** (perfil `ADMIN`).

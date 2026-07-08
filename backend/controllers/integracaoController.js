@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const { obterSaldoEfetivoUsuario } = require("../utils/dbHelpers");
 const {
   fetchReceptionEventsForDate,
   fetchReceptionGuestsForEvent,
@@ -131,6 +132,9 @@ async function fetchBidWinners(baseUrl) {
   const eventIds = events.map((e) => e.id);
   const [winnerRows] = await db.execute(
     `SELECT a.partida_id,
+            u.id AS usuario_id,
+            u.microsoft_id,
+            u.email,
             u.nome_completo AS nome,
             s.nome AS setor,
             a.valor_pago AS lance,
@@ -148,6 +152,9 @@ async function fetchBidWinners(baseUrl) {
   for (const row of winnerRows) {
     if (!winnersMap.has(row.partida_id)) winnersMap.set(row.partida_id, []);
     winnersMap.get(row.partida_id).push({
+      usuario_id: Number(row.usuario_id),
+      microsoft_id: row.microsoft_id || null,
+      email: row.email || null,
       nome: row.nome,
       setor: row.setor || null,
       lance: Number(row.lance) || 0,
@@ -193,6 +200,9 @@ async function fetchWtPassWinners(baseUrl) {
   const eventIds = encerrados.map((e) => e.id);
   const [winnerRows] = await db.execute(
     `SELECT i.evento_id,
+            u.id AS usuario_id,
+            u.microsoft_id,
+            u.email,
             u.nome_completo AS nome,
             s.nome AS setor,
             i.posicao,
@@ -210,6 +220,9 @@ async function fetchWtPassWinners(baseUrl) {
   for (const row of winnerRows) {
     if (!winnersMap.has(row.evento_id)) winnersMap.set(row.evento_id, []);
     winnersMap.get(row.evento_id).push({
+      usuario_id: Number(row.usuario_id),
+      microsoft_id: row.microsoft_id || null,
+      email: row.email || null,
       nome: row.nome,
       setor: row.setor || null,
       posicao: row.posicao != null ? Number(row.posicao) : null,
@@ -284,6 +297,47 @@ async function buildPortariaSummary(dateStr, baseUrl) {
     eventos: eventosComTotais,
   };
 }
+
+exports.getUsuarioLookup = async (req, res) => {
+  try {
+    const microsoftId = req.query.microsoft_id != null ? String(req.query.microsoft_id).trim() : "";
+    if (!microsoftId) {
+      return res.status(400).json({ error: "Parâmetro microsoft_id é obrigatório." });
+    }
+
+    const [rows] = await db.execute(
+      `SELECT u.id, u.microsoft_id, u.nome_completo, u.email, u.pontos, u.grupo_id, g.nome AS nome_grupo
+       FROM usuarios u
+       LEFT JOIN grupos g ON u.grupo_id = g.id
+       WHERE u.microsoft_id = ? AND u.ativo = 1
+       LIMIT 1`,
+      [microsoftId],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    const r = rows[0];
+    const pontos = await obterSaldoEfetivoUsuario(db, r.id);
+
+    res.json({
+      usuario: {
+        id: Number(r.id),
+        microsoft_id: r.microsoft_id || null,
+        nome_completo: r.nome_completo || "",
+        email: r.email || null,
+        pontos,
+        grupo_id: r.grupo_id != null ? Number(r.grupo_id) : null,
+        nome_grupo: r.nome_grupo || null,
+      },
+      gerado_em: new Date().toISOString(),
+    });
+  } catch (error) {
+    await logErro("INTEGRACAO_GET_USUARIO_LOOKUP", error);
+    res.status(500).json({ error: "Erro ao consultar usuário." });
+  }
+};
 
 exports.getUsuarios = async (req, res) => {
   try {

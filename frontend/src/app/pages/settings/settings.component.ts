@@ -775,6 +775,7 @@ import {
                 <p><strong>GET</strong> {{ integracaoApiUrl }}</p>
                 <p><strong>GET</strong> {{ integracaoApiUrl }}?date=YYYY-MM-DD</p>
                 <p><strong>GET</strong> {{ integracaoApiUsuariosUrl }}</p>
+                <p><strong>GET</strong> {{ integracaoApiUsuariosLookupUrl }}</p>
                 <p><strong>Header:</strong> X-API-Key: &lt;sua-chave&gt;</p>
               </div>
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
@@ -795,6 +796,17 @@ import {
                 <code class="text-[10px]">vencedores</code>) e
                 <code class="text-[10px]">portaria</code> do dia consultado
                 (parâmetro <code class="text-[10px]">date</code> opcional; padrão: hoje).
+              </p>
+              <p class="text-[11px] text-indigo-900/70 leading-relaxed">
+                <code class="text-[10px]">GET /integracao/usuarios/lookup?microsoft_id=...</code>
+                retorna <strong>1 usuário ativo</strong> por OID (404 se não existir) — preferível
+                à lista completa para cruzar ganhadores.
+              </p>
+              <p class="text-[11px] text-indigo-900/70 leading-relaxed">
+                Em <code class="text-[10px]">vencedores[]</code> (BIDs e WT Pass):
+                <code class="text-[10px]">usuario_id</code>,
+                <code class="text-[10px]">microsoft_id</code> e
+                <code class="text-[10px]">email</code> para identificação externa.
               </p>
               <p class="text-[11px] text-indigo-900/70 leading-relaxed">
                 Cada evento em <code class="text-[10px]">bids</code> e
@@ -873,6 +885,7 @@ export class SettingsComponent implements OnInit {
   salvandoExternalApi = false;
   integracaoApiUrl = `${environment.apiUri}/integracao/eventos`;
   integracaoApiUsuariosUrl = `${environment.apiUri}/integracao/usuarios`;
+  integracaoApiUsuariosLookupUrl = `${environment.apiUri}/integracao/usuarios/lookup?microsoft_id=...`;
 
   get externalApiKeyDisplay(): string {
     if (this.externalApiKeyPlain) return this.externalApiKeyPlain;

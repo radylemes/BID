@@ -4,6 +4,7 @@ const integracaoController = require("../controllers/integracaoController");
 const apiKeyMiddleware = require("../middleware/apiKeyMiddleware");
 
 router.get("/eventos", apiKeyMiddleware, integracaoController.getEventos);
+router.get("/usuarios/lookup", apiKeyMiddleware, integracaoController.getUsuarioLookup);
 router.get("/usuarios", apiKeyMiddleware, integracaoController.getUsuarios);
 
 module.exports = router;
