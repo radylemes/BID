@@ -15,6 +15,7 @@ import {
   DirecaoLimiteIndicacao,
 } from '../../utils/convidados-limite-indicacao';
 import { exibirErroAssignConvidado } from '../../utils/guest-assign-error';
+import { normalizarCpfDigits, validarCpf } from '../../utils/cpf';
 
 @Component({
   selector: 'app-my-bets',
@@ -390,15 +391,26 @@ export class MyBetsComponent implements OnInit {
       },
       preConfirm: () => {
         const nome = (document.getElementById('swal-nome') as HTMLInputElement).value;
-        const cpf = (document.getElementById('swal-cpf') as HTMLInputElement).value;
+        const cpfRaw = (document.getElementById('swal-cpf') as HTMLInputElement).value;
         const email = (document.getElementById('swal-email') as HTMLInputElement).value;
         const telefone = (document.getElementById('swal-telefone') as HTMLInputElement).value;
+        const cpfDigits = normalizarCpfDigits(cpfRaw);
 
-        if (!nome || !cpf) {
+        if (!nome || !cpfDigits) {
           Swal.showValidationMessage('Os campos Nome e CPF são obrigatórios.');
           return false;
         }
-        return { usuario_id: this.currentUser.id, nome_completo: nome, cpf, email, telefone };
+        if (!validarCpf(cpfDigits)) {
+          Swal.showValidationMessage('CPF inválido.');
+          return false;
+        }
+        return {
+          usuario_id: this.currentUser.id,
+          nome_completo: nome,
+          cpf: cpfDigits,
+          email,
+          telefone,
+        };
       },
     });
 
@@ -408,7 +420,12 @@ export class MyBetsComponent implements OnInit {
           Swal.fire({ icon: 'success', title: 'Salvo!', timer: 1000, showConfirmButton: false });
           setTimeout(() => this.definirRetirantes(match), 1000);
         },
-        error: () => Swal.fire('Erro', 'Não foi possível salvar o convidado.', 'error'),
+        error: (err: any) =>
+          Swal.fire(
+            'Erro',
+            err?.error?.error || 'Não foi possível salvar o convidado.',
+            'error',
+          ),
       });
     } else {
       this.definirRetirantes(match);
