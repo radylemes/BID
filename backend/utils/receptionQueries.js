@@ -584,6 +584,7 @@ async function fetchUltimoCancelamentoSupervisor(executor, tipo, registroId) {
 }
 
 module.exports = {
+  SETOR_EVENTO_WT_PASS,
   mapGuestRowBid,
   mapGuestRowWt,
   fetchReceptionEventsForDate,
