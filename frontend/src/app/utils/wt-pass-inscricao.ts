@@ -3,7 +3,7 @@ const BUF_MS = 60_000;
 
 export type SeloDestaqueWtPass = { texto: string; tone: 'amber' | 'emerald' | 'slate' };
 
-/** Estado na BD em que o colaborador ainda pode cancelar a inscrição (até o prazo de 24h). */
+/** Estado na BD em que o colaborador ainda pode cancelar a inscrição (até o prazo de 12h). */
 export function eventoStatusPermiteCancelarInscricaoWtPass(ev: {
   status?: string | null;
   evento_status?: string | null;

@@ -90,7 +90,7 @@ const dbUtcToISO = (v) => {
   return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
 };
 
-/** Limite de tempo (ms) até ao qual ainda é permitido cancelar inscrição: 24h antes do dia civil Y-M-D em UTC (igual ao prefixo da ISO devolvida pela API). */
+/** Limite de tempo (ms) até ao qual ainda é permitido cancelar inscrição: 12h antes do dia civil Y-M-D em UTC (igual ao prefixo da ISO devolvida pela API). */
 function limiteCancelamentoInscricaoWtPassMs(dataEventoRaw) {
   if (dataEventoRaw == null) return null;
   const s = String(dataEventoRaw).trim();
@@ -99,11 +99,11 @@ function limiteCancelamentoInscricaoWtPassMs(dataEventoRaw) {
     const y = Number(m[1]);
     const mo = Number(m[2]) - 1;
     const da = Number(m[3]);
-    return Date.UTC(y, mo, da) - 24 * 60 * 60 * 1000;
+    return Date.UTC(y, mo, da) - 12 * 60 * 60 * 1000;
   }
   const d = parseDbUtcDate(dataEventoRaw);
   if (!d) return null;
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - 24 * 60 * 60 * 1000;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - 12 * 60 * 60 * 1000;
 }
 
 function normalizarStatusEventoRh(status) {
@@ -1103,7 +1103,7 @@ exports.cancelarInscricao = async (req, res) => {
       return res.status(404).json({ error: "Evento não encontrado." });
     }
     const ev = evRows[0];
-    // Permite cancelar com inscrições já encerradas (ENCERRADO) até 24h antes do evento;
+    // Permite cancelar com inscrições já encerradas (ENCERRADO) até 12h antes do evento;
     // bloqueia só após realização ou cancelamento do evento.
     if (!eventoStatusPermiteCancelarInscricao(ev.status)) {
       await connection.rollback();
@@ -1112,14 +1112,14 @@ exports.cancelarInscricao = async (req, res) => {
       });
     }
 
-    // Cancelamento permitido até 24h antes do início do dia civil do evento
+    // Cancelamento permitido até 12h antes do início do dia civil do evento
     // (não o instante bruto em BD, que costuma ser meia-noite UTC e cortava
     // o prazo cedo demais no fuso BR).
     const limiteCancelamentoMs = limiteCancelamentoInscricaoWtPassMs(ev.data_evento);
     if (limiteCancelamentoMs != null && Date.now() > limiteCancelamentoMs) {
       await connection.rollback();
       return res.status(400).json({
-        error: "Cancelamento permitido somente até 24 horas antes do evento.",
+        error: "Cancelamento permitido somente até 12 horas antes do evento.",
       });
     }
 
