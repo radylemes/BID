@@ -765,6 +765,7 @@ async function getDisparoOpts(mailSender) {
   if (mailSender?.provider === 'acs') {
     return { batchSize: 10, delayBatch: 40000, delayItem: 2000 };
   }
+  // SMTP e SendGrid: pacing semelhante (evita rajadas em disparos em lote)
   return { batchSize: 10, delayBatch: 5000, delayItem: 1000 };
 }
 

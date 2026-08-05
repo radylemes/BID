@@ -4,6 +4,10 @@ const path = require("path");
 const logErro = require("../utils/errorLogger");
 const { compressMulterUpload } = require("../utils/imageCompress");
 const { SETOR_EVENTO_WT_PASS } = require("../utils/receptionQueries");
+const {
+  dataCivilBr,
+  inicioDoDiaPortaria,
+} = require("../utils/portariaPrazoCheckin");
 
 function normalizeUploadPath(filePath) {
   const norm = path.normalize(filePath).replace(/\\/g, "/");
@@ -90,20 +94,21 @@ const dbUtcToISO = (v) => {
   return new Date(s.endsWith("Z") ? s : s + "Z").toISOString();
 };
 
-/** Limite de tempo (ms) até ao qual ainda é permitido cancelar inscrição: 12h antes do dia civil Y-M-D em UTC (igual ao prefixo da ISO devolvida pela API). */
+/**
+ * Limite de cancelamento: 12h antes do início do dia civil do evento em
+ * America/Sao_Paulo (alinhado à data mostrada na UI e ao frontend).
+ * Usar UTC meia-noite antecipava o prazo em 3h no Brasil (ex.: cortava às 09:00
+ * em vez de 12:00 no dia anterior ao evento).
+ */
 function limiteCancelamentoInscricaoWtPassMs(dataEventoRaw) {
   if (dataEventoRaw == null) return null;
   const s = String(dataEventoRaw).trim();
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (m) {
-    const y = Number(m[1]);
-    const mo = Number(m[2]) - 1;
-    const da = Number(m[3]);
-    return Date.UTC(y, mo, da) - 12 * 60 * 60 * 1000;
-  }
-  const d = parseDbUtcDate(dataEventoRaw);
-  if (!d) return null;
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - 12 * 60 * 60 * 1000;
+  const civil = m ? `${m[1]}-${m[2]}-${m[3]}` : dataCivilBr(dataEventoRaw);
+  if (!civil) return null;
+  const inicioDia = inicioDoDiaPortaria(civil);
+  if (!inicioDia) return null;
+  return inicioDia.getTime() - 12 * 60 * 60 * 1000;
 }
 
 function normalizarStatusEventoRh(status) {
@@ -1112,9 +1117,7 @@ exports.cancelarInscricao = async (req, res) => {
       });
     }
 
-    // Cancelamento permitido até 12h antes do início do dia civil do evento
-    // (não o instante bruto em BD, que costuma ser meia-noite UTC e cortava
-    // o prazo cedo demais no fuso BR).
+    // Cancelamento permitido até 12h antes do início do dia civil do evento (BR).
     const limiteCancelamentoMs = limiteCancelamentoInscricaoWtPassMs(ev.data_evento);
     if (limiteCancelamentoMs != null && Date.now() > limiteCancelamentoMs) {
       await connection.rollback();

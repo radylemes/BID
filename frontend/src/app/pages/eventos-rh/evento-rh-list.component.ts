@@ -847,23 +847,23 @@ export class EventoRhListComponent implements OnInit {
   }
 
   /**
-   * Início do dia civil do evento no fuso local (alinha à data mostrada em «DATA DO EVENTO»).
-   * Evita usar o instante ISO/UTC cru, que adiantava o fim do cancelamento ~24h.
+   * Início do dia civil do evento em America/Sao_Paulo (alinha à data mostrada
+   * e ao backend — evita antecipar o prazo por UTC ou fuso do browser).
    */
   private inicioDiaDataEventoLocalMs(ev: any): number | null {
     const raw = ev?.data_evento;
     if (raw == null || String(raw).trim() === '') return null;
     const iso = String(raw).trim();
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-    if (m) {
-      const y = Number(m[1]);
-      const mo = Number(m[2]) - 1;
-      const da = Number(m[3]);
-      return new Date(y, mo, da).getTime();
-    }
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const civil = m
+      ? `${m[1]}-${m[2]}-${m[3]}`
+      : (() => {
+          const d = new Date(iso);
+          if (Number.isNaN(d.getTime())) return null;
+          return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        })();
+    if (!civil || !/^\d{4}-\d{2}-\d{2}$/.test(civil)) return null;
+    return new Date(`${civil}T00:00:00.000-03:00`).getTime();
   }
 
   podeCancelar(ev: any): boolean {

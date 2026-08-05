@@ -294,14 +294,14 @@ import {
           <!-- Aba: Servidor SMTP -->
           <div *ngIf="abaAtual === 'email' && !loading" class="space-y-6">
             <h3 class="text-xl font-black text-gray-800">Provedor de E-mail</h3>
-            <p class="text-sm text-gray-500">Escolha entre SMTP próprio ou Azure Communication Services (ACS).</p>
+            <p class="text-sm text-gray-500">Escolha entre SMTP próprio, Azure Communication Services (ACS) ou Twilio SendGrid.</p>
 
             <!-- Toggle de provedor -->
-            <div class="flex gap-2 mb-2">
+            <div class="flex flex-wrap gap-2 mb-2">
               <button
                 type="button"
                 (click)="emailProvider = 'smtp'"
-                [ngClass]="emailProvider !== 'acs'
+                [ngClass]="emailProvider === 'smtp'
                   ? 'bg-indigo-600 text-white'
                   : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
                 class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
@@ -318,6 +318,16 @@ import {
               >
                 ☁️ Azure ACS
               </button>
+              <button
+                type="button"
+                (click)="emailProvider = 'sendgrid'"
+                [ngClass]="emailProvider === 'sendgrid'
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+              >
+                SendGrid
+              </button>
             </div>
 
             <div class="flex items-start gap-2 mb-4 max-w-3xl rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
@@ -328,7 +338,7 @@ import {
               </label>
             </div>
 
-            <div *ngIf="emailProvider !== 'acs'" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+            <div *ngIf="emailProvider === 'smtp'" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Host SMTP (servidor, ex: smtp.office365.com)</label>
                 <input [(ngModel)]="smtpHost" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="smtp.office365.com" />
@@ -358,7 +368,7 @@ import {
                 <input [(ngModel)]="appBaseUrl" type="url" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="https://app.seudominio.com" />
               </div>
             </div>
-            <div *ngIf="emailProvider !== 'acs'" class="flex flex-wrap gap-3">
+            <div *ngIf="emailProvider === 'smtp'" class="flex flex-wrap gap-3">
               <button (click)="salvarSmtp()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow">
                 Guardar configurações SMTP
               </button>
@@ -419,6 +429,62 @@ import {
                   title="Envia um e-mail de teste via ACS"
                 >
                   ✉ Testar envio ACS
+                </button>
+              </div>
+            </div>
+
+            <!-- Bloco SendGrid -->
+            <div *ngIf="emailProvider === 'sendgrid'" class="space-y-4 max-w-3xl">
+              <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+                <strong>Twilio SendGrid</strong> — os e-mails são enviados via API v3.
+                Use uma API Key com permissão Mail Send e um remetente verificado (Domain Authentication ou Single Sender).
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  [(ngModel)]="sendgridApiKey"
+                  placeholder="SG...."
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  SendGrid → Settings → API Keys → Create API Key (Mail Send)
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  E-mail remetente (From)
+                </label>
+                <input
+                  type="email"
+                  [(ngModel)]="sendgridFrom"
+                  placeholder="noreply@dominio.com"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  Deve ser um endereço ou domínio autenticado no SendGrid.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  (click)="salvarSendgrid()"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl shadow"
+                >
+                  Guardar configurações SendGrid
+                </button>
+                <button
+                  type="button"
+                  (click)="testarEnvioSmtp()"
+                  class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl shadow"
+                  title="Envia um e-mail de teste via SendGrid"
+                >
+                  ✉ Testar envio SendGrid
                 </button>
               </div>
             </div>
@@ -854,10 +920,12 @@ export class SettingsComponent implements OnInit {
   smtpPass = '';
   smtpFrom = '';
   appBaseUrl = '';
-  // Azure ACS
+  // Azure ACS / SendGrid
   emailProvider = 'smtp';
   acsConnectionString = '';
   acsSender = '';
+  sendgridApiKey = '';
+  sendgridFrom = '';
   emailOcultarPara = false;
   bidPolicyHtml = '';
   bidPolicyPdfFile: File | null = null;
@@ -965,6 +1033,8 @@ export class SettingsComponent implements OnInit {
         this.emailProvider = settings['email_provider'] ?? 'smtp';
         this.acsConnectionString = settings['acs_connection_string'] ?? '';
         this.acsSender = settings['acs_sender'] ?? '';
+        this.sendgridApiKey = settings['sendgrid_api_key'] ?? '';
+        this.sendgridFrom = settings['sendgrid_from'] ?? '';
         this.emailOcultarPara =
           settings['email_ocultar_para'] === '1' || settings['email_ocultar_para'] === 'true';
         this.bidPolicyHtml = settings['bid_policy_html'] ?? '';
@@ -1241,6 +1311,31 @@ export class SettingsComponent implements OnInit {
           icon: 'error',
           title: 'Erro',
           text: err?.error?.error || 'Erro ao salvar configurações ACS.',
+        }),
+    });
+  }
+
+  salvarSendgrid() {
+    const payload: Record<string, string> = {
+      email_provider: 'sendgrid',
+      sendgrid_api_key: this.sendgridApiKey.trim(),
+      sendgrid_from: this.sendgridFrom.trim(),
+      email_ocultar_para: this.emailOcultarPara ? '1' : '0',
+    };
+    this.settingsService.updateSettings(payload, this.currentUser?.id).subscribe({
+      next: () =>
+        Swal.fire({
+          icon: 'success',
+          title: 'SendGrid salvo!',
+          text: 'Configurações do SendGrid guardadas com sucesso.',
+          timer: 2000,
+          showConfirmButton: false,
+        }),
+      error: (err) =>
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro',
+          text: err?.error?.error || 'Erro ao salvar configurações SendGrid.',
         }),
     });
   }

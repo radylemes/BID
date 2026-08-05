@@ -1,0 +1,105 @@
+# Git config export — 2026-07-30T17:45:52-04:00
+# Host: SRVAP-WEB02
+
+===== CONTAS / IDENTIDADES ENCONTRADAS =====
+
+# Conta 1 (ativa no ~/.gitconfig global)
+name  = Daniel Lemes
+email = danylemes@yahoo.com.br
+
+# Conta 2 (aparece no histórico de commits deste repo; não está no config global atual)
+name  = Daniel Lemes
+email = daniel.lemes@allianzparque.com.br
+
+# Contagens no histórico (git log):
+    119 Daniel Lemes <danylemes@yahoo.com.br>
+      1 Daniel Lemes <daniel.lemes@allianzparque.com.br>
+
+===== GLOBAL (~/.gitconfig) =====
+[safe]
+	directory = /www/server/wtorreBid
+	directory = /www/server/apiBids
+	directory = /www/server/NBPForms
+[user]
+	name = Daniel Lemes
+	email = danylemes@yahoo.com.br
+
+===== LOCAL (.git/config) — /www/server/BID_NEW/BID =====
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[remote "main"]
+	url = https://github.com/radylemes/BID.git
+	fetch = +refs/heads/*:refs/remotes/main/*
+[branch "master"]
+	remote = main
+	merge = refs/heads/master
+[lfs]
+	repositoryformatversion = 0
+[lfs "https://github.com/radylemes/BID.git/info/lfs"]
+	access = basic
+[http]
+	postBuffer = 524288000
+	lowSpeedLimit = 0
+	lowSpeedTime = 999999
+
+===== SYSTEM (/etc/gitconfig) =====
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+
+===== LISTA EFETIVA (git config --list --show-origin) =====
+file:/etc/gitconfig	filter.lfs.process=git-lfs filter-process
+file:/etc/gitconfig	filter.lfs.required=true
+file:/etc/gitconfig	filter.lfs.clean=git-lfs clean -- %f
+file:/etc/gitconfig	filter.lfs.smudge=git-lfs smudge -- %f
+file:/root/.gitconfig	safe.directory=/www/server/wtorreBid
+file:/root/.gitconfig	safe.directory=/www/server/apiBids
+file:/root/.gitconfig	safe.directory=/www/server/NBPForms
+file:/root/.gitconfig	user.name=Daniel Lemes
+file:/root/.gitconfig	user.email=danylemes@yahoo.com.br
+file:.git/config	core.repositoryformatversion=0
+file:.git/config	core.filemode=true
+file:.git/config	core.bare=false
+file:.git/config	core.logallrefupdates=true
+file:.git/config	remote.main.url=https://github.com/radylemes/BID.git
+file:.git/config	remote.main.fetch=+refs/heads/*:refs/remotes/main/*
+file:.git/config	branch.master.remote=main
+file:.git/config	branch.master.merge=refs/heads/master
+file:.git/config	lfs.repositoryformatversion=0
+file:.git/config	lfs.https://github.com/radylemes/BID.git/info/lfs.access=basic
+file:.git/config	http.postbuffer=524288000
+file:.git/config	http.lowspeedlimit=0
+file:.git/config	http.lowspeedtime=999999
+
+===== CHAVES SSH (fingerprints; sem conteúdo privado) =====
+## /root/.ssh/id_ed25519.pub
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAhJSTuKh53asp63R8/fIOnqPpENdaNU+I0vwxXmeYKA root@SRVAP-WEB02
+256 SHA256:3PyMft5ij1f5asW8OvO2Nqz4W6hCphKXqOp/JYJTf+8 root@SRVAP-WEB02 (ED25519)
+## /root/.ssh/id_rsa.pub
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCoJoZn2wT8TJnKsaPLyvqhCZi7YSfmGRrRfqSHLodYtYn5okFZB+yvVU0sb8SR587ATE6TfbZYXOm2PJ1G2V36SqwL97CXzJJ//YL8qoqMHFF3kWra1a5NGkuXMxcoHXOAR+cVW7YZTwsHnZkdSvTzeKzShWN4GVSqfvttZzH5zOK5bqQJs1CQm8kKxqwUUnLtccfRxv+Lvk/zKVCGTUt7f4teXcEM91lcVvMoM+/314Z9Syfjd8AjLwhL9bxPyPBGmjVUrF7zFhBBskW9PmqTX/ntocQpmvxPKlrTk6MOgpIHNkI5j3Hhna/kR+DoJde6UHNhPQHZPMp0xam8n9R8ySP4SlT7pvyJW5Sjzv5b1aGmzHuitdXf3tccdfUBYPVPQY5JK1ChH8f9+327SJtMjtkuetSkkOaMg40YJ5V/F7eQltS8pmIY5hLIDG5+IXXZUOCoqSMkglTpV7MU7RDhhg8UEmpFYt7otmHEJnsHyHg45RMtTDwrj/PNq8VolQ/byFEU/Lijav6gy5oDW8YI/zYA0U+kvsyNy6Ojq11p6kduV9DGV5tMohdzKl5ihJvE+LWzqK1vAso/sAUN2oftYyxwN/PVI4Z6at2LLDsntPXtby67pmT1UbS+jeaqsBTqqTQuvpfS6kaSU/JFcWhUKz5FbUBIYvboGgEKlFqcGQ== root@SRVAP-WEB02
+4096 SHA256:NnbW2QhMY0v0osmggJ7Kml52T7IG9vdZUiiT6qTxlwI root@SRVAP-WEB02 (RSA)
+
+===== SNIPPET PARA USAR AS DUAS CONTAS =====
+# Opção A — por repositório (local):
+git config user.name "Daniel Lemes"
+git config user.email "danylemes@yahoo.com.br"          # pessoal
+# ou
+git config user.email "daniel.lemes@allianzparque.com.br" # corporativo
+
+# Opção B — includeIf por pasta (exemplo no ~/.gitconfig):
+[user]
+	name = Daniel Lemes
+	email = danylemes@yahoo.com.br
+
+[includeIf "gitdir:/www/server/BID_NEW/"]
+	path = ~/.gitconfig-allianz
+
+# Conteúdo de ~/.gitconfig-allianz:
+# [user]
+# 	name = Daniel Lemes
+# 	email = daniel.lemes@allianzparque.com.br

@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const nodemailer = require("nodemailer");
 const { EmailClient } = require("@azure/communication-email");
+const sgMail = require("@sendgrid/mail");
 const fs = require("fs");
 const path = require("path");
 const { compressBuffer } = require("./imageCompress");
@@ -18,11 +19,13 @@ const CONFIG_KEYS = [
   "smtp_from",
   "acs_connection_string",
   "acs_sender",
+  "sendgrid_api_key",
+  "sendgrid_from",
   "email_ocultar_para",
 ];
 
 const NOT_CONFIGURED_MSG =
-  "Provedor de e-mail não configurado. Configure em Configurações > Servidor SMTP.";
+  "Provedor de e-mail não configurado. Configure em Configurações > Provedor de E-mail.";
 
 async function loadConfigFromDb() {
   const placeholders = CONFIG_KEYS.map(() => "?").join(", ");
@@ -38,16 +41,19 @@ async function loadConfigFromDb() {
 
 /**
  * Lê as configurações de e-mail da tabela configuracoes.
- * @returns {Promise<{ provider: 'smtp'|'acs', smtpHost: string, smtpPort: number, smtpSecure: boolean, smtpUser: string, smtpPass: string, smtpFrom: string, acsConnectionString: string, acsSender: string, emailOcultarPara: boolean }>}
+ * @returns {Promise<{ provider: 'smtp'|'acs'|'sendgrid', smtpHost: string, smtpPort: number, smtpSecure: boolean, smtpUser: string, smtpPass: string, smtpFrom: string, acsConnectionString: string, acsSender: string, sendgridApiKey: string, sendgridFrom: string, emailOcultarPara: boolean }>}
  */
 async function getEmailProviderConfig() {
   const cfg = await loadConfigFromDb();
+  const rawProvider = String(cfg.email_provider || "smtp")
+    .trim()
+    .toLowerCase();
   const provider =
-    String(cfg.email_provider || "smtp")
-      .trim()
-      .toLowerCase() === "acs"
+    rawProvider === "acs"
       ? "acs"
-      : "smtp";
+      : rawProvider === "sendgrid"
+        ? "sendgrid"
+        : "smtp";
 
   return {
     provider,
@@ -61,6 +67,10 @@ async function getEmailProviderConfig() {
       ? String(cfg.acs_connection_string).trim()
       : "",
     acsSender: cfg.acs_sender ? String(cfg.acs_sender).trim() : "",
+    sendgridApiKey: cfg.sendgrid_api_key
+      ? String(cfg.sendgrid_api_key).trim()
+      : "",
+    sendgridFrom: cfg.sendgrid_from ? String(cfg.sendgrid_from).trim() : "",
     emailOcultarPara:
       cfg.email_ocultar_para === "1" || cfg.email_ocultar_para === "true",
   };
@@ -74,7 +84,11 @@ function applyHiddenToRecipients(opts, cfg) {
   const realTo = String(opts.to).trim();
   if (!realTo) return opts;
   const envelopeTo =
-    (cfg.provider === "acs" ? cfg.acsSender : cfg.smtpFrom) || realTo;
+    (cfg.provider === "acs"
+      ? cfg.acsSender
+      : cfg.provider === "sendgrid"
+        ? cfg.sendgridFrom
+        : cfg.smtpFrom) || realTo;
   if (envelopeTo.toLowerCase() === realTo.toLowerCase()) return opts;
 
   const result = { ...opts, to: envelopeTo, bcc: realTo };
@@ -191,6 +205,25 @@ function mapAttachmentsForAcs(attachments) {
       contentInBase64: toBase64(attachment.content),
     };
     if (attachment.contentId) entry.contentId = attachment.contentId;
+    return entry;
+  });
+}
+
+function mapAttachmentsForSendgrid(attachments) {
+  if (!Array.isArray(attachments) || attachments.length === 0) return undefined;
+  return attachments.map((attachment) => {
+    const contentId = attachment.contentId || attachment.cid;
+    const entry = {
+      content: toBase64(attachment.content),
+      filename: attachment.filename || attachment.name || "attachment",
+      type:
+        attachment.contentType ||
+        attachment.type ||
+        guessContentType(attachment.filename || attachment.name) ||
+        "application/octet-stream",
+      disposition: contentId ? "inline" : "attachment",
+    };
+    if (contentId) entry.content_id = String(contentId).replace(/^<|>$/g, "");
     return entry;
   });
 }
@@ -393,6 +426,70 @@ function buildAcsSender(cfg) {
   };
 }
 
+function formatSendgridError(error) {
+  const body = error?.response?.body;
+  if (!body) return error?.message || "Erro ao enviar e-mail via SendGrid.";
+  if (typeof body === "string") return body;
+  const errors = body.errors;
+  if (Array.isArray(errors) && errors.length) {
+    return errors
+      .map((e) => e.message || JSON.stringify(e))
+      .filter(Boolean)
+      .join("; ");
+  }
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return error?.message || "Erro ao enviar e-mail via SendGrid.";
+  }
+}
+
+async function sendViaSendgrid(
+  cfg,
+  { to, bcc, subject, html, text, attachments },
+) {
+  sgMail.setApiKey(cfg.sendgridApiKey);
+  const msg = {
+    to: String(to).trim(),
+    from: cfg.sendgridFrom,
+    subject: subject || "",
+    text: text || htmlToPlainText(html) || subject || "",
+    html: html || undefined,
+  };
+  if (bcc) {
+    const bccList = (Array.isArray(bcc) ? bcc : [bcc])
+      .map((addr) => String(addr).trim())
+      .filter(Boolean);
+    if (bccList.length) msg.bcc = bccList.length === 1 ? bccList[0] : bccList;
+  }
+  const sgAttachments = mapAttachmentsForSendgrid(attachments);
+  if (sgAttachments?.length) msg.attachments = sgAttachments;
+
+  try {
+    await sgMail.send(msg);
+  } catch (error) {
+    throw new Error(formatSendgridError(error));
+  }
+}
+
+function buildSendgridSender(cfg) {
+  return {
+    provider: "sendgrid",
+    from: cfg.sendgridFrom,
+    sendMail: async (opts) => {
+      const finalOpts = applyHiddenToRecipients(opts, cfg);
+      await sendViaSendgrid(cfg, {
+        to: finalOpts.to,
+        bcc: finalOpts.bcc,
+        subject: finalOpts.subject,
+        html: finalOpts.html,
+        text: finalOpts.text,
+        attachments: finalOpts.attachments,
+      });
+    },
+  };
+}
+
 /**
  * Retorna um sender com interface compatível com Nodemailer (sendMail).
  * Retorna null se o provider ativo não estiver configurado.
@@ -403,6 +500,11 @@ async function getMailSender() {
   if (cfg.provider === "acs") {
     if (!cfg.acsConnectionString || !cfg.acsSender) return null;
     return buildAcsSender(cfg);
+  }
+
+  if (cfg.provider === "sendgrid") {
+    if (!cfg.sendgridApiKey || !cfg.sendgridFrom) return null;
+    return buildSendgridSender(cfg);
   }
 
   const transporter = createSmtpTransporter(cfg);
