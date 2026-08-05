@@ -96,12 +96,35 @@ export class EmailTemplateEditorComponent implements OnInit, OnDestroy {
     const base = {
       base_url: '/tinymce',
       suffix: '.min',
-      automatic_uploads: false,
+      automatic_uploads: true,
+      paste_data_images: true,
+      images_file_types: 'jpg,jpeg,png,gif,webp',
       convert_urls: false,
       relative_urls: false,
       remove_script_host: false,
       allow_unsafe_link_target: true,
       urlconverter_callback: (url: string) => (/\{\{[^}]+\}\}/.test(url) ? url : url),
+      images_upload_handler: (blobInfo: { blob: () => Blob; filename: () => string }) =>
+        new Promise<string>((resolve, reject) => {
+          const blob = blobInfo.blob();
+          const file = new File([blob], blobInfo.filename() || 'image.jpg', {
+            type: blob.type || 'image/jpeg',
+          });
+          this.emailService.uploadTemplateImage(file).subscribe({
+            next: (res) => {
+              if (res?.location) resolve(res.location);
+              else reject('Resposta de upload sem URL da imagem.');
+            },
+            error: (err) => {
+              const msg =
+                err?.error?.error ||
+                err?.error?.message ||
+                err?.message ||
+                'Falha no upload da imagem.';
+              reject(msg);
+            },
+          });
+        }),
       plugins:
         'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
       toolbar:

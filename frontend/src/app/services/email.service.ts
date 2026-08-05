@@ -81,6 +81,11 @@ export interface DisparoDestinatario {
   mensagem?: string;
 }
 
+export interface DisparoAnexoImagem {
+  path: string;
+  filename: string;
+}
+
 export interface DisparoLogEntry {
   id: number;
   data_hora: string;
@@ -178,6 +183,13 @@ export class EmailService {
     });
   }
 
+  /** Upload de imagem para o corpo do template (TinyMCE). Resposta: { location }. */
+  uploadTemplateImage(file: File): Observable<{ location: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ location: string }>(`${this.apiUrl}/templates/upload-image`, formData);
+  }
+
   updateTemplate(
     id: number,
     nome: string,
@@ -247,6 +259,13 @@ export class EmailService {
     });
   }
 
+  /** Upload de imagem para anexo no disparo (ficheiro, não corpo). */
+  uploadDisparoAnexo(file: File): Observable<DisparoAnexoImagem> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<DisparoAnexoImagem>(`${this.apiUrl}/disparo/upload-anexo`, formData);
+  }
+
   // Disparo: listaId opcional quando usarGrupo = true; emailsPersonalizados para envio personalizado; tipoDisparo para anexar PDF em BID_ENCERRADO
   send(
     partidaId: number,
@@ -257,6 +276,7 @@ export class EmailService {
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
       tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+      anexosImagens?: DisparoAnexoImagem[];
     }
   ): Observable<SendEmailsResponse> {
     return this.http.post<SendEmailsResponse>(`${this.apiUrl}/send`, this.buildSendBody(partidaId, templateId, adminId, options));
@@ -272,6 +292,7 @@ export class EmailService {
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
       tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+      anexosImagens?: DisparoAnexoImagem[];
     },
     callbacks?: SendStreamCallbacks
   ): Promise<SendEmailsResponse> {
@@ -314,6 +335,7 @@ export class EmailService {
       usarGrupo?: boolean;
       emailsPersonalizados?: string[];
       tipoDisparo?: 'BID_ABERTO' | 'BID_ENCERRADO' | 'GANHADORES';
+      anexosImagens?: DisparoAnexoImagem[];
     }
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {
@@ -331,6 +353,9 @@ export class EmailService {
     }
     if (options?.tipoDisparo) {
       body['tipoDisparo'] = options.tipoDisparo;
+    }
+    if (options?.anexosImagens?.length) {
+      body['anexosImagens'] = options.anexosImagens;
     }
     return body;
   }
@@ -484,6 +509,7 @@ export class EmailService {
     options?: {
       listaId?: number | null;
       emailsPersonalizados?: string[];
+      anexosImagens?: DisparoAnexoImagem[];
     },
     callbacks?: SendStreamCallbacks
   ): Promise<SendEmailsResponse> {
@@ -507,6 +533,9 @@ export class EmailService {
     }
     if (options?.emailsPersonalizados?.length) {
       body['emailsPersonalizados'] = options.emailsPersonalizados;
+    }
+    if (options?.anexosImagens?.length) {
+      body['anexosImagens'] = options.anexosImagens;
     }
 
     const response = await fetch(`${this.apiUrl}/area-ingressos/send-stream`, {

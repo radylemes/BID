@@ -59,7 +59,7 @@
       </div>
       <div class="border-t border-[var(--app-border)] pt-4">
         <label class="block text-xs font-bold text-[var(--app-text-muted)] uppercase mb-2">Corpo do e-mail (editor visual)</label>
-        <p class="text-xs text-[var(--app-text-muted)] mb-3">Formate o texto com a barra de ferramentas. Use as tags abaixo para dados dinâmicos (evento, usuário).</p>
+        <p class="text-xs text-[var(--app-text-muted)] mb-3">Formate o texto com a barra de ferramentas. Use o botão de imagem para anexar ficheiros ao corpo (ou cole uma imagem). Use as tags abaixo para dados dinâmicos (evento, usuário).</p>
         <div class="space-y-2">
           <button *ngFor="let t of tags" type="button" (click)="insertTag(t.tag)" [title]="t.desc" class="w-full text-left px-3 py-2 bg-[var(--color-bg-surface-alt)] text-[var(--app-text)] rounded-lg text-xs font-mono hover:bg-[var(--app-nav-hover-bg)] border border-[var(--app-border)] truncate">
             {{ t.tag }}

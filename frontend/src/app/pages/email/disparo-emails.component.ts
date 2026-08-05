@@ -6,7 +6,15 @@ import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { MatchService } from '../../services/match.service';
 import { EventoRhService } from '../../services/evento-rh.service';
-import { EmailService, SendEmailsResponse, DisparoLogEntry, TemplateEmail, ListaEmail, ListaEmailItem } from '../../services/email.service';
+import {
+  EmailService,
+  SendEmailsResponse,
+  DisparoLogEntry,
+  TemplateEmail,
+  ListaEmail,
+  ListaEmailItem,
+  DisparoAnexoImagem,
+} from '../../services/email.service';
 import { UserService } from '../../services/user.service';
 import {
   openDisparoProgressModal,
@@ -2486,6 +2494,11 @@ export class DisparoEmailsComponent implements OnInit {
         <label class="block text-left text-xs font-bold text-gray-500 uppercase mb-1">E-mails (um por linha ou separados por vírgula)</label>
         <textarea id="swal-emails-personalizado" class="swal2-textarea w-full m-0 text-sm" rows="4" placeholder="email1@exemplo.com&#10;email2@exemplo.com"></textarea>
       </div>
+      <div class="mt-3 text-left">
+        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Anexos de imagem (opcional, máx. 5 · 20 MB cada)</label>
+        <input id="swal-anexos-img" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="block w-full text-sm text-gray-700" />
+        <p class="text-xs text-gray-400 mt-1">Enviadas como ficheiros anexos do e-mail (não no corpo).</p>
+      </div>
     `;
 
     Swal.fire({
@@ -2562,12 +2575,34 @@ export class DisparoEmailsComponent implements OnInit {
           }
           emailsPersonalizados = valid;
         }
-        return { templateId, listaId, emailsPersonalizados };
+        const fileInput = popup?.querySelector('#swal-anexos-img') as HTMLInputElement | null;
+        const anexoFiles = fileInput?.files ? Array.from(fileInput.files) : [];
+        const anexoErr = this.validarAnexosImagensDisparo(anexoFiles);
+        if (anexoErr) {
+          Swal.showValidationMessage(anexoErr);
+          return null;
+        }
+        return { templateId, listaId, emailsPersonalizados, anexoFiles };
       },
     }).then(async (result) => {
       if (result.isConfirmed && result.value) {
-        const { templateId, listaId, emailsPersonalizados } = result.value!;
-        await this.executarDisparoAreaIngressos(partidaIds, eventoRhIds, templateId, { listaId, emailsPersonalizados });
+        const { templateId, listaId, emailsPersonalizados, anexoFiles } = result.value!;
+        let anexosImagens: DisparoAnexoImagem[] = [];
+        try {
+          anexosImagens = await this.uploadAnexosImagensDisparo(anexoFiles || []);
+        } catch (err: unknown) {
+          await Swal.fire(
+            'Erro',
+            err instanceof Error ? err.message : 'Falha ao enviar anexos de imagem.',
+            'error'
+          );
+          return;
+        }
+        await this.executarDisparoAreaIngressos(partidaIds, eventoRhIds, templateId, {
+          listaId,
+          emailsPersonalizados,
+          anexosImagens,
+        });
       }
     });
   }
@@ -2576,7 +2611,7 @@ export class DisparoEmailsComponent implements OnInit {
     partidaIds: number[],
     eventoRhIds: number[],
     templateId: number,
-    opcoes: { listaId?: number; emailsPersonalizados?: string[] }
+    opcoes: { listaId?: number; emailsPersonalizados?: string[]; anexosImagens?: DisparoAnexoImagem[] }
   ): Promise<void> {
     openDisparoProgressModal();
     let progressState: DisparoProgressState = {
@@ -2673,6 +2708,14 @@ export class DisparoEmailsComponent implements OnInit {
       `;
     }
 
+    html += `
+      <div class="mt-3 text-left">
+        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Anexos de imagem (opcional, máx. 5 · 20 MB cada)</label>
+        <input id="swal-anexos-img" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="block w-full text-sm text-gray-700" />
+        <p class="text-xs text-gray-400 mt-1">Enviadas como ficheiros anexos do e-mail (não no corpo).</p>
+      </div>
+    `;
+
     Swal.fire({
       title: 'Disparar e-mail',
       html,
@@ -2757,13 +2800,38 @@ export class DisparoEmailsComponent implements OnInit {
             usarGrupo = true;
           }
         }
-        console.log('[Disparo] preConfirm resultado:', { templateId, listaId, usarGrupo, emailsPersonalizados });
-        return { templateId, listaId, usarGrupo, emailsPersonalizados };
+        const fileInput = popup?.querySelector('#swal-anexos-img') as HTMLInputElement | null;
+        const anexoFiles = fileInput?.files ? Array.from(fileInput.files) : [];
+        const anexoErr = this.validarAnexosImagensDisparo(anexoFiles);
+        if (anexoErr) {
+          Swal.showValidationMessage(anexoErr);
+          return null;
+        }
+        console.log('[Disparo] preConfirm resultado:', { templateId, listaId, usarGrupo, emailsPersonalizados, anexos: anexoFiles.length });
+        return { templateId, listaId, usarGrupo, emailsPersonalizados, anexoFiles };
       },
     }).then(async (result) => {
       if (result.isConfirmed && result.value) {
-        const { templateId, listaId, usarGrupo, emailsPersonalizados } = result.value!;
-        console.log('[Disparo] Enviando:', { partidaId: match.id, templateId, listaId, usarGrupo, emailsPersonalizados });
+        const { templateId, listaId, usarGrupo, emailsPersonalizados, anexoFiles } = result.value!;
+        let anexosImagens: DisparoAnexoImagem[] = [];
+        try {
+          anexosImagens = await this.uploadAnexosImagensDisparo(anexoFiles || []);
+        } catch (err: unknown) {
+          await Swal.fire(
+            'Erro',
+            err instanceof Error ? err.message : 'Falha ao enviar anexos de imagem.',
+            'error'
+          );
+          return;
+        }
+        console.log('[Disparo] Enviando:', {
+          partidaId: match.id,
+          templateId,
+          listaId,
+          usarGrupo,
+          emailsPersonalizados,
+          anexos: anexosImagens.length,
+        });
 
         openDisparoProgressModal();
         let progressState: DisparoProgressState = { total: 0, enviados: 0, processados: 0, recentItems: [] };
@@ -2773,7 +2841,13 @@ export class DisparoEmailsComponent implements OnInit {
             match.id,
             templateId,
             this.currentUser?.id,
-            { listaId, usarGrupo, emailsPersonalizados, tipoDisparo: this.tipoAtivo as TipoDisparoIndividual },
+            {
+              listaId,
+              usarGrupo,
+              emailsPersonalizados,
+              tipoDisparo: this.tipoAtivo as TipoDisparoIndividual,
+              anexosImagens,
+            },
             {
               onInit: ({ total }) => {
                 progressState = { ...progressState, total };
@@ -2799,6 +2873,44 @@ export class DisparoEmailsComponent implements OnInit {
         }
       }
     });
+  }
+
+  private static readonly MAX_ANEXO_BYTES = 20 * 1024 * 1024;
+
+  private validarAnexosImagensDisparo(files: File[]): string | null {
+    if (files.length > 5) return 'Máximo de 5 imagens em anexo.';
+    for (const file of files) {
+      if (file.size > DisparoEmailsComponent.MAX_ANEXO_BYTES) {
+        return `«${file.name}» excede o limite de 20 MB.`;
+      }
+    }
+    return null;
+  }
+
+  /** Faz upload dos ficheiros selecionados na modal de disparo. */
+  private uploadAnexosImagensDisparo(files: File[]): Promise<DisparoAnexoImagem[]> {
+    if (!files.length) return Promise.resolve([]);
+    return Promise.all(
+      files.map(
+        (file) =>
+          new Promise<DisparoAnexoImagem>((resolve, reject) => {
+            this.emailService.uploadDisparoAnexo(file).subscribe({
+              next: (res) => {
+                if (res?.path) resolve(res);
+                else reject(new Error(`Upload sem caminho: ${file.name}`));
+              },
+              error: (err) => {
+                const msg =
+                  err?.error?.error ||
+                  err?.error?.message ||
+                  err?.message ||
+                  `Falha no upload de ${file.name}.`;
+                reject(new Error(msg));
+              },
+            });
+          })
+      )
+    );
   }
 
   private getLabelTipo(t: TipoDisparo): string {

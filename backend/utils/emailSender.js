@@ -8,6 +8,8 @@ const { compressBuffer } = require("./imageCompress");
 
 const ACS_MAX_PAYLOAD_BYTES = 9 * 1024 * 1024;
 const EVENTO_BANNER_CID = "evento-banner";
+const EMAIL_INLINE_MARKER = "uploads/email-inline/";
+const EMAIL_INLINE_DIR = path.join(__dirname, "..", "uploads", "email-inline");
 
 const CONFIG_KEYS = [
   "email_provider",
@@ -288,6 +290,7 @@ async function applyAcsInlineEventBanner(html, attachments, { partidaId, bannerS
     content: buffer,
     contentType: "image/jpeg",
     contentId: EVENTO_BANNER_CID,
+    cid: EVENTO_BANNER_CID,
   });
 
   let outHtml = String(html);
@@ -305,6 +308,70 @@ async function applyAcsInlineEventBanner(html, attachments, { partidaId, bannerS
   return { html: outHtml, attachments: merged };
 }
 
+/**
+ * Resolve caminho em disco para imagens de template em uploads/email-inline/.
+ * Aceita URL absoluta ou relativa (/api/uploads/... ou /uploads/...).
+ */
+function resolveEmailInlinePath(src) {
+  const s = String(src || "").trim();
+  if (!s || s.startsWith("cid:") || s.startsWith("data:")) return null;
+  const idx = s.indexOf(EMAIL_INLINE_MARKER);
+  if (idx < 0) return null;
+  const rest = s
+    .slice(idx + EMAIL_INLINE_MARKER.length)
+    .split("?")[0]
+    .split("#")[0];
+  if (!rest || rest.includes("..") || rest.includes("/") || rest.includes("\\")) return null;
+  const abs = path.join(EMAIL_INLINE_DIR, rest);
+  if (!abs.startsWith(EMAIL_INLINE_DIR) || !fs.existsSync(abs)) return null;
+  return abs;
+}
+
+/**
+ * Converte <img src="...uploads/email-inline/..."> em anexos inline CID
+ * (SMTP / ACS / SendGrid), para clientes sem acesso à rede interna.
+ */
+function applyInlineTemplateImages(html, attachments) {
+  if (!html) return { html: html || "", attachments: attachments || [] };
+  const merged = [...(attachments || [])];
+  const seen = new Map();
+  let counter = 0;
+
+  const outHtml = String(html).replace(
+    /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi,
+    (full, pre, src, post) => {
+      const absPath = resolveEmailInlinePath(src);
+      if (!absPath) return full;
+      let cid = seen.get(absPath);
+      if (!cid) {
+        counter += 1;
+        cid = `email-img-${counter}`;
+        seen.set(absPath, cid);
+        merged.push({
+          filename: path.basename(absPath),
+          content: fs.readFileSync(absPath),
+          contentType: "image/jpeg",
+          contentId: cid,
+          cid,
+        });
+      }
+      return `${pre}cid:${cid}${post}`;
+    },
+  );
+
+  return { html: outHtml, attachments: merged };
+}
+
+async function prepareOutboundEmailHtml(html, attachments, { acsInlineBannerPartidaId, acsBannerSrcUrl } = {}) {
+  let prepared = applyInlineTemplateImages(html, attachments);
+  if (acsInlineBannerPartidaId) {
+    prepared = await applyAcsInlineEventBanner(prepared.html, prepared.attachments, {
+      partidaId: acsInlineBannerPartidaId,
+      bannerSrcUrl: acsBannerSrcUrl,
+    });
+  }
+  return prepared;
+}
 
 async function estimateAcsDisparoPayload({
   subject,
@@ -314,16 +381,12 @@ async function estimateAcsDisparoPayload({
   acsInlineBannerPartidaId,
   acsBannerSrcUrl,
 } = {}) {
-  let finalHtml = html;
-  let finalAttachments = attachments;
-  if (acsInlineBannerPartidaId) {
-    const inlined = await applyAcsInlineEventBanner(html, attachments, {
-      partidaId: acsInlineBannerPartidaId,
-      bannerSrcUrl: acsBannerSrcUrl,
-    });
-    finalHtml = inlined.html;
-    finalAttachments = inlined.attachments;
-  }
+  const prepared = await prepareOutboundEmailHtml(html, attachments, {
+    acsInlineBannerPartidaId,
+    acsBannerSrcUrl,
+  });
+  const finalHtml = prepared.html;
+  const finalAttachments = prepared.attachments;
   const plainText = text || htmlToPlainText(finalHtml) || subject || "";
   const bytes = estimateAcsPayloadBytes({
     subject,
@@ -338,16 +401,12 @@ async function sendViaAcs(
   cfg,
   { to, bcc, subject, html, text, attachments, acsInlineBannerPartidaId, acsBannerSrcUrl },
 ) {
-  let finalHtml = html;
-  let finalAttachments = attachments;
-  if (acsInlineBannerPartidaId) {
-    const inlined = await applyAcsInlineEventBanner(html, attachments, {
-      partidaId: acsInlineBannerPartidaId,
-      bannerSrcUrl: acsBannerSrcUrl,
-    });
-    finalHtml = inlined.html;
-    finalAttachments = inlined.attachments;
-  }
+  const prepared = await prepareOutboundEmailHtml(html, attachments, {
+    acsInlineBannerPartidaId,
+    acsBannerSrcUrl,
+  });
+  const finalHtml = prepared.html;
+  const finalAttachments = prepared.attachments;
 
   const plainText = text || htmlToPlainText(finalHtml) || subject || "";
   assertAcsPayloadWithinLimit({
@@ -398,9 +457,12 @@ function buildSmtpSender(cfg, transporter) {
     _transporter: transporter,
     sendMail: async (opts) => {
       const finalOpts = applyHiddenToRecipients(opts, cfg);
+      const prepared = applyInlineTemplateImages(finalOpts.html, finalOpts.attachments);
       await transporter.sendMail({
         from: cfg.smtpFrom,
         ...finalOpts,
+        html: prepared.html,
+        attachments: prepared.attachments,
       });
     },
   };
@@ -448,13 +510,17 @@ async function sendViaSendgrid(
   cfg,
   { to, bcc, subject, html, text, attachments },
 ) {
+  const prepared = applyInlineTemplateImages(html, attachments);
+  const finalHtml = prepared.html;
+  const finalAttachments = prepared.attachments;
+
   sgMail.setApiKey(cfg.sendgridApiKey);
   const msg = {
     to: String(to).trim(),
     from: cfg.sendgridFrom,
     subject: subject || "",
-    text: text || htmlToPlainText(html) || subject || "",
-    html: html || undefined,
+    text: text || htmlToPlainText(finalHtml) || subject || "",
+    html: finalHtml || undefined,
   };
   if (bcc) {
     const bccList = (Array.isArray(bcc) ? bcc : [bcc])
@@ -462,7 +528,7 @@ async function sendViaSendgrid(
       .filter(Boolean);
     if (bccList.length) msg.bcc = bccList.length === 1 ? bccList[0] : bccList;
   }
-  const sgAttachments = mapAttachmentsForSendgrid(attachments);
+  const sgAttachments = mapAttachmentsForSendgrid(finalAttachments);
   if (sgAttachments?.length) msg.attachments = sgAttachments;
 
   try {

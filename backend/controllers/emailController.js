@@ -3,6 +3,7 @@ const os = require("os");
 const path = require("path");
 const db = require("../config/db");
 const logErro = require("../utils/errorLogger");
+const { compressImageAtPath } = require("../utils/imageCompress");
 const {
   getMailSender,
   refreshSmtpMailSender,
@@ -298,15 +299,15 @@ function sanitizeEventoImagemUrl(imagemUrl, partidaId, baseUrl) {
  * Corrige href relativos corrompidos pelo TinyMCE (ex.: ../ a partir de /tinymce/)
  * para a tag dinâmica da URL base da aplicação.
  * Não altera http(s): nem href que já contenham {{...}}.
+ * Remove src data: URI (clientes bloqueiam e o HTML fica enorme).
  * @param {string} html
  * @returns {string}
  */
 function sanitizeEmailTemplateHtml(html) {
   if (!html || typeof html !== "string") return html || "";
-  return html.replace(
-    /\bhref\s*=\s*(["'])(\.\.\/?|\.\/|\/)\1/gi,
-    'href="{{app.base_url}}/"'
-  );
+  return html
+    .replace(/\bhref\s*=\s*(["'])(\.\.\/?|\.\/|\/)\1/gi, 'href="{{app.base_url}}/"')
+    .replace(/\bsrc\s*=\s*(["'])data:[^"']*\1/gi, 'src=""');
 }
 
 /**
@@ -615,6 +616,12 @@ async function prepareDisparo(body, req) {
     }
   }
 
+  const loadedAnexos = loadDisparoImageAttachments(body.anexosImagens);
+  if (loadedAnexos.error) {
+    return { error: loadedAnexos.error, status: 400 };
+  }
+  const imageAttachments = loadedAnexos.attachments;
+  const allAttachments = mergeDisparoAttachments(imageAttachments, pdfAttachment, pdfFilename);
 
   const itensValidos = itens.filter((item) => String(item.email || "").trim());
 
@@ -632,9 +639,7 @@ async function prepareDisparo(body, req) {
       const estimate = await estimateAcsDisparoPayload({
         subject: sampleSubject,
         html: sampleHtml,
-        attachments: pdfAttachment && pdfFilename
-          ? [{ filename: pdfFilename, content: pdfAttachment }]
-          : undefined,
+        attachments: allAttachments,
         acsInlineBannerPartidaId: partidaId,
         acsBannerSrcUrl: evento.imagem,
       });
@@ -663,12 +668,14 @@ async function prepareDisparo(body, req) {
     itensValidos,
     pdfAttachment,
     pdfFilename,
+    imageAttachments,
     adminId: body.adminId || req.user?.id,
   };
 }
 
 function createSendFn(prepared) {
-  const { partidaId, emailFrom, evento, app, template, pdfAttachment, pdfFilename } = prepared;
+  const { partidaId, emailFrom, evento, app, template, pdfAttachment, pdfFilename, imageAttachments } =
+    prepared;
   const sendOne = async (mailOptions) => {
     try {
       await prepared.mailSender.sendMail(mailOptions);
@@ -728,8 +735,9 @@ function createSendFn(prepared) {
         acsInlineBannerPartidaId: partidaId,
         acsBannerSrcUrl: evento.imagem,
       };
-      if (pdfAttachment && pdfFilename) {
-        mailOptions.attachments = [{ filename: pdfFilename, content: pdfAttachment }];
+      const attachments = mergeDisparoAttachments(imageAttachments, pdfAttachment, pdfFilename);
+      if (attachments) {
+        mailOptions.attachments = attachments;
       }
       return await sendOne(mailOptions);
     } catch (err) {
@@ -1112,6 +1120,169 @@ exports.getTemplateById = async (req, res) => {
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_GET_TEMPLATE_BY_ID", error);
     res.status(500).json({ error: "Erro ao carregar template." });
+  }
+};
+
+/**
+ * Upload de imagem para o corpo do template (TinyMCE).
+ * Resposta no formato { location } esperado pelo images_upload_handler.
+ */
+exports.uploadTemplateImage = async (req, res) => {
+  try {
+    if (!req.file?.path) {
+      return res.status(400).json({ error: "Nenhum ficheiro enviado." });
+    }
+    const finalPath = await compressImageAtPath(req.file.path, "email-inline");
+    const filename = path.basename(finalPath);
+    const baseUrl = await getBaseUrl();
+    const location = baseUrl
+      ? `${baseUrl}/api/uploads/email-inline/${filename}`
+      : `/api/uploads/email-inline/${filename}`;
+    res.json({ location });
+  } catch (error) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (_) {}
+    }
+    await logErro("EMAIL_CONTROLLER_UPLOAD_TEMPLATE_IMAGE", error);
+    const status = error?.statusCode === 400 ? 400 : 500;
+    const msg =
+      status === 400
+        ? error.message
+        : process.env.NODE_ENV === "development"
+          ? error.message
+          : "Erro ao enviar imagem.";
+    res.status(status).json({ error: msg });
+  }
+};
+
+const EMAIL_ANEXOS_DIR = path.join(__dirname, "..", "uploads", "email-anexos");
+const EMAIL_ANEXOS_MARKER = "uploads/email-anexos/";
+const MAX_DISPARO_IMAGE_ANEXOS = 5;
+const MAX_DISPARO_ANEXO_BYTES = 20 * 1024 * 1024;
+
+function sanitizeAnexoDisplayName(originalName, storedBasename) {
+  const base = path
+    .basename(String(originalName || "imagem.jpg"))
+    .replace(/[^\w.\-()+ ]+/g, "_")
+    .trim();
+  const stem = base.replace(/\.[^.]+$/, "") || "imagem";
+  const ext = path.extname(storedBasename || ".jpg") || ".jpg";
+  return `${stem}${ext}`.substring(0, 120);
+}
+
+function contentTypeFromImageFilename(filename) {
+  const ext = path.extname(String(filename || "")).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  return "application/octet-stream";
+}
+
+/**
+ * Carrega anexos de imagem do disparo (paths sob uploads/email-anexos/).
+ * @returns {{ attachments: Array<{filename:string,content:Buffer,contentType:string}>, error: string|null }}
+ */
+function loadDisparoImageAttachments(anexosImagens) {
+  if (!Array.isArray(anexosImagens) || anexosImagens.length === 0) {
+    return { attachments: [], error: null };
+  }
+  if (anexosImagens.length > MAX_DISPARO_IMAGE_ANEXOS) {
+    return {
+      attachments: [],
+      error: `Máximo de ${MAX_DISPARO_IMAGE_ANEXOS} imagens em anexo.`,
+    };
+  }
+
+  const attachments = [];
+  for (const item of anexosImagens) {
+    const rawPath = item && typeof item === "object" ? item.path : item;
+    const s = String(rawPath || "")
+      .trim()
+      .replace(/\\/g, "/");
+    if (!s || s.includes("..")) {
+      return { attachments: [], error: "Caminho de anexo inválido." };
+    }
+    const idx = s.indexOf(EMAIL_ANEXOS_MARKER);
+    if (idx < 0) {
+      return { attachments: [], error: "Anexo de imagem inválido." };
+    }
+    const rest = s
+      .slice(idx + EMAIL_ANEXOS_MARKER.length)
+      .split("?")[0]
+      .split("#")[0];
+    if (!rest || rest.includes("/") || rest.includes("\\")) {
+      return { attachments: [], error: "Anexo de imagem inválido." };
+    }
+    const abs = path.join(EMAIL_ANEXOS_DIR, rest);
+    if (!abs.startsWith(EMAIL_ANEXOS_DIR) || !fs.existsSync(abs)) {
+      return { attachments: [], error: `Anexo não encontrado: ${rest}` };
+    }
+    const stat = fs.statSync(abs);
+    if (stat.size > MAX_DISPARO_ANEXO_BYTES) {
+      return {
+        attachments: [],
+        error: `Anexo excede o limite de 20 MB: ${rest}`,
+      };
+    }
+    const displayName = sanitizeAnexoDisplayName(
+      item && typeof item === "object" ? item.filename : rest,
+      rest,
+    );
+    attachments.push({
+      filename: displayName,
+      content: fs.readFileSync(abs),
+      contentType: contentTypeFromImageFilename(rest),
+    });
+  }
+  return { attachments, error: null };
+}
+
+function mergeDisparoAttachments(imageAttachments, pdfAttachment, pdfFilename) {
+  const list = Array.isArray(imageAttachments) ? [...imageAttachments] : [];
+  if (pdfAttachment && pdfFilename) {
+    list.push({ filename: pdfFilename, content: pdfAttachment });
+  }
+  return list.length ? list : undefined;
+}
+
+/**
+ * Upload de imagem para anexo no disparo (não inline no corpo).
+ * Mantém o ficheiro original (até 20 MB) — sem compressão agressiva.
+ */
+exports.uploadDisparoAnexo = async (req, res) => {
+  try {
+    if (!req.file?.path) {
+      return res.status(400).json({ error: "Nenhum ficheiro enviado." });
+    }
+    const size = req.file.size || (fs.existsSync(req.file.path) ? fs.statSync(req.file.path).size : 0);
+    if (size > MAX_DISPARO_ANEXO_BYTES) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (_) {}
+      return res.status(400).json({ error: "Anexo excede o limite de 20 MB." });
+    }
+    const storedBasename = path.basename(req.file.path);
+    const relativePath = `${EMAIL_ANEXOS_MARKER}${storedBasename}`;
+    const filename = sanitizeAnexoDisplayName(req.file.originalname, storedBasename);
+    res.json({ path: relativePath, filename });
+  } catch (error) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (_) {}
+    }
+    await logErro("EMAIL_CONTROLLER_UPLOAD_DISPARO_ANEXO", error);
+    const status = error?.statusCode === 400 ? 400 : 500;
+    const msg =
+      status === 400
+        ? error.message
+        : process.env.NODE_ENV === "development"
+          ? error.message
+          : "Erro ao enviar anexo.";
+    res.status(status).json({ error: msg });
   }
 };
 
@@ -2253,6 +2424,12 @@ async function prepareAreaIngressosDisparo(body, req) {
 
   const itensValidos = itens.filter((item) => String(item.email || "").trim());
 
+  const loadedAnexos = loadDisparoImageAttachments(body.anexosImagens);
+  if (loadedAnexos.error) {
+    return { error: loadedAnexos.error, status: 400 };
+  }
+  const imageAttachments = loadedAnexos.attachments;
+
   const baseUrl = await getBaseUrl();
 
   return {
@@ -2269,6 +2446,7 @@ async function prepareAreaIngressosDisparo(body, req) {
     eventosItens: built.eventosItens,
     template,
     itensValidos,
+    imageAttachments,
     adminId: body.adminId || req.user?.id,
     evento: { ...DEFAULT_EVENTO, titulo: built.resumo.eventos_titulos },
     app: { base_url: baseUrl },
@@ -2276,7 +2454,7 @@ async function prepareAreaIngressosDisparo(body, req) {
 }
 
 function createAreaIngressosSendFn(prepared) {
-  const { emailFrom, resumo, template, evento, app } = prepared;
+  const { emailFrom, resumo, template, evento, app, imageAttachments } = prepared;
 
   const sendOne = async (mailOptions) => {
     try {
@@ -2316,12 +2494,17 @@ function createAreaIngressosSendFn(prepared) {
       const assunto = replaceTemplateTags(template.assunto, context);
       const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
 
-      return await sendOne({
+      const mailOptions = {
         from: emailFrom,
         to: email,
         subject: assunto,
         html,
-      });
+      };
+      const attachments = mergeDisparoAttachments(imageAttachments, null, null);
+      if (attachments) {
+        mailOptions.attachments = attachments;
+      }
+      return await sendOne(mailOptions);
     } catch (err) {
       await logErro("EMAIL_AREA_INGRESSOS_SEND_ONE", err);
       const msg = err.message || "Erro ao enviar";
