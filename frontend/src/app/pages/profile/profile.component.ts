@@ -1430,7 +1430,7 @@ export class ProfileComponent implements OnInit {
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">E-mail <span class="text-gray-400 font-normal">(Opcional)</span></label>
+              <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">E-mail</label>
               <input id="swal-email" type="email" class="swal2-input !m-0 !mt-1 w-full text-sm rounded-lg" value="${convidado?.email || ''}" placeholder="email@exemplo.com">
             </div>
             <div>
@@ -1476,6 +1476,10 @@ export class ProfileComponent implements OnInit {
 
         if (!nome) {
           Swal.showValidationMessage('O campo Nome é obrigatório.');
+          return false;
+        }
+        if (!email) {
+          Swal.showValidationMessage('O campo E-mail é obrigatório.');
           return false;
         }
 

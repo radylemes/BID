@@ -122,6 +122,10 @@ exports.getGuests = async (req, res) => {
 
 exports.createGuest = async (req, res) => {
   const { usuario_id, nome_completo, cpf, email, telefone } = req.body;
+  const emailTrimmed = typeof email === "string" ? email.trim() : "";
+  if (!emailTrimmed) {
+    return res.status(400).json({ error: "O e-mail é obrigatório." });
+  }
   const cpfDigits = normalizarCpfDigits(cpf);
   if (!validarCpf(cpfDigits)) {
     return res.status(400).json({ error: "CPF inválido." });
@@ -147,7 +151,7 @@ exports.createGuest = async (req, res) => {
 
     const [result] = await db.execute(
       "INSERT INTO convidados (usuario_id, nome_completo, cpf, email, telefone, vinculo_titular) VALUES (?, ?, ?, ?, ?, 0)",
-      [usuario_id, nome_completo, cpfDigits, email || null, telefone || null],
+      [usuario_id, nome_completo, cpfDigits, emailTrimmed, telefone || null],
     );
 
     await gravarAuditoria(
@@ -179,10 +183,14 @@ exports.createGuest = async (req, res) => {
 exports.updateGuest = async (req, res) => {
   const { id } = req.params;
   const { nome_completo, email, telefone } = req.body;
+  const emailTrimmed = typeof email === "string" ? email.trim() : "";
+  if (!emailTrimmed) {
+    return res.status(400).json({ error: "O e-mail é obrigatório." });
+  }
   try {
     await db.execute(
       "UPDATE convidados SET nome_completo = ?, email = ?, telefone = ? WHERE id = ?",
-      [nome_completo, email || null, telefone || null, id],
+      [nome_completo, emailTrimmed, telefone || null, id],
     );
     await gravarAuditoria(null, req.user?.id, "CONVIDADOS", "UPDATE", id, {
       nome_completo,

@@ -645,7 +645,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">E-mail <span class="text-gray-400 font-normal">(Opc.)</span></label>
+              <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">E-mail</label>
               <input id="swal-email" type="email" class="swal2-input !m-0 !mt-1 w-full text-sm rounded-lg" placeholder="email@exemplo.com">
             </div>
             <div>
@@ -677,12 +677,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       preConfirm: () => {
         const nome = (document.getElementById('swal-nome') as HTMLInputElement).value;
         const cpfRaw = (document.getElementById('swal-cpf') as HTMLInputElement).value;
-        const email = (document.getElementById('swal-email') as HTMLInputElement).value;
+        const email = (document.getElementById('swal-email') as HTMLInputElement).value.trim();
         const telefone = (document.getElementById('swal-telefone') as HTMLInputElement).value;
         const cpfDigits = normalizarCpfDigits(cpfRaw);
 
-        if (!nome || !cpfDigits) {
-          Swal.showValidationMessage('Os campos Nome e CPF são obrigatórios.');
+        if (!nome || !cpfDigits || !email) {
+          Swal.showValidationMessage('Os campos Nome, CPF e E-mail são obrigatórios.');
           return false;
         }
         if (!validarCpf(cpfDigits)) {
