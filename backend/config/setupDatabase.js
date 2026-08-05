@@ -1149,6 +1149,35 @@ async function initializeDatabase() {
       console.error("Migration templates BID ABERTO links:", e);
     }
 
+    // Templates: corrigir href relativos corrompidos pelo TinyMCE (../, ./, /)
+    try {
+      const [tplRelative] = await connection.query(
+        "SELECT id, corpo_html FROM templates_email WHERE corpo_html LIKE '%href=%'"
+      );
+      let fixedRelative = 0;
+      for (const tpl of tplRelative) {
+        const before = String(tpl.corpo_html || "");
+        const after = before.replace(
+          /\bhref\s*=\s*(["'])(\.\.\/?|\.\/|\/)\1/gi,
+          'href="{{app.base_url}}/"'
+        );
+        if (after !== before) {
+          await connection.execute(
+            "UPDATE templates_email SET corpo_html = ? WHERE id = ?",
+            [after, tpl.id]
+          );
+          fixedRelative += 1;
+        }
+      }
+      if (fixedRelative > 0) {
+        console.log(
+          `✨ Migration: ${fixedRelative} template(s) com href relativo corrigido(s) para {{app.base_url}}/.`
+        );
+      }
+    } catch (e) {
+      console.error("Migration templates href relativos:", e);
+    }
+
     // População Básica se estiver vazio
     const [users] = await connection.query("SELECT * FROM usuarios LIMIT 1");
     if (users.length === 0) {

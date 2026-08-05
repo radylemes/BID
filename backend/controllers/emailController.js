@@ -295,6 +295,21 @@ function sanitizeEventoImagemUrl(imagemUrl, partidaId, baseUrl) {
 }
 
 /**
+ * Corrige href relativos corrompidos pelo TinyMCE (ex.: ../ a partir de /tinymce/)
+ * para a tag dinâmica da URL base da aplicação.
+ * Não altera http(s): nem href que já contenham {{...}}.
+ * @param {string} html
+ * @returns {string}
+ */
+function sanitizeEmailTemplateHtml(html) {
+  if (!html || typeof html !== "string") return html || "";
+  return html.replace(
+    /\bhref\s*=\s*(["'])(\.\.\/?|\.\/|\/)\1/gi,
+    'href="{{app.base_url}}/"'
+  );
+}
+
+/**
  * Substitui tags {{evento.campo}} e {{usuario.campo}} no texto pelos valores do contexto.
  * @param {string} text - Texto com tags
  * @param {{ evento?: object, usuario?: object }} context
@@ -611,7 +626,7 @@ async function prepareDisparo(body, req) {
       ingressos_ganhos: 0,
     };
     const sampleCtx = { evento, usuario: sampleUsuario, app: { base_url: baseUrl } };
-    const sampleHtml = replaceTemplateTags(template.corpo_html, sampleCtx);
+    const sampleHtml = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), sampleCtx);
     const sampleSubject = replaceTemplateTags(template.assunto, sampleCtx);
     try {
       const estimate = await estimateAcsDisparoPayload({
@@ -703,7 +718,7 @@ function createSendFn(prepared) {
 
       const context = { evento, usuario, app };
       const assunto = replaceTemplateTags(template.assunto, context);
-      const html = replaceTemplateTags(template.corpo_html, context);
+      const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
 
       const mailOptions = {
         from: emailFrom,
@@ -1121,9 +1136,12 @@ exports.createTemplate = async (req, res) => {
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
     else tipo_disparo = String(tipo_disparo).trim();
+    const corpoHtmlSanitized = sanitizeEmailTemplateHtml(
+      corpo_html != null ? String(corpo_html) : ""
+    );
     const [result] = await db.execute(
       "INSERT INTO templates_email (nome, assunto, corpo_html, tipo_disparo) VALUES (?, ?, ?, ?)",
-      [String(nome).trim(), String(assunto).trim(), corpo_html != null ? String(corpo_html) : "", tipo_disparo]
+      [String(nome).trim(), String(assunto).trim(), corpoHtmlSanitized, tipo_disparo]
     );
     const [rows] = await db.query(
       "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email WHERE id = ?",
@@ -1167,9 +1185,12 @@ exports.updateTemplate = async (req, res) => {
     }
     if (tipo_disparo === "" || tipo_disparo == null) tipo_disparo = null;
     else tipo_disparo = String(tipo_disparo).trim();
+    const corpoHtmlSanitized = sanitizeEmailTemplateHtml(
+      corpo_html != null ? String(corpo_html) : ""
+    );
     await db.execute(
       "UPDATE templates_email SET nome = ?, assunto = ?, corpo_html = ?, tipo_disparo = ? WHERE id = ?",
-      [String(nome).trim(), String(assunto).trim(), corpo_html != null ? String(corpo_html) : "", tipo_disparo, id]
+      [String(nome).trim(), String(assunto).trim(), corpoHtmlSanitized, tipo_disparo, id]
     );
     const [rows] = await db.query(
       "SELECT id, nome, assunto, corpo_html, tipo_disparo, criado_em, atualizado_em FROM templates_email WHERE id = ?",
@@ -1292,7 +1313,7 @@ exports.sendNovoUsuarioEmail = async ({ email, nomeCompleto, username, senhaPlan
       app,
     };
     const assunto = replaceTemplateTags(template.assunto, context);
-    const html = replaceTemplateTags(template.corpo_html, context);
+    const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
     await sendEmail({
       to,
       subject: assunto,
@@ -1395,7 +1416,7 @@ exports.sendWtPassPromovidoFilaEmail = async ({ eventoRhId, usuarioId }) => {
     const app = await buildAppContext();
     const context = { evento, usuario, app };
     const assunto = replaceTemplateTags(template.assunto, context);
-    const html = replaceTemplateTags(template.corpo_html, context);
+    const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
     await sendEmail({
       to,
       subject: assunto,
@@ -1477,7 +1498,7 @@ exports.previewTemplate = async (req, res) => {
 
     const context = await buildPreviewEmailContext(evento);
     const assunto = replaceTemplateTags(template.assunto, context);
-    const html = replaceTemplateTags(template.corpo_html, context);
+    const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
 
     res.json({ assunto, html });
   } catch (error) {
@@ -1548,7 +1569,7 @@ exports.previewDraft = async (req, res) => {
     }
     const context = await buildPreviewEmailContext(evento);
     const assuntoOut = replaceTemplateTags(String(assunto), context);
-    const html = replaceTemplateTags(String(corpo_html), context);
+    const html = replaceTemplateTags(sanitizeEmailTemplateHtml(String(corpo_html)), context);
     res.json({ assunto: assuntoOut, html });
   } catch (error) {
     await logErro("EMAIL_CONTROLLER_PREVIEW_DRAFT", error);
@@ -1635,7 +1656,7 @@ exports.testTemplate = async (req, res) => {
     const app = await buildAppContext();
     const context = { evento, usuario, senha: usuario.senha, app };
     const assunto = replaceTemplateTags(template.assunto, context);
-    const html = replaceTemplateTags(template.corpo_html, context);
+    const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
     await sendEmail({
       to: String(to).trim(),
       subject: assunto,
@@ -2293,7 +2314,7 @@ function createAreaIngressosSendFn(prepared) {
       const usuario = { nome, email, ingressos_ganhos: "0" };
       const context = { evento, usuario, resumo, app };
       const assunto = replaceTemplateTags(template.assunto, context);
-      const html = replaceTemplateTags(template.corpo_html, context);
+      const html = replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context);
 
       return await sendOne({
         from: emailFrom,
@@ -2362,7 +2383,7 @@ exports.previewAreaIngressos = async (req, res) => {
 
     res.json({
       assunto: replaceTemplateTags(template.assunto, context),
-      html: replaceTemplateTags(template.corpo_html, context),
+      html: replaceTemplateTags(sanitizeEmailTemplateHtml(template.corpo_html), context),
       resumo: built.resumo,
       setores: built.setores,
     });

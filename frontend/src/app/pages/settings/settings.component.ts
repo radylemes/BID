@@ -964,6 +964,9 @@ export class SettingsComponent implements OnInit {
     return {
       base_url: '/tinymce',
       suffix: '.min',
+      convert_urls: false,
+      relative_urls: false,
+      remove_script_host: false,
       plugins:
         'lists link image table code charmap preview anchor searchreplace visualblocks fullscreen insertdatetime media table help wordcount',
       toolbar:
